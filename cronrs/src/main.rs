@@ -1,12 +1,14 @@
+#[macro_use]
 extern crate cronlib;
-use cronlib::cron;
 
 #[cron("* * * * *")]
 fn testfn() {
-    println!("Hello, world!");
+    println!("test");
 }
 
 fn main() {
     println!("CronFrame 0.0.1");
     testfn();
+    testfn_aux_1();
+    testfn_aux_2();
 }

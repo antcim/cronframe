@@ -1,2 +1,3 @@
 [workspace]
 members = ["cronlib", "cronrs"]
+resolver = "2"
