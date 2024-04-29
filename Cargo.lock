@@ -78,6 +78,17 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "cron",
+ "cronmacro",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "cronmacro"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "cron",
  "quote",
  "syn",
 ]

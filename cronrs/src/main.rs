@@ -1,10 +1,4 @@
-#[macro_use]
-extern crate cronlib;
-use cron::Schedule;
-use std::str::FromStr;
-use std::thread;
-use chrono::Utc;
-
+use cronlib::*;
 //  * * * * * *
 //  | | | | | |
 //  | | | | | └─── day of week (0 to 7, Sunday to Saturday, 0 and 7 both work for Sunday)

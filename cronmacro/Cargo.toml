@@ -1,5 +1,5 @@
 [package]
-name = "cronlib"
+name = "cronmacro"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,4 +8,6 @@ syn = {version = "2.0.53", features = ["full"]}
 quote = "1.0.35"
 cron = "0.12.1"
 chrono = "0.4.38"
-cronmacro = { path = "../cronmacro" }
+
+[lib]
+proc-macro = true
