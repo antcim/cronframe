@@ -12,12 +12,17 @@ use cronlib::{*, CronFrame};
 
 #[cron("0/5 * * * * *")]
 fn testfn() {
-    println!("call from annotated function");
+    println!("call from testfn");
+}
+
+#[cron("0/5 * * * * *")]
+fn prova() {
+    println!("call from prova");
 }
 
 fn main() {
     println!("----------------");
     println!("CronFrame 0.0.1");
     println!("----------------");
-    CronFrame::init().schedule().start();
+    CronFrame::init().schedule();
 }

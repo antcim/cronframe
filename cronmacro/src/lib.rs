@@ -35,7 +35,9 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
 
             // auxiliary function for job scheduling
             fn #aux_1(){
+                println!("----------------");
                 println!("AUX_1: job scheduling");
+                println!("----------------");
                 let #schedule = Schedule::from_str(#expression).expect("Failed to parse CRON expression");
                 let #handler = thread::spawn(move||{
                     loop{
@@ -47,17 +49,28 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
                         }
                     }
                 });
-                #handler.join();
+                #handler.join().expect("thread join fail");
+                println!("----------------");
+                println!("END AUX_1");
+                println!("----------------");
             }
 
             // auxiliary function for job status api
             fn #aux_2() {
+                println!("----------------");
                 println!("AUX_2: job status api");
+                println!("----------------");
                 #ident();
+                println!("----------------");
+                println!("END AUX_2");
+                println!("----------------");
             }
 
             inventory::submit! {
                 CronJob::new(#aux_1)
+            }
+            inventory::submit! {
+                CronJob::new(#aux_2)
             }
         };
 

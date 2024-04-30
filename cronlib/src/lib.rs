@@ -29,19 +29,18 @@ pub struct CronFrame<'a>{
 
 impl<'a> CronFrame<'a>{
     pub fn init() -> Self{
-        CronFrame {
+        let mut frame = CronFrame {
             cronjobs: vec![]
-        }
-    }
+        };
 
-    pub fn schedule(mut self) -> Self {
         for job in inventory::iter::<CronJob> {
-            self.cronjobs.push(job)
+            frame.cronjobs.push(job)
         }
-        self
+
+        frame
     }
 
-    pub fn start(self) {
+    pub fn schedule(self) {
         for cronjob in self.cronjobs{
             cronjob.run()
         }
