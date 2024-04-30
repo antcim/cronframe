@@ -7,3 +7,4 @@ edition = "2021"
 chrono = "0.4.38"
 cron = "0.12.1"
 cronlib = { path = "../cronlib" }
+inventory = "0.3.15"
