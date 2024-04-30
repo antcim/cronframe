@@ -27,21 +27,27 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
         let aux_2 = quote::format_ident!("{}_aux_2", ident);
 
         let schedule = quote::format_ident!("schedule");
+        let handler = quote::format_ident!("handler");
 
         let new_code = quote! {
+            // original function
             fn #ident() #block
+
             // auxiliary function for job scheduling
-            fn #aux_1() {
+            fn #aux_1(){
                 println!("AUX_1: job scheduling");
                 let #schedule = Schedule::from_str(#expression).expect("Failed to parse CRON expression");
-                loop{
-                    for datetime in schedule.upcoming(Utc).take(1) {
-                        let now = Utc::now();
-                        let until = datetime - now;
-                        thread::sleep(until.to_std().unwrap());
-                        #ident();
+                let #handler = thread::spawn(move||{
+                    loop{
+                        for datetime in schedule.upcoming(Utc).take(1) {
+                            let now = Utc::now();
+                            let until = datetime - now;
+                            thread::sleep(until.to_std().unwrap());
+                            #ident();
+                        }
                     }
-                }
+                });
+                #handler.join();
             }
 
             // auxiliary function for job status api

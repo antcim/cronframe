@@ -1,4 +1,6 @@
-use cronlib::*;
+use cronlib::{*, CronFrame};
+
+//  Cron Expression
 //  * * * * * *
 //  | | | | | |
 //  | | | | | └─── day of week (0 to 7, Sunday to Saturday, 0 and 7 both work for Sunday)
@@ -17,6 +19,7 @@ fn main() {
     println!("----------------");
     println!("CronFrame 0.0.1");
     println!("----------------");
-    testfn_aux_1();
-    testfn_aux_2();
+    CronFrame::init()
+        .schedule(vec![testfn])
+        .start();
 }
