@@ -55,6 +55,10 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
                 println!("AUX_2: job status api");
                 #ident();
             }
+
+            inventory::submit! {
+                CronJob::new(#aux_1)
+            }
         };
 
         println!("new_code: {}", new_code.to_string());
