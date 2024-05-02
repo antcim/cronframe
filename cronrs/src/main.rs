@@ -8,16 +8,17 @@ use cronlib::{*, CronFrame};
 //  | | | └─────── day of month (1 to 31)
 //  | | └───────── hour (0 to 23)
 //  | └─────────── minute (0 to 59)
-//  └───────────── second (0 to 59, optional)
+//  └───────────── second (0 to 59)
+// "*" works as a jolly for any value will do
 
 #[cron("0/5 * * * * *")]
 fn testfn() {
     println!("call from testfn");
 }
 
-#[cron("0/5 * * * * *")]
-fn prova() {
-    println!("call from prova");
+#[cron("0 21 16 2 5 *")]
+fn myjob() {
+    println!("call from myjob!!!");
 }
 
 fn main() {
