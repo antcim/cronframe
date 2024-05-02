@@ -27,19 +27,22 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
         let aux_2 = quote::format_ident!("{}_aux_2", ident);
 
         let schedule = quote::format_ident!("schedule");
-        let handler = quote::format_ident!("handler");
+        let job = quote::format_ident!("job");
+
+        let fn_name = ident.to_string();
 
         let new_code = quote! {
             // original function
             fn #ident() #block
 
             // auxiliary function for job scheduling
-            fn #aux_1(){
+            fn #aux_1() -> thread::JoinHandle<fn()>{
+                let jobname = #fn_name;
+
                 println!("----------------");
-                println!("AUX_1: job scheduling");
-                println!("----------------");
+                println!("Job: {jobname} - AUX_1: job scheduling");
                 let #schedule = Schedule::from_str(#expression).expect("Failed to parse CRON expression");
-                let #handler = thread::spawn(move||{
+                let #job = move ||{
                     loop{
                         for datetime in schedule.upcoming(Utc).take(1) {
                             let now = Utc::now();
@@ -48,11 +51,9 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
                             #ident();
                         }
                     }
-                });
-                #handler.join().expect("thread join fail");
-                println!("----------------");
-                println!("END AUX_1");
-                println!("----------------");
+                };
+
+                thread::spawn(#job)
             }
 
             // auxiliary function for job status api
@@ -69,9 +70,9 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
             inventory::submit! {
                 CronJob::new(#aux_1)
             }
-            inventory::submit! {
-                CronJob::new(#aux_2)
-            }
+            // inventory::submit! {
+            //     CronJob::new(#aux_2)
+            // }
         };
 
         println!("new_code: {}", new_code.to_string());
