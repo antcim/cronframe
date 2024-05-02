@@ -20,6 +20,6 @@ fn main() {
     println!("CronFrame 0.0.1");
     println!("----------------");
     CronFrame::init()
-        .schedule(vec![testfn, testfn_aux_1, testfn_aux_2])
+        .schedule(vec![testfn_aux_1, testfn_aux_2])
         .start();
 }

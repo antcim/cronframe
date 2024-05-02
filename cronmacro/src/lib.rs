@@ -47,7 +47,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
                         }
                     }
                 });
-                #handler.join();
+                #handler.join().expect("thread join fail");
             }
 
             // auxiliary function for job status api
