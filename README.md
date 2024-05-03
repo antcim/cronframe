@@ -2,10 +2,11 @@
 
 ## Defining a Cronjob
 To define a cronjob only an annotation is necessary.
+Timeout is expressed in ms. (implementation is wip...)
 ```rust
-#[cron("* * * * * *")]
+#[cron(expr = "* * * * * *", timeout = "0")]
 fn mycronjob(){
-
+    // do stuff...
 }
 ```
 
