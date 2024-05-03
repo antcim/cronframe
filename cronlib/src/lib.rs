@@ -5,9 +5,16 @@ pub use std::thread;
 use std::thread::JoinHandle;
 pub use chrono::{Utc, Duration};
 
-// this crate ensures that both marcos and types it dependes on can be exported for public use
-// necessary since proc-macro crates can only export with pub elements that have a #[proc...] annotation
 
+
+/// # CronJob 
+/// 
+/// Internal structure for the representation of a single cronjob.
+/// 
+/// The expansion of the cron macro annotation provides:
+/// - the job function pointer (the original annotated function)
+/// - the get info function pointer (Schedule and Timeout)
+/// 
 pub struct CronJob{
     job: fn(),
     get_info: fn() -> (Schedule, i64),
@@ -40,6 +47,14 @@ impl CronJob{
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(CronJob);
 
+/// # CronFrame
+/// 
+/// This is where the annotated functions are made into cronjobs.
+/// 
+/// The `init()` method builds an instance collecting all the cronjobs.
+/// 
+/// The `schedule()` method provides the scheduling for the jobs and retrieves their thread handle.
+/// 
 pub struct CronFrame<'a>{
     cronjobs: Vec<&'a CronJob>,
     handlers: Vec<JoinHandle<()>>,

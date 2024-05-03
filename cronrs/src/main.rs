@@ -11,19 +11,19 @@ use cronlib::{CronFrame, *};
 //  └───────────── second (0 to 59)
 // "*" works as a jolly for any value will do
 
+// this executes every 5 seconds
 #[cron(expr = "0/5 * * * * *", timeout = "2000")]
 fn testfn() {
     println!("call from testfn");
 }
 
-#[cron(expr = "0 21 16 2 5 *", timeout = "0")]
+// this executes once every day of every month at 13:30 UTC time
+#[cron(expr = "0 30 13 * * *", timeout = "0")]
 fn myjob() {
     println!("call from myjob!!!");
 }
 
 fn main() {
-    println!("----------------");
     println!("CronFrame 0.0.1");
-    println!("----------------");
     CronFrame::init().schedule();
 }
