@@ -1,4 +1,4 @@
-use cronlib::{*, CronFrame};
+use cronlib::{CronFrame, *};
 
 //  Cron Expression
 //  * * * * * *
@@ -11,12 +11,12 @@ use cronlib::{*, CronFrame};
 //  └───────────── second (0 to 59)
 // "*" works as a jolly for any value will do
 
-#[cron("0/5 * * * * *")]
+#[cron(expr = "0/5 * * * * *", timeout = "2000")]
 fn testfn() {
     println!("call from testfn");
 }
 
-#[cron("0 21 16 2 5 *")]
+#[cron(expr = "0 21 16 2 5 *", timeout = "0")]
 fn myjob() {
     println!("call from myjob!!!");
 }
