@@ -1,4 +1,3 @@
-use chrono::TimeDelta;
 use proc_macro::*;
 use quote::{quote, ToTokens};
 use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, Meta};

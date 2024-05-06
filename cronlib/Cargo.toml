@@ -10,3 +10,4 @@ cron = "0.12.1"
 chrono = "0.4.38"
 cronmacro = { path = "../cronmacro" }
 inventory = "0.3.15"
+crossbeam-channel = "0.5.12"
