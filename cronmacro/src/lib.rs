@@ -12,48 +12,29 @@ use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, Meta};
 ///
 /// - `expr = "* * * * * *"` for the cron expression.
 ///
-/// - `timeout = "time in ms"` for an optional timeout, 0 is for not timeout.
+/// - `timeout = "time in ms"`, 0 is for no timeout.
 ///
 pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
     let args = parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
 
-    // should contain "expr" 
-    let arg_1 = args[0]
-        .require_name_value()
-        .unwrap()
-        .path
-        .require_ident()
-        .unwrap()
-        .to_string();
-
-    // should contain "timout"
-    let arg_2 = args[1]
-        .require_name_value()
-        .unwrap()
-        .path
-        .require_ident()
-        .unwrap()
-        .to_string();
-
-    if arg_1 == "expr" && arg_2 == "timeout"
-    {
-        let cron_expr = args[0]
-            .require_name_value()
+    let args = args.into_iter().map(|x| {
+        x.require_name_value()
+            .map(|x| {
+                let arg_name = x.path.to_token_stream().to_string();
+                let arg_val = x.value.to_token_stream().to_string();
+                (arg_name, arg_val.replace("\"",""))
+            })
             .unwrap()
-            .value
-            .to_token_stream()
-            .to_string();
+    });
 
-        let cron_expr = &cron_expr[1..cron_expr.len() - 1];
+    // should contain ("expr", "* * * * * *")
+    let (arg_1_name, cron_expr) = args.clone().peekable().nth(0).unwrap();
 
-        let timeout = args[1]
-            .require_name_value()
-            .unwrap()
-            .value
-            .to_token_stream()
-            .to_string();
+    // should contain ("timeout", "i64")
+    let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
 
-        let timeout: i64 = timeout[1..timeout.len() - 1].parse().unwrap();
+    if arg_1_name == "expr" && arg_2_name == "timeout" {
+        let timeout: i64 = timeout.parse().unwrap();
 
         println!("cron expression: {}", cron_expr);
         println!("function: {}", code.to_string());
@@ -90,11 +71,11 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
 
             println!("new_code: {}", new_code.to_string());
             return new_code.into();
-        }else if let Some(error) = parsed.err() {
+        } else if let Some(error) = parsed.err() {
             println!("parse Error: {}", error);
         } else {
             unreachable!()
         }
-    } 
+    }
     code
 }

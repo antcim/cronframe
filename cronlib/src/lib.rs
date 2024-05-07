@@ -1,12 +1,13 @@
 pub use cronmacro::cron;
 pub use cron::Schedule;
-use crossbeam_channel::{Receiver, Sender};
 pub use std::str::FromStr;
 pub use std::thread;
-use std::{thread::JoinHandle, vec};
 pub use chrono::{Utc, Duration};
+use crossbeam_channel::{Receiver, Sender};
+use std::{thread::JoinHandle, vec};
 
-
+// necessary to gather all the annotated jobs automatically
+inventory::collect!(CronJob);
 
 /// # CronJob 
 /// 
@@ -54,9 +55,6 @@ impl CronJob{
         thread::spawn(job_thread)
     }
 }
-
-// necessary to gather all the annotated jobs automatically
-inventory::collect!(CronJob);
 
 /// # CronFrame
 /// 
