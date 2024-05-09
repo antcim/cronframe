@@ -55,7 +55,7 @@ impl<'a> JobBuilder<'a> {
             handler: None,
             channels: None,
             start_time: None,
-            run_id: None
+            run_id: None,
         }
     }
 }
@@ -67,7 +67,7 @@ pub struct CronJob {
     handler: Option<JoinHandle<()>>,
     channels: Option<(Sender<String>, Receiver<String>)>,
     start_time: Option<DateTime<Utc>>,
-    run_id: Option<String>, 
+    run_id: Option<String>,
 }
 
 impl CronJob {
@@ -75,16 +75,13 @@ impl CronJob {
         if self.check_schedule() {
             self.run_id = Some(Alphanumeric.sample_string(&mut rand::thread_rng(), 8));
             self.channels = Some(crossbeam_channel::bounded(1));
-            self.start_time = Some(Utc::now());
+            if self.start_time.is_none() {
+                self.start_time = Some(Utc::now());
+            }
             self.handler = Some(self.run());
-            true
-        } else {
-            self.run_id = None;
-            self.channels = None;
-            self.start_time = None;
-            self.handler = None;
-            false
+            return true;
         }
+        false
     }
 
     pub fn check_schedule(&self) -> bool {
@@ -92,47 +89,33 @@ impl CronJob {
         if let Some(next) = self.schedule.upcoming(Utc).take(1).next() {
             let until_next = (next - now).num_milliseconds();
             if until_next <= 1000 {
-                true
-            } else {
-                false
+                return true;
             }
-        } else {
-            false
         }
+        false
     }
 
-    pub fn check_timeout(&self) {
+    pub fn check_timeout(&self) -> bool {
         if let Some(timeout) = self.timeout {
-            let timeout = self.start_time.unwrap() + timeout;
-            let now = Utc::now();
-            if now >= timeout {
-                let _ = self
-                    .channels
-                    .as_ref()
-                    .unwrap()
-                    .0
-                    .send("EXIT_TIMEOUT".to_string());
+            if self.start_time.is_some() {
+                let timeout = self.start_time.unwrap() + timeout;
+                let now = Utc::now();
+                if now >= timeout {
+                    return true;
+                }
             }
         }
+        false
     }
 
     pub fn run(&self) -> JoinHandle<()> {
         let job = self.job.clone();
         let tx = self.channels.as_ref().unwrap().0.clone();
-        let rx = self.channels.as_ref().unwrap().1.clone();
+        let _rx = self.channels.as_ref().unwrap().1.clone();
         let schedule = self.schedule.clone();
         let run_id = self.run_id.as_ref().unwrap().clone();
 
         let job_thread = move || loop {
-            match rx.try_recv() {
-                Ok(message) => {
-                    if message == "EXIT_TIMEOUT" {
-                        break;
-                    }
-                }
-                Err(_error) => (),
-            }
-
             let now = Utc::now();
             if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                 let until_next = next - now;
@@ -173,9 +156,14 @@ impl CronFrame {
 
     pub fn scheduler(mut self) {
         let scheduler = move || loop {
+            // sleep some otherwise the cpu consumption goes to the moon
             thread::sleep(Duration::milliseconds(500).to_std().unwrap());
+
             for cron_job in &mut self.cron_jobs {
                 if cron_job.handler.is_none() {
+                    if cron_job.check_timeout() {
+                        continue;
+                    }
                     let scheduled = cron_job.try_schedule();
                     if scheduled {
                         println!("JOB #{} Scheduled.", cron_job.run_id.as_ref().unwrap());
@@ -189,6 +177,8 @@ impl CronFrame {
                             if message == "JOB_COMPLETE" {
                                 println!("JOB #{} Completed.", cron_job.run_id.as_ref().unwrap());
                                 cron_job.handler = None;
+                                cron_job.channels = None;
+                                cron_job.run_id = None;
                             }
                         }
                         Err(_error) => (),
