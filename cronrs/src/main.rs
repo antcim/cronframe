@@ -1,4 +1,5 @@
 use cronlib::{CronFrame, *};
+use std::io;
 
 //  Cron Expression
 //  * * * * * * *
@@ -13,18 +14,32 @@ use cronlib::{CronFrame, *};
 // "*" works as a jolly for any value will do
 
 // this executes every 5 seconds
-#[cron(expr = "0/5 * * * * * *", timeout = "10000")]
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
 fn testfn() {
     println!("call from testfn");
 }
 
-// this executes once every day of every month at 13:30 UTC time
-// #[cron(expr = "0 30 13 * * *", timeout = "2000")]
-// fn myjob() {
-//     println!("call from myjob!!!");
-// }
+//this executes once every day of every month at 13:30 UTC time
+#[cron(expr = "0 9 8 * * *", timeout = "0")]
+fn myjob() {
+    println!("call from myjob!!!");
+}
 
 fn main() {
     println!("CronFrame 0.0.1");
-    CronFrame::init().schedule();
+    CronFrame::init().scheduler();
+
+    println!("Enter x to quit...");
+    let mut user_input: String = String::new();
+
+    loop {
+        io::stdin()
+            .read_line(&mut user_input)
+            .expect("Error on user input read!");
+
+        match user_input.trim() {
+            "x" => break,
+            _ => println!("invalid input"),
+        }
+    }
 }

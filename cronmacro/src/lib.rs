@@ -34,8 +34,6 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
     let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
 
     if arg_1_name == "expr" && arg_2_name == "timeout" {
-        let timeout: i64 = timeout.parse().unwrap();
-
         println!("cron expression: {}", cron_expr);
         println!("function: {}", code.to_string());
 
@@ -45,27 +43,13 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
             let ident = parsed.clone().unwrap().sig.ident;
             let block = parsed.clone().unwrap().block;
 
-            // aux functions identifiers
-            let aux_1 = quote::format_ident!("{}_aux_1", ident);
-
-            let fn_name = ident.to_string();
-
             let new_code = quote! {
                 // original function
                 fn #ident() #block
 
-                // auxiliary function for the job schedule
-                fn #aux_1() -> (Schedule, i64){
-                    let jobname = #fn_name;
-                    println!("Job: {jobname} - Job Schedule");
-                    let schedule = Schedule::from_str(#cron_expr).expect("Failed to parse CRON expression");
-
-                    (schedule, #timeout)
-                }
-
                 // necessary for automatic job collection
                 inventory::submit! {
-                    CronJob::new(#ident, #aux_1)
+                    JobBuilder::new(#ident, #cron_expr, #timeout)
                 }
             };
 
