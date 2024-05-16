@@ -14,15 +14,39 @@ use std::io;
 // "*" works as a jolly for any value will do
 
 // this executes every 5 seconds, timeouts after 10 seconds
+
 #[cron(expr = "0/5 * * * * * *", timeout = "10000")]
 fn testfn() {
     println!("call from testfn");
 }
 
-#[cron(expr = "0 9 8 * * *", timeout = "0")]
-fn myjob() {
-    println!("call from myjob!!!");
+#[cron_obj] // this macro does nothing for now
+struct Users {
+    second: String,
+    minute: String,
+    hour: String,
+    day_month: String,
+    month: String,
+    day_week: String,
+    year: String,
 }
+
+#[cron_impl]
+impl Users {
+    #[job(expr = "2/5 * * * * * *", timeout = "0")]
+    fn my_obj_job() {
+        println!("call from my_obj_job");
+    }
+    #[job(expr = "0/5 * * * * * *", timeout = "10000")]
+    fn get_jobs(self) {
+        println!("call from get_jobs");
+    }
+}
+
+// #[cron(expr = "* * * * * *", timeout = "0")]
+// fn myjob() {
+//     println!("call from myjob!!!");
+// }
 
 fn main() {
     println!("CronFrame 0.0.1");

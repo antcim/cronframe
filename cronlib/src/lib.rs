@@ -1,15 +1,29 @@
-use chrono::{DateTime, TimeDelta};
+extern crate lazy_static;
+pub use lazy_static::lazy_static;
+pub use std::any::{self, TypeId};
+use chrono::DateTime;
 pub use chrono::{Duration, Utc};
 pub use cron::Schedule;
-pub use cronmacro::cron;
+pub use cronmacro::{cron, cron_obj, cron_impl, job};
 use crossbeam_channel::{Receiver, Sender};
 use rand::distributions::{Alphanumeric, DistString};
 pub use std::str::FromStr;
 pub use std::thread;
-use std::{thread::JoinHandle, vec};
+pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
 
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(JobBuilder<'static>);
+inventory::collect!(CronObj<'static>);
+
+pub struct CronObj<'a>{
+    helper: fn() -> JobBuilder<'a>,
+}
+
+impl CronObj<'static>{
+    pub const fn new(helper: fn() -> JobBuilder<'static>) -> Self{
+        CronObj{helper}
+    }
+}
 
 /// # CronJob
 ///
@@ -70,7 +84,7 @@ pub struct CronJob {
     run_id: Option<String>,
 }
 
-impl CronJob {
+impl CronJob{
     pub fn try_schedule(&mut self) -> bool {
         if self.check_schedule() {
             self.run_id = Some(Alphanumeric.sample_string(&mut rand::thread_rng(), 8));
@@ -146,12 +160,22 @@ impl CronFrame {
     pub fn init() -> Self {
         let mut frame = CronFrame { cron_jobs: vec![] };
 
-        // get the automatically collected jobs
+        // get the automatically collected global jobs
         for job_builder in inventory::iter::<JobBuilder> {
             frame.cron_jobs.push(job_builder.build())
         }
 
+        // get the automatically collected object jobs
+        for cron_obj in inventory::iter::<CronObj> {
+            let job_builder = (cron_obj.helper)();
+            frame.cron_jobs.push(job_builder.build())
+        }
+
         frame
+    }
+
+    pub fn add_job(&mut self, job: CronJob) {
+        self.cron_jobs.push(job)
     }
 
     pub fn scheduler(mut self) {
