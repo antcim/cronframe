@@ -1,8 +1,6 @@
-use std::borrow::BorrowMut;
-
 use proc_macro::*;
-use quote::{format_ident, quote, ToTokens, TokenStreamExt};
-use syn::{self, parse_macro_input, punctuated::Punctuated, token::Brace, ItemFn, ItemImpl, ItemStruct, Meta};
+use quote::{format_ident, quote, ToTokens};
+use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
 
 #[proc_macro_attribute]
 ///
@@ -36,18 +34,15 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
     let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
 
     if arg_1_name == "expr" && arg_2_name == "timeout" {
-        println!("cron expression: {}", cron_expr);
-        println!("function: {}", code.to_string());
-
         let parsed = syn::parse::<ItemFn>(code.clone());
 
         if parsed.is_ok() {
+            let function = parsed.clone().unwrap().to_token_stream();
             let ident = parsed.clone().unwrap().sig.ident;
-            let block = parsed.clone().unwrap().block;
 
             let new_code = quote! {
                 // original function
-                fn #ident() #block
+                #function
 
                 // necessary for automatic job collection
                 inventory::submit! {
@@ -55,7 +50,6 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
                 }
             };
 
-            println!("new_code: {}", new_code.to_string());
             return new_code.into();
         } else if let Some(error) = parsed.err() {
             println!("parse Error: {}", error);
@@ -79,8 +73,6 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
             static ref #cron_obj: Mutex<Vec<CronJob>> = Mutex::new(Vec::new());
         }
     };
-
-    println!("GENERATED CODE: {}", new_code.to_string().trim());
 
     new_code.into()
 }
@@ -110,8 +102,6 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         new_code.extend(new_code_tmp.into_iter());
     }
 
-    println!("IMPL GEN CODE: {}", new_code.to_string().trim());
-
     new_code.into()
 }
 
@@ -136,31 +126,21 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
     let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
 
     if arg_1_name == "expr" && arg_2_name == "timeout" {
-        println!("cron expression: {}", cron_expr);
-        println!("function: {}", code.to_string());
-
         let parsed = syn::parse::<ItemFn>(code.clone());
         
-
         if parsed.is_ok() {
+            let function = parsed.clone().unwrap().to_token_stream();
             let ident = parsed.clone().unwrap().sig.ident;
-            let block = parsed.clone().unwrap().block;
-
             let helper = format_ident!("cron_helper_{}", ident);
 
             let new_code = quote! {
                 // original function
-                fn #ident() #block
+                #function
 
                 fn #helper() -> JobBuilder<'static> {
-                    let cronjob = JobBuilder::new(Self::#ident, #cron_expr, #timeout);
-                    // let mut obj = CRON_OBJ_Users.lock().unwrap();
-                    // obj.push(cronjob);
-                    cronjob
+                    JobBuilder::new(Self::#ident, #cron_expr, #timeout)
                 }
             };
-
-            println!("new_code: {}", new_code.to_string());
             return new_code.into();
         } else if let Some(error) = parsed.err() {
             println!("parse Error: {}", error);

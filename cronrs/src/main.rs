@@ -38,15 +38,10 @@ impl Users {
         println!("call from my_obj_job");
     }
     #[job(expr = "0/5 * * * * * *", timeout = "10000")]
-    fn get_jobs(self) {
+    fn get_jobs() {
         println!("call from get_jobs");
     }
 }
-
-// #[cron(expr = "* * * * * *", timeout = "0")]
-// fn myjob() {
-//     println!("call from myjob!!!");
-// }
 
 fn main() {
     println!("CronFrame 0.0.1");

@@ -25,17 +25,6 @@ impl CronObj<'static>{
     }
 }
 
-/// # CronJob
-///
-/// Internal structure for the representation of a single cronjob.
-///
-/// The expansion of the cron macro annotation provides:
-/// - the job function pointer (the original annotated function)
-/// - the get info function pointer (Schedule and Timeout)
-///
-///
-///
-
 pub struct JobBuilder<'a> {
     job: fn(),
     cron_expr: &'a str,
@@ -74,6 +63,13 @@ impl<'a> JobBuilder<'a> {
     }
 }
 
+/// # CronJob
+///
+/// Internal structure for the representation of a single cronjob.
+///
+/// The expansion of the cron macro annotation provides:
+/// - the job function pointer (the original annotated function)
+/// - the get info function pointer (Schedule and Timeout)
 pub struct CronJob {
     job: fn(),
     schedule: Schedule,
