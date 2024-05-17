@@ -1,5 +1,6 @@
 extern crate lazy_static;
 pub use lazy_static::lazy_static;
+pub use std::any::Any;
 pub use std::any::{self, TypeId};
 use chrono::DateTime;
 pub use chrono::{Duration, Utc};
@@ -13,33 +14,40 @@ pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
 
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(JobBuilder<'static>);
-inventory::collect!(CronObj<'static>);
+inventory::collect!(CronObj);
 
-pub struct CronObj<'a>{
-    helper: fn() -> JobBuilder<'a>,
+pub struct CronObj<>{
+    pub helper: fn(arg: &dyn Any) -> Box<dyn Builder>,
 }
 
-impl CronObj<'static>{
-    pub const fn new(helper: fn() -> JobBuilder<'static>) -> Self{
+impl CronObj{
+    pub const fn new(helper: fn(arg: &dyn Any) -> Box<dyn Builder>) -> Self{
         CronObj{helper}
     }
 }
 
+pub trait Builder {
+    fn build(&self) -> CronJob;
+}
+
 pub struct JobBuilder<'a> {
-    job: fn(),
+    job: fn(arg: &dyn Any),
     cron_expr: &'a str,
     timeout: &'a str,
 }
+
 impl<'a> JobBuilder<'a> {
-    pub const fn new(job: fn(), cron_expr: &'a str, timeout: &'a str) -> Self {
+    pub const fn new(job: fn(&dyn Any), cron_expr: &'a str, timeout: &'a str) -> Self {
         JobBuilder {
             job,
             cron_expr,
             timeout,
         }
     }
+}
 
-    pub fn build(&self) -> CronJob {
+impl Builder for JobBuilder<'static>{
+    fn build(&self) -> CronJob {
         let job = self.job;
         let schedule =
             Schedule::from_str(self.cron_expr).expect("Failed to parse cron expression!");
@@ -63,6 +71,47 @@ impl<'a> JobBuilder<'a> {
     }
 }
 
+pub struct JobBuilder2<'a> {
+    job: fn(arg: &dyn Any),
+    cron_expr: String,
+    timeout: &'a str,
+}
+impl<'a> JobBuilder2<'a> {
+    pub const fn new(job: fn(&dyn Any), cron_expr: String, timeout: &'a str) -> Self {
+        JobBuilder2 {
+            job,
+            cron_expr,
+            timeout,
+        }
+    }
+}
+
+impl Builder for JobBuilder2<'static>{
+    fn build(&self) -> CronJob {
+        let job = self.job;
+        let schedule =
+            Schedule::from_str(self.cron_expr.as_str()).expect("Failed to parse cron expression!");
+        let timeout: i64 = self.timeout.parse().expect("Failed to parse timeout!");
+
+        let timeout = if timeout > 0 {
+            Some(Duration::milliseconds(timeout))
+        } else {
+            None
+        };
+
+        CronJob {
+            job,
+            schedule,
+            timeout,
+            handler: None,
+            channels: None,
+            start_time: None,
+            run_id: None,
+        }
+    }
+}
+
+
 /// # CronJob
 ///
 /// Internal structure for the representation of a single cronjob.
@@ -71,7 +120,7 @@ impl<'a> JobBuilder<'a> {
 /// - the job function pointer (the original annotated function)
 /// - the get info function pointer (Schedule and Timeout)
 pub struct CronJob {
-    job: fn(),
+    job: fn(arg: &dyn Any),
     schedule: Schedule,
     timeout: Option<Duration>,
     handler: Option<JoinHandle<()>>,
@@ -131,7 +180,7 @@ impl CronJob{
                 let until_next = next - now;
                 thread::sleep(until_next.to_std().unwrap());
                 print!("thread of job #{run_id} at time {}: ", Utc::now());
-                job();
+                job(&());
                 let _ = tx.send("JOB_COMPLETE".to_string());
                 break;
             }
@@ -144,13 +193,13 @@ impl CronJob{
 /// # CronFrame
 ///
 /// This is where the annotated functions are made into cronjobs.
-///
+///    Users::cron_helper_get_jobs(&user);
 /// The `init()` method builds an instance collecting all the cronjobs.
 ///
 /// The `schedule()` method provides the scheduling for the jobs and retrieves their thread handle.
 ///
 pub struct CronFrame {
-    cron_jobs: Vec<CronJob>,
+    pub cron_jobs: Vec<CronJob>,
 }
 impl CronFrame {
     pub fn init() -> Self {
@@ -161,11 +210,11 @@ impl CronFrame {
             frame.cron_jobs.push(job_builder.build())
         }
 
-        // get the automatically collected object jobs
-        for cron_obj in inventory::iter::<CronObj> {
-            let job_builder = (cron_obj.helper)();
-            frame.cron_jobs.push(job_builder.build())
-        }
+        // // get the automatically collected object jobs
+        // for cron_obj in inventory::iter::<CronObj> {
+        //     let job_builder = (cron_obj.helper)(&());
+        //     frame.cron_jobs.push(job_builder.build())
+        // }
 
         frame
     }

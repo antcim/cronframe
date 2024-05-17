@@ -15,10 +15,10 @@ use std::io;
 
 // this executes every 5 seconds, timeouts after 10 seconds
 
-#[cron(expr = "0/5 * * * * * *", timeout = "10000")]
-fn testfn() {
-    println!("call from testfn");
-}
+// #[cron(expr = "0/5 * * * * * *", timeout = "10000")]
+// fn testfn() {
+//     println!("call from testfn");
+// }
 
 #[cron_obj] // this macro does nothing for now
 struct Users {
@@ -33,22 +33,38 @@ struct Users {
 
 #[cron_impl]
 impl Users {
-    #[job(expr = "2/5 * * * * * *", timeout = "0")]
-    fn my_obj_job() {
+    #[job(expr = "* * * * * * *", timeout = "0")]
+    fn my_obj_job(self) {
         println!("call from my_obj_job");
     }
-    #[job(expr = "0/5 * * * * * *", timeout = "10000")]
-    fn get_jobs() {
-        println!("call from get_jobs");
+    #[job(expr = "* * * * * *", timeout = "10000")]
+    fn get_jobs(self) {
+        println!("CALL from get_jobs");
     }
 }
 
 fn main() {
     println!("CronFrame 0.0.1");
-    CronFrame::init().scheduler();
+    let mut cronframe = CronFrame::init();
+    
 
     println!("Enter x to quit...");
     let mut user_input: String = String::new();
+
+    let user = Users{
+        second: "0/5".to_string(),
+        minute: "*".to_string(),
+        hour: "*".to_string(),
+        day_month: "*".to_string(),
+        month: "*".to_string(),
+        day_week: "*".to_string(),
+        year: "*".to_string(),
+    };
+
+    //Users::cron_helper_get_jobs(&user);
+    user.helper_gatherer(&mut cronframe);
+
+    cronframe.scheduler();
 
     loop {
         io::stdin()

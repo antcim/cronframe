@@ -39,10 +39,11 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
         if parsed.is_ok() {
             let function = parsed.clone().unwrap().to_token_stream();
             let ident = parsed.clone().unwrap().sig.ident;
+            let block = parsed.clone().unwrap().block;
 
             let new_code = quote! {
                 // original function
-                #function
+                fn #ident(arg: &dyn Any) #block
 
                 // necessary for automatic job collection
                 inventory::submit! {
@@ -82,16 +83,19 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_impl = syn::parse::<ItemImpl>(code.clone()).unwrap();
     let r#impl = item_impl.to_token_stream();
     let impl_items = item_impl.items.clone();
+    let impl_type = item_impl.self_ty.to_token_stream();
 
     let mut new_code = quote! { 
         #r#impl
     };
 
+    let mut helper_funcs = vec![];
+
     for item in impl_items{
         let item_token = item.to_token_stream();
         let item_fn_id = syn::parse::<ItemFn>(item_token.into()).unwrap().sig.ident;
-        let impl_type = item_impl.self_ty.to_token_stream();
         let helper = format_ident!("cron_helper_{}", item_fn_id);
+        helper_funcs.push(helper.clone());
 
         let new_code_tmp = quote! { 
             inventory::submit! {
@@ -101,6 +105,19 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 
         new_code.extend(new_code_tmp.into_iter());
     }
+
+    let gather_fn = quote! { 
+        impl #impl_type{
+            pub fn helper_gatherer(&self, frame: &mut CronFrame){
+                for cron_obj in inventory::iter::<CronObj> {
+                    let job_builder = (cron_obj.helper)(self);
+                    frame.cron_jobs.push(job_builder.build())
+                }
+            }
+        }
+    };
+
+    new_code.extend(gather_fn.into_iter());
 
     new_code.into()
 }
@@ -131,14 +148,43 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
         if parsed.is_ok() {
             let function = parsed.clone().unwrap().to_token_stream();
             let ident = parsed.clone().unwrap().sig.ident;
+            let block = parsed.clone().unwrap().block;
+            let self_param = parsed.clone().unwrap().sig.inputs.first().unwrap().to_token_stream().to_string();
             let helper = format_ident!("cron_helper_{}", ident);
+
+            println!("SELF PARAM: {}", self_param);
+
+            let expr = format_ident!("expr");
 
             let new_code = quote! {
                 // original function
-                #function
+                fn #ident(arg: &dyn Any) #block
 
-                fn #helper() -> JobBuilder<'static> {
-                    JobBuilder::new(Self::#ident, #cron_expr, #timeout)
+                fn #helper(arg: &dyn Any) -> Box<dyn Builder> {
+                    if TypeId::of::<()>() == arg.type_id(){
+                        println!("EMPTY HERE MAN");
+                    }
+                    else if TypeId::of::<Self>() == arg.type_id(){
+                        println!("SELF HERE MAN");
+                        if let Some(this_obj) = Box::new(arg).downcast_ref::<Self>() {
+                            let #expr = format!(
+                                "{} {} {} {} {} {} {}",
+                                this_obj.second,
+                                this_obj.minute,
+                                this_obj.hour,
+                                this_obj.day_month,
+                                this_obj.month,
+                                this_obj.day_week,
+                                this_obj.year,
+                            );
+
+                            return Box::new(JobBuilder2::new(Self::#ident, #expr, #timeout))
+                        }
+                    }else{
+                        println!("NO SELF HERE MAN");
+                    }
+
+                    Box::new(JobBuilder::new(Self::#ident, #cron_expr, #timeout))
                 }
             };
             return new_code.into();
