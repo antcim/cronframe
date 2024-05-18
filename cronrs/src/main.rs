@@ -34,7 +34,7 @@ struct Users {
 #[cron_impl]
 impl Users {
     #[job(expr = "* * * * * * *", timeout = "0")]
-    fn my_obj_job(self) {
+    fn my_obj_job() {
         println!("call from my_obj_job");
     }
     #[job(expr = "* * * * * *", timeout = "10000")]
@@ -46,6 +46,8 @@ impl Users {
 fn main() {
     println!("CronFrame 0.0.1");
     let mut cronframe = CronFrame::init();
+
+    println!("typeID of Users: {:?}", TypeId::of::<Users>());
     
 
     println!("Enter x to quit...");
@@ -61,6 +63,7 @@ fn main() {
         year: "*".to_string(),
     };
 
+    
     //Users::cron_helper_get_jobs(&user);
     user.helper_gatherer(&mut cronframe);
 

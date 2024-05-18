@@ -1,3 +1,5 @@
+use std::any::{Any, TypeId};
+
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};
 use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
@@ -37,7 +39,6 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
         let parsed = syn::parse::<ItemFn>(code.clone());
 
         if parsed.is_ok() {
-            let function = parsed.clone().unwrap().to_token_stream();
             let ident = parsed.clone().unwrap().sig.ident;
             let block = parsed.clone().unwrap().block;
 
@@ -85,19 +86,19 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let impl_items = item_impl.items.clone();
     let impl_type = item_impl.self_ty.to_token_stream();
 
-    let mut new_code = quote! { 
+    let mut new_code = quote! {
         #r#impl
     };
 
     let mut helper_funcs = vec![];
 
-    for item in impl_items{
+    for item in impl_items {
         let item_token = item.to_token_stream();
         let item_fn_id = syn::parse::<ItemFn>(item_token.into()).unwrap().sig.ident;
         let helper = format_ident!("cron_helper_{}", item_fn_id);
         helper_funcs.push(helper.clone());
 
-        let new_code_tmp = quote! { 
+        let new_code_tmp = quote! {
             inventory::submit! {
                 CronObj::new(#impl_type::#helper)
             }
@@ -106,7 +107,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         new_code.extend(new_code_tmp.into_iter());
     }
 
-    let gather_fn = quote! { 
+    let gather_fn = quote! {
         impl #impl_type{
             pub fn helper_gatherer(&self, frame: &mut CronFrame){
                 for cron_obj in inventory::iter::<CronObj> {
@@ -144,29 +145,40 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
 
     if arg_1_name == "expr" && arg_2_name == "timeout" {
         let parsed = syn::parse::<ItemFn>(code.clone());
-        
+
         if parsed.is_ok() {
-            let function = parsed.clone().unwrap().to_token_stream();
             let ident = parsed.clone().unwrap().sig.ident;
             let block = parsed.clone().unwrap().block;
-            let self_param = parsed.clone().unwrap().sig.inputs.first().unwrap().to_token_stream().to_string();
             let helper = format_ident!("cron_helper_{}", ident);
-
-            println!("SELF PARAM: {}", self_param);
-
             let expr = format_ident!("expr");
 
-            let new_code = quote! {
+            let self_param = if !parsed.clone().unwrap().sig.inputs.is_empty()
+                && parsed
+                    .clone()
+                    .unwrap()
+                    .sig
+                    .inputs
+                    .first()
+                    .unwrap()
+                    .to_token_stream()
+                    .to_string()
+                    == "self"
+            {
+                true
+            } else {
+                false
+            };
+
+            let mut new_code = quote! {
                 // original function
                 fn #ident(arg: &dyn Any) #block
+            };
 
-                fn #helper(arg: &dyn Any) -> JobBuilder {
-                    if TypeId::of::<()>() == arg.type_id(){
-                        println!("EMPTY HERE MAN");
-                    }
-                    else if TypeId::of::<Self>() == arg.type_id(){
-                        println!("SELF HERE MAN");
+            let helper_code = if self_param {
+                quote! {
+                    fn #helper(arg: &dyn Any) -> JobBuilder {
                         if let Some(this_obj) = Box::new(arg).downcast_ref::<Self>() {
+                            println!("FOUND SELF");
                             let #expr = format!(
                                 "{} {} {} {} {} {} {}",
                                 this_obj.second,
@@ -177,16 +189,20 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
                                 this_obj.day_week,
                                 this_obj.year,
                             );
-
-                            return JobBuilder::from_met(Self::#ident, #expr, #timeout)
+                            return JobBuilder::from_met(Self::#ident, #expr, #timeout);
                         }
-                    }else{
-                        println!("NO SELF HERE MAN");
+                        JobBuilder::from_fn(Self::#ident, #cron_expr, #timeout)
                     }
-
-                    JobBuilder::from_fn(Self::#ident, #cron_expr, #timeout)
+                }
+            } else {
+                quote! {
+                    fn #helper(arg: &dyn Any) -> JobBuilder {
+                        JobBuilder::from_fn(Self::#ident, #cron_expr, #timeout)
+                    }
                 }
             };
+            new_code.extend(helper_code.into_iter());
+
             return new_code.into();
         } else if let Some(error) = parsed.err() {
             println!("parse Error: {}", error);
