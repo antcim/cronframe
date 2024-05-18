@@ -15,10 +15,10 @@ use std::io;
 
 // this executes every 5 seconds, timeouts after 10 seconds
 
-// #[cron(expr = "0/5 * * * * * *", timeout = "10000")]
-// fn testfn() {
-//     println!("call from testfn");
-// }
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn testfn() {
+    println!("call from testfn");
+}
 
 #[cron_obj] // this macro does nothing for now
 struct Users {

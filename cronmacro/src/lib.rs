@@ -47,7 +47,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
 
                 // necessary for automatic job collection
                 inventory::submit! {
-                    JobBuilder::new(#ident, #cron_expr, #timeout)
+                    JobBuilder::from_fn(#ident, #cron_expr, #timeout)
                 }
             };
 
@@ -160,7 +160,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
                 // original function
                 fn #ident(arg: &dyn Any) #block
 
-                fn #helper(arg: &dyn Any) -> Box<dyn Builder> {
+                fn #helper(arg: &dyn Any) -> JobBuilder {
                     if TypeId::of::<()>() == arg.type_id(){
                         println!("EMPTY HERE MAN");
                     }
@@ -178,13 +178,13 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
                                 this_obj.year,
                             );
 
-                            return Box::new(JobBuilder2::new(Self::#ident, #expr, #timeout))
+                            return JobBuilder::from_met(Self::#ident, #expr, #timeout)
                         }
                     }else{
                         println!("NO SELF HERE MAN");
                     }
 
-                    Box::new(JobBuilder::new(Self::#ident, #cron_expr, #timeout))
+                    JobBuilder::from_fn(Self::#ident, #cron_expr, #timeout)
                 }
             };
             return new_code.into();

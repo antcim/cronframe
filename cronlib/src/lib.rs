@@ -1,13 +1,13 @@
 extern crate lazy_static;
-pub use lazy_static::lazy_static;
-pub use std::any::Any;
-pub use std::any::{self, TypeId};
 use chrono::DateTime;
 pub use chrono::{Duration, Utc};
 pub use cron::Schedule;
-pub use cronmacro::{cron, cron_obj, cron_impl, job};
+pub use cronmacro::{cron, cron_impl, cron_obj, job};
 use crossbeam_channel::{Receiver, Sender};
+pub use lazy_static::lazy_static;
 use rand::distributions::{Alphanumeric, DistString};
+pub use std::any::Any;
+pub use std::any::{self, TypeId};
 pub use std::str::FromStr;
 pub use std::thread;
 pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
@@ -16,101 +16,99 @@ pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
 inventory::collect!(JobBuilder<'static>);
 inventory::collect!(CronObj);
 
-pub struct CronObj<>{
-    pub helper: fn(arg: &dyn Any) -> Box<dyn Builder>,
+pub struct CronObj {
+    pub helper: fn(arg: &dyn Any) -> JobBuilder,
 }
 
-impl CronObj{
-    pub const fn new(helper: fn(arg: &dyn Any) -> Box<dyn Builder>) -> Self{
-        CronObj{helper}
+impl CronObj {
+    pub const fn new(helper: fn(arg: &dyn Any) -> JobBuilder) -> Self {
+        CronObj { helper }
     }
 }
 
-pub trait Builder {
-    fn build(&self) -> CronJob;
-}
-
-pub struct JobBuilder<'a> {
-    job: fn(arg: &dyn Any),
-    cron_expr: &'a str,
-    timeout: &'a str,
+pub enum JobBuilder<'a> {
+    Function {
+        job: fn(arg: &dyn Any),
+        cron_expr: &'a str,
+        timeout: &'a str,
+    },
+    Method {
+        job: fn(arg: &dyn Any),
+        cron_expr: String,
+        timeout: &'a str,
+    },
 }
 
 impl<'a> JobBuilder<'a> {
-    pub const fn new(job: fn(&dyn Any), cron_expr: &'a str, timeout: &'a str) -> Self {
-        JobBuilder {
+    pub const fn from_fn(job: fn(&dyn Any), cron_expr: &'a str, timeout: &'a str) -> Self {
+        JobBuilder::Function {
             job,
             cron_expr,
             timeout,
         }
     }
-}
 
-impl Builder for JobBuilder<'static>{
-    fn build(&self) -> CronJob {
-        let job = self.job;
-        let schedule =
-            Schedule::from_str(self.cron_expr).expect("Failed to parse cron expression!");
-        let timeout: i64 = self.timeout.parse().expect("Failed to parse timeout!");
-
-        let timeout = if timeout > 0 {
-            Some(Duration::milliseconds(timeout))
-        } else {
-            None
-        };
-
-        CronJob {
-            job,
-            schedule,
-            timeout,
-            handler: None,
-            channels: None,
-            start_time: None,
-            run_id: None,
-        }
-    }
-}
-
-pub struct JobBuilder2<'a> {
-    job: fn(arg: &dyn Any),
-    cron_expr: String,
-    timeout: &'a str,
-}
-impl<'a> JobBuilder2<'a> {
-    pub const fn new(job: fn(&dyn Any), cron_expr: String, timeout: &'a str) -> Self {
-        JobBuilder2 {
+    pub const fn from_met(job: fn(&dyn Any), cron_expr: String, timeout: &'a str) -> Self {
+        JobBuilder::Method {
             job,
             cron_expr,
             timeout,
         }
     }
-}
 
-impl Builder for JobBuilder2<'static>{
-    fn build(&self) -> CronJob {
-        let job = self.job;
-        let schedule =
-            Schedule::from_str(self.cron_expr.as_str()).expect("Failed to parse cron expression!");
-        let timeout: i64 = self.timeout.parse().expect("Failed to parse timeout!");
+    pub fn build(&self) -> CronJob {
+        match self {
+            Self::Function {
+                job,
+                cron_expr,
+                timeout,
+            } => {
+                let schedule =
+                    Schedule::from_str(cron_expr).expect("Failed to parse cron expression!");
+                let timeout: i64 = timeout.parse().expect("Failed to parse timeout!");
+                let timeout = if timeout > 0 {
+                    Some(Duration::milliseconds(timeout))
+                } else {
+                    None
+                };
 
-        let timeout = if timeout > 0 {
-            Some(Duration::milliseconds(timeout))
-        } else {
-            None
-        };
+                CronJob {
+                    job: job.clone(),
+                    schedule,
+                    timeout,
+                    handler: None,
+                    channels: None,
+                    start_time: None,
+                    run_id: None,
+                }
+            }
+            Self::Method {
+                job,
+                cron_expr,
+                timeout,
+            } => {
+                let schedule =
+                    Schedule::from_str(cron_expr).expect("Failed to parse cron expression!");
+                let timeout: i64 = timeout.parse().expect("Failed to parse timeout!");
+                let timeout = if timeout > 0 {
+                    Some(Duration::milliseconds(timeout))
+                } else {
+                    None
+                };
 
-        CronJob {
-            job,
-            schedule,
-            timeout,
-            handler: None,
-            channels: None,
-            start_time: None,
-            run_id: None,
+                CronJob {
+                    job: job.clone(),
+                    schedule,
+                    timeout,
+                    handler: None,
+                    channels: None,
+                    start_time: None,
+                    run_id: None,
+                }
+            }
         }
     }
 }
-
 
 /// # CronJob
 ///
@@ -129,7 +127,7 @@ pub struct CronJob {
     run_id: Option<String>,
 }
 
-impl CronJob{
+impl CronJob {
     pub fn try_schedule(&mut self) -> bool {
         if self.check_schedule() {
             self.run_id = Some(Alphanumeric.sample_string(&mut rand::thread_rng(), 8));
