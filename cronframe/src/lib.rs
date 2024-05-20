@@ -2,7 +2,7 @@ extern crate lazy_static;
 use chrono::DateTime;
 pub use chrono::{Duration, Utc};
 pub use cron::Schedule;
-pub use cronmacro::{cron, cron_impl, cron_obj, job};
+pub use cronframe_macro::{cron, cron_impl, cron_obj, job};
 use crossbeam_channel::{Receiver, Sender};
 pub use lazy_static::lazy_static;
 use log::{info, warn, LevelFilter};

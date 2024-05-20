@@ -101,13 +101,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "cronlib"
+name = "cronframe"
 version = "0.1.0"
 dependencies = [
  "chrono",
  "colored",
  "cron",
- "cronmacro",
+ "cronframe_macro",
  "crossbeam-channel",
  "inventory",
  "lazy_static",
@@ -119,7 +119,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cronmacro"
+name = "cronframe_macro"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -134,7 +134,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "cron",
- "cronlib",
+ "cronframe",
  "inventory",
 ]
 
