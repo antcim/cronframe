@@ -4,9 +4,9 @@ use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, Ite
 
 #[proc_macro_attribute]
 ///
-/// # Cronjob Annotation Macro
+/// # CronFrame: cron macro
 ///
-/// This macro allows for the definition of a cronjob.
+/// This macro allows for the definition of a global cronjob.
 ///
 /// It makes use of two arguments:
 ///
@@ -79,6 +79,11 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
+///
+/// # CronFrame: cron_impl macro
+/// 
+/// This macro is used in conjunction with the `job` macro in user defined impl blocks to allow jobs inside them.
+/// 
 pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_impl = syn::parse::<ItemImpl>(code.clone()).unwrap();
     let r#impl = item_impl.to_token_stream();
@@ -119,7 +124,6 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                     info!("Found Object Job \"{}\" from {}.", cron_job.name, #type_name);
                     frame.cron_jobs.push(cron_job)
                 }
-
                 info!("Object Jobs from {} Collected.", #type_name);
             }
         }
@@ -130,94 +134,103 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
+///
+/// # CronFrame: job macro
+/// 
+/// This macro is used in conjunction with the `cron_impl` macro in user defined impl blocks to allow jobs inside them.
+/// 
 pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
-    let args = parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
+    let parsed = syn::parse::<ItemFn>(code.clone());
 
-    let args = args.into_iter().map(|x| {
-        x.require_name_value()
-            .map(|x| {
-                let arg_name = x.path.to_token_stream().to_string();
-                let arg_val = x.value.to_token_stream().to_string();
-                (arg_name, arg_val.replace("\"", ""))
-            })
-            .unwrap()
-    });
+    if check_self(&parsed) {
+        let ident = parsed.clone().unwrap().sig.ident;
+        let job_name = ident.to_string();
+        let block = parsed.clone().unwrap().block;
+        let helper = format_ident!("cron_helper_{}", ident);
+        let expr = format_ident!("expr");
+        let tout = format_ident!("tout");
 
-    // should contain ("expr", "* * * * * *")
-    let (arg_1_name, cron_expr) = args.clone().peekable().nth(0).unwrap();
+        let mut new_code = quote! {
+            // original function
+            fn #ident(arg: &dyn Any) #block
+        };
 
-    // should contain ("timeout", "u64")
-    let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
+        let helper_code = quote! {
+            fn #helper(arg: &dyn Any) -> JobBuilder {
+                let this_obj = Box::new(arg).downcast_ref::<Self>().unwrap();
+                let #expr = format!(
+                    "{} {} {} {} {} {} {}",
+                    this_obj.second,
+                    this_obj.minute,
+                    this_obj.hour,
+                    this_obj.day_month,
+                    this_obj.month,
+                    this_obj.day_week,
+                    this_obj.year,
+                );
+                let #tout = format!("{}", this_obj.timeout);
+                JobBuilder::from_met(#job_name, Self::#ident, #expr, #tout)
+            }
+        };
 
-    if arg_1_name == "expr" && arg_2_name == "timeout" {
-        let parsed = syn::parse::<ItemFn>(code.clone());
+        new_code.extend(helper_code.into_iter());
+        new_code.into()
+    } else {
+        let args =
+            parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
 
-        if parsed.is_ok() {
-            let ident = parsed.clone().unwrap().sig.ident;
-            let job_name = ident.to_string();
-            let block = parsed.clone().unwrap().block;
-            let helper = format_ident!("cron_helper_{}", ident);
-            let expr = format_ident!("expr");
-            let tout = format_ident!("tout");
+        let args = args.into_iter().map(|x| {
+            x.require_name_value()
+                .map(|x| {
+                    let arg_name = x.path.to_token_stream().to_string();
+                    let arg_val = x.value.to_token_stream().to_string();
+                    (arg_name, arg_val.replace("\"", ""))
+                })
+                .unwrap()
+        });
 
-            let self_param = if !parsed.clone().unwrap().sig.inputs.is_empty()
-                && parsed
-                    .clone()
-                    .unwrap()
-                    .sig
-                    .inputs
-                    .first()
-                    .unwrap()
-                    .to_token_stream()
-                    .to_string()
-                    == "self"
-            {
-                true
-            } else {
-                false
-            };
+        // should contain ("expr", "* * * * * *")
+        let (arg_1_name, cron_expr) = args.clone().peekable().nth(0).unwrap();
 
-            let mut new_code = quote! {
-                // original function
-                fn #ident(arg: &dyn Any) #block
-            };
+        // should contain ("timeout", "u64")
+        let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
 
-            let helper_code = if self_param {
-                quote! {
-                    fn #helper(arg: &dyn Any) -> JobBuilder {
-                        if let Some(this_obj) = Box::new(arg).downcast_ref::<Self>() {
-                            println!("FOUND SELF");
-                            let #expr = format!(
-                                "{} {} {} {} {} {} {}",
-                                this_obj.second,
-                                this_obj.minute,
-                                this_obj.hour,
-                                this_obj.day_month,
-                                this_obj.month,
-                                this_obj.day_week,
-                                this_obj.year,
-                            );
-                            let #tout = format!("{}", this_obj.timeout);
-                            return JobBuilder::from_met(#job_name, Self::#ident, #expr, #tout);
-                        }
-                        JobBuilder::from_fn(#job_name, Self::#ident, #cron_expr, #timeout)
-                    }
-                }
-            } else {
-                quote! {
-                    fn #helper(arg: &dyn Any) -> JobBuilder {
-                        JobBuilder::from_fn(#job_name, Self::#ident, #cron_expr, #timeout)
-                    }
-                }
-            };
-            new_code.extend(helper_code.into_iter());
-
-            return new_code.into();
-        } else if let Some(error) = parsed.err() {
-            println!("parse Error: {}", error);
-        } else {
-            unreachable!()
+        if arg_1_name != "expr" && arg_2_name != "timeout" {
+            return code;
         }
+
+        let ident = parsed.clone().unwrap().sig.ident;
+        let job_name = ident.to_string();
+        let block = parsed.clone().unwrap().block;
+        let helper = format_ident!("cron_helper_{}", ident);
+
+        let new_code = quote! {
+            // original function
+            fn #ident(arg: &dyn Any) #block
+
+            fn #helper(arg: &dyn Any) -> JobBuilder {
+                JobBuilder::from_fn(#job_name, Self::#ident, #cron_expr, #timeout)
+            }
+        };
+        new_code.into()
     }
-    code
+}
+
+fn check_self(parsed: &Result<ItemFn, syn::Error>) -> bool {
+    if !parsed.clone().unwrap().sig.inputs.is_empty()
+        && parsed
+            .clone()
+            .unwrap()
+            .sig
+            .inputs
+            .first()
+            .unwrap()
+            .to_token_stream()
+            .to_string()
+            == "self"
+    {
+        true
+    } else {
+        false
+    }
 }
