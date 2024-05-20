@@ -39,6 +39,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
         if parsed.is_ok() {
             let ident = parsed.clone().unwrap().sig.ident;
             let block = parsed.clone().unwrap().block;
+            let job_name = ident.to_string();
 
             let new_code = quote! {
                 // original function
@@ -46,7 +47,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
 
                 // necessary for automatic job collection
                 inventory::submit! {
-                    JobBuilder::from_fn(#ident, #cron_expr, #timeout)
+                    JobBuilder::from_fn(#job_name, #ident, #cron_expr, #timeout)
                 }
             };
 
@@ -146,6 +147,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
 
         if parsed.is_ok() {
             let ident = parsed.clone().unwrap().sig.ident;
+            let job_name = ident.to_string();
             let block = parsed.clone().unwrap().block;
             let helper = format_ident!("cron_helper_{}", ident);
             let expr = format_ident!("expr");
@@ -187,15 +189,15 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
                                 this_obj.day_week,
                                 this_obj.year,
                             );
-                            return JobBuilder::from_met(Self::#ident, #expr, #timeout);
+                            return JobBuilder::from_met(#job_name, Self::#ident, #expr, #timeout);
                         }
-                        JobBuilder::from_fn(Self::#ident, #cron_expr, #timeout)
+                        JobBuilder::from_fn(#job_name, Self::#ident, #cron_expr, #timeout)
                     }
                 }
             } else {
                 quote! {
                     fn #helper(arg: &dyn Any) -> JobBuilder {
-                        JobBuilder::from_fn(Self::#ident, #cron_expr, #timeout)
+                        JobBuilder::from_fn(#job_name, Self::#ident, #cron_expr, #timeout)
                     }
                 }
             };

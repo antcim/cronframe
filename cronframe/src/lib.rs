@@ -33,11 +33,13 @@ impl CronObj {
 
 pub enum JobBuilder<'a> {
     Function {
+        name: &'a str,
         job: fn(arg: &dyn Any),
         cron_expr: &'a str,
         timeout: &'a str,
     },
     Method {
+        name: &'a str,
         job: fn(arg: &dyn Any),
         cron_expr: String,
         timeout: &'a str,
@@ -45,16 +47,28 @@ pub enum JobBuilder<'a> {
 }
 
 impl<'a> JobBuilder<'a> {
-    pub const fn from_fn(job: fn(&dyn Any), cron_expr: &'a str, timeout: &'a str) -> Self {
+    pub const fn from_fn(
+        name: &'a str,
+        job: fn(&dyn Any),
+        cron_expr: &'a str,
+        timeout: &'a str,
+    ) -> Self {
         JobBuilder::Function {
+            name,
             job,
             cron_expr,
             timeout,
         }
     }
 
-    pub const fn from_met(job: fn(&dyn Any), cron_expr: String, timeout: &'a str) -> Self {
+    pub const fn from_met(
+        name: &'a str,
+        job: fn(&dyn Any),
+        cron_expr: String,
+        timeout: &'a str,
+    ) -> Self {
         JobBuilder::Method {
+            name,
             job,
             cron_expr,
             timeout,
@@ -64,6 +78,7 @@ impl<'a> JobBuilder<'a> {
     pub fn build(&self) -> CronJob {
         match self {
             Self::Function {
+                name,
                 job,
                 cron_expr,
                 timeout,
@@ -78,6 +93,7 @@ impl<'a> JobBuilder<'a> {
                 };
 
                 CronJob {
+                    name: name.to_string(),
                     job: job.clone(),
                     schedule,
                     timeout,
@@ -88,6 +104,7 @@ impl<'a> JobBuilder<'a> {
                 }
             }
             Self::Method {
+                name,
                 job,
                 cron_expr,
                 timeout,
@@ -102,6 +119,7 @@ impl<'a> JobBuilder<'a> {
                 };
 
                 CronJob {
+                    name: name.to_string(),
                     job: job.clone(),
                     schedule,
                     timeout,
@@ -123,6 +141,7 @@ impl<'a> JobBuilder<'a> {
 /// - the job function pointer (the original annotated function)
 /// - the get info function pointer (Schedule and Timeout)
 pub struct CronJob {
+    name: String,
     job: fn(arg: &dyn Any),
     schedule: Schedule,
     timeout: Option<Duration>,
@@ -175,6 +194,7 @@ impl CronJob {
         let tx = self.channels.as_ref().unwrap().0.clone();
         let _rx = self.channels.as_ref().unwrap().1.clone();
         let schedule = self.schedule.clone();
+        let job_name = self.name.clone();
         let run_id = self.run_id.as_ref().unwrap().clone();
 
         let job_thread = move || loop {
@@ -182,7 +202,7 @@ impl CronJob {
             if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                 let until_next = next - now;
                 thread::sleep(until_next.to_std().unwrap());
-                info!("thread of job@{run_id}");
+                info!("job @ {job_name} # {run_id} - Execution");
                 job(&());
                 let _ = tx.send("JOB_COMPLETE".to_string());
                 break;
@@ -245,11 +265,17 @@ impl CronFrame {
             for cron_job in &mut self.cron_jobs {
                 if cron_job.handler.is_none() {
                     if cron_job.check_timeout() {
+                        info!("job @ {} - Reached Timeout", cron_job.name);
+                        // TODO remove timedout job from list of actives?
                         continue;
                     }
                     let scheduled = cron_job.try_schedule();
                     if scheduled {
-                        info!("job@{} Scheduled.", cron_job.run_id.as_ref().unwrap());
+                        info!(
+                            "job @ {} # {} - Scheduled.",
+                            cron_job.name,
+                            cron_job.run_id.as_ref().unwrap()
+                        );
                     }
                 } else {
                     let _tx = &cron_job.channels.as_ref().unwrap().0;
@@ -258,7 +284,11 @@ impl CronFrame {
                     match rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_COMPLETE" {
-                                info!("job@{} Completed.", cron_job.run_id.as_ref().unwrap());
+                                info!(
+                                    "job @ {} # {} - Completed.",
+                                    cron_job.name,
+                                    cron_job.run_id.as_ref().unwrap()
+                                );
                                 cron_job.handler = None;
                                 cron_job.channels = None;
                                 cron_job.run_id = None;
@@ -266,7 +296,6 @@ impl CronFrame {
                         }
                         Err(_error) => (),
                     }
-
                     cron_job.check_timeout();
                 }
             }
