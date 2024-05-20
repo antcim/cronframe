@@ -106,19 +106,26 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         new_code.extend(new_code_tmp.into_iter());
     }
 
+    let type_name = impl_type.to_string();
+
     let gather_fn = quote! {
         impl #impl_type{
             pub fn helper_gatherer(&self, frame: &mut CronFrame){
+                info!("Collecting Object Jobs from {}", #type_name);
+
                 for cron_obj in inventory::iter::<CronObj> {
                     let job_builder = (cron_obj.helper)(self);
-                    frame.cron_jobs.push(job_builder.build())
+                    let cron_job = job_builder.build();
+                    info!("Found Object Job \"{}\" from {}.", cron_job.name, #type_name);
+                    frame.cron_jobs.push(cron_job)
                 }
+
+                info!("Object Jobs from {} Collected.", #type_name);
             }
         }
     };
 
     new_code.extend(gather_fn.into_iter());
-
     new_code.into()
 }
 

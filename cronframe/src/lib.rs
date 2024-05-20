@@ -5,7 +5,7 @@ pub use cron::Schedule;
 pub use cronframe_macro::{cron, cron_impl, cron_obj, job};
 use crossbeam_channel::{Receiver, Sender};
 pub use lazy_static::lazy_static;
-use log::{info, warn, LevelFilter};
+pub use log::{info, warn, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
@@ -141,7 +141,7 @@ impl<'a> JobBuilder<'a> {
 /// - the job function pointer (the original annotated function)
 /// - the get info function pointer (Schedule and Timeout)
 pub struct CronJob {
-    name: String,
+    pub name: String,
     job: fn(arg: &dyn Any),
     schedule: Schedule,
     timeout: Option<Duration>,
@@ -233,14 +233,17 @@ impl CronFrame {
             logger,
         };
 
-        info!("Init Start.");
+        info!("CronFrame Initialization Start.");
 
+        info!("Colleting Global Jobs.");
         // get the automatically collected global jobs
         for job_builder in inventory::iter::<JobBuilder> {
-            frame.cron_jobs.push(job_builder.build())
+            let cron_job = job_builder.build();
+            info!("Found Global Job \"{}\"", cron_job.name);
+            frame.cron_jobs.push(cron_job)
         }
 
-        info!("Global Jobs Collected");
+        info!("Global Jobs Collected.");
 
         // // get the automatically collected object jobs
         // for cron_obj in inventory::iter::<CronObj> {
@@ -248,7 +251,7 @@ impl CronFrame {
         //     frame.cron_jobs.push(job_builder.build())
         // }
 
-        info!("Init Complete.");
+        info!("CronFrame Initialization Complete.");
 
         frame
     }
