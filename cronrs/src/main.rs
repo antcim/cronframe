@@ -39,12 +39,11 @@ impl Users {
     }
     #[job(expr = "* * * * * *", timeout = "10000")]
     fn get_jobs(self) {
-        println!("CALL from get_jobs");
+        println!("call from get_jobs");
     }
 }
 
 fn main() {
-    println!("CronFrame 0.0.1");
     let mut cronframe = CronFrame::init();
 
     println!("Enter x to quit...");

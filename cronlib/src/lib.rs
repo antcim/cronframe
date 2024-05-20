@@ -5,6 +5,11 @@ pub use cron::Schedule;
 pub use cronmacro::{cron, cron_impl, cron_obj, job};
 use crossbeam_channel::{Receiver, Sender};
 pub use lazy_static::lazy_static;
+use log::{info, warn, LevelFilter};
+use log4rs::append::file::FileAppender;
+use log4rs::config::{Appender, Config, Root};
+use log4rs::encode::pattern::PatternEncoder;
+use log4rs::Handle;
 use rand::distributions::{Alphanumeric, DistString};
 pub use std::any::Any;
 pub use std::any::{self, TypeId};
@@ -177,7 +182,7 @@ impl CronJob {
             if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                 let until_next = next - now;
                 thread::sleep(until_next.to_std().unwrap());
-                print!("thread of job #{run_id} at time {}: ", Utc::now());
+                info!("thread of job@{run_id}");
                 job(&());
                 let _ = tx.send("JOB_COMPLETE".to_string());
                 break;
@@ -198,21 +203,32 @@ impl CronJob {
 ///
 pub struct CronFrame {
     pub cron_jobs: Vec<CronJob>,
+    logger: Handle,
 }
 impl CronFrame {
     pub fn init() -> Self {
-        let mut frame = CronFrame { cron_jobs: vec![] };
+        let logger = Self::default_logger();
+        let mut frame = CronFrame {
+            cron_jobs: vec![],
+            logger,
+        };
+
+        info!("Init Start.");
 
         // get the automatically collected global jobs
         for job_builder in inventory::iter::<JobBuilder> {
             frame.cron_jobs.push(job_builder.build())
         }
 
+        info!("Global Jobs Collected");
+
         // // get the automatically collected object jobs
         // for cron_obj in inventory::iter::<CronObj> {
         //     let job_builder = (cron_obj.helper)(&());
         //     frame.cron_jobs.push(job_builder.build())
         // }
+
+        info!("Init Complete.");
 
         frame
     }
@@ -233,7 +249,7 @@ impl CronFrame {
                     }
                     let scheduled = cron_job.try_schedule();
                     if scheduled {
-                        println!("JOB #{} Scheduled.", cron_job.run_id.as_ref().unwrap());
+                        info!("job@{} Scheduled.", cron_job.run_id.as_ref().unwrap());
                     }
                 } else {
                     let _tx = &cron_job.channels.as_ref().unwrap().0;
@@ -242,7 +258,7 @@ impl CronFrame {
                     match rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_COMPLETE" {
-                                println!("JOB #{} Completed.", cron_job.run_id.as_ref().unwrap());
+                                info!("job@{} Completed.", cron_job.run_id.as_ref().unwrap());
                                 cron_job.handler = None;
                                 cron_job.channels = None;
                                 cron_job.run_id = None;
@@ -256,5 +272,29 @@ impl CronFrame {
             }
         };
         thread::spawn(scheduler);
+        info!("Scheduler Thread Started.");
+    }
+
+    fn default_logger() -> Handle {
+        let pattern = "{d(%Y-%m-%d %H:%M:%S UTC%Z)} {l} {t} - {m}{n}";
+
+        let log_file = FileAppender::builder()
+            .encoder(Box::new(PatternEncoder::new(pattern)))
+            .append(false)
+            .build("log/cronframe.log")
+            .unwrap();
+
+        let config = Config::builder()
+            .appender(Appender::builder().build("log_file", Box::new(log_file)))
+            .build(
+                Root::builder()
+                    .appender("log_file")
+                    .build(LevelFilter::Info),
+            )
+            .unwrap();
+
+        let handle = log4rs::init_config(config).unwrap();
+
+        handle
     }
 }
