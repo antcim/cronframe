@@ -47,9 +47,6 @@ fn main() {
     println!("CronFrame 0.0.1");
     let mut cronframe = CronFrame::init();
 
-    println!("typeID of Users: {:?}", TypeId::of::<Users>());
-    
-
     println!("Enter x to quit...");
     let mut user_input: String = String::new();
 
@@ -63,8 +60,6 @@ fn main() {
         year: "*".to_string(),
     };
 
-    
-    //Users::cron_helper_get_jobs(&user);
     user.helper_gatherer(&mut cronframe);
 
     cronframe.scheduler();

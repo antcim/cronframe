@@ -1,5 +1,3 @@
-use std::any::{Any, TypeId};
-
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};
 use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
