@@ -42,7 +42,7 @@ pub enum JobBuilder<'a> {
         name: &'a str,
         job: fn(arg: &dyn Any),
         cron_expr: String,
-        timeout: &'a str,
+        timeout: String,
     },
 }
 
@@ -65,7 +65,7 @@ impl<'a> JobBuilder<'a> {
         name: &'a str,
         job: fn(&dyn Any),
         cron_expr: String,
-        timeout: &'a str,
+        timeout: String,
     ) -> Self {
         JobBuilder::Method {
             name,

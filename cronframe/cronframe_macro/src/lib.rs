@@ -30,7 +30,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
     // should contain ("expr", "* * * * * *")
     let (arg_1_name, cron_expr) = args.clone().peekable().nth(0).unwrap();
 
-    // should contain ("timeout", "i64")
+    // should contain ("timeout", "u64")
     let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
 
     if arg_1_name == "expr" && arg_2_name == "timeout" {
@@ -146,7 +146,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
     // should contain ("expr", "* * * * * *")
     let (arg_1_name, cron_expr) = args.clone().peekable().nth(0).unwrap();
 
-    // should contain ("timeout", "i64")
+    // should contain ("timeout", "u64")
     let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
 
     if arg_1_name == "expr" && arg_2_name == "timeout" {
@@ -158,6 +158,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
             let block = parsed.clone().unwrap().block;
             let helper = format_ident!("cron_helper_{}", ident);
             let expr = format_ident!("expr");
+            let tout = format_ident!("tout");
 
             let self_param = if !parsed.clone().unwrap().sig.inputs.is_empty()
                 && parsed
@@ -196,7 +197,8 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
                                 this_obj.day_week,
                                 this_obj.year,
                             );
-                            return JobBuilder::from_met(#job_name, Self::#ident, #expr, #timeout);
+                            let #tout = format!("{}", this_obj.timeout);
+                            return JobBuilder::from_met(#job_name, Self::#ident, #expr, #tout);
                         }
                         JobBuilder::from_fn(#job_name, Self::#ident, #cron_expr, #timeout)
                     }

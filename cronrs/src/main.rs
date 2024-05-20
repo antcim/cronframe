@@ -29,6 +29,7 @@ struct Users {
     month: String,
     day_week: String,
     year: String,
+    timeout: u64,
 }
 
 #[cron_impl]
@@ -57,6 +58,7 @@ fn main() {
         month: "*".to_string(),
         day_week: "*".to_string(),
         year: "*".to_string(),
+        timeout: 0,
     };
 
     user.helper_gatherer(&mut cronframe);
