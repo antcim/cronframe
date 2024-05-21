@@ -21,26 +21,30 @@ pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
 inventory::collect!(JobBuilder<'static>);
 inventory::collect!(CronObj);
 
-pub struct CronObj {
-    pub helper: fn(arg: &dyn Any) -> JobBuilder,
+pub enum CronObj {
+    Function{builder: fn() -> JobBuilder<'static>},
+    Method{builder: fn() -> JobBuilder<'static>},
 }
 
 impl CronObj {
-    pub const fn new(helper: fn(arg: &dyn Any) -> JobBuilder) -> Self {
-        CronObj { helper }
+    pub const fn from_fn(builder: fn() -> JobBuilder<'static>) -> Self {
+        CronObj::Function{ builder }
+    }
+    pub const fn from_met(builder: fn() -> JobBuilder<'static>) -> Self {
+        CronObj::Method { builder}
     }
 }
 
 pub enum JobBuilder<'a> {
     Function {
         name: &'a str,
-        job: fn(arg: &dyn Any),
+        job: JobType,
         cron_expr: &'a str,
         timeout: &'a str,
     },
     Method {
         name: &'a str,
-        job: fn(arg: &dyn Any),
+        job: JobType,
         cron_expr: String,
         timeout: String,
     },
@@ -49,7 +53,7 @@ pub enum JobBuilder<'a> {
 impl<'a> JobBuilder<'a> {
     pub const fn from_fn(
         name: &'a str,
-        job: fn(&dyn Any),
+        job: JobType,
         cron_expr: &'a str,
         timeout: &'a str,
     ) -> Self {
@@ -63,7 +67,7 @@ impl<'a> JobBuilder<'a> {
 
     pub const fn from_met(
         name: &'a str,
-        job: fn(&dyn Any),
+        job: JobType,
         cron_expr: String,
         timeout: String,
     ) -> Self {
@@ -94,7 +98,7 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
-                    job: job.clone(),
+                    job: *job,
                     schedule,
                     timeout,
                     handler: None,
@@ -133,6 +137,13 @@ impl<'a> JobBuilder<'a> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum JobType {
+    Global(fn()),
+    AssocFn(fn()),
+    Method(fn()),
+}
+
 /// # CronJob
 ///
 /// Internal structure for the representation of a single cronjob.
@@ -142,7 +153,7 @@ impl<'a> JobBuilder<'a> {
 /// - the get info function pointer (Schedule and Timeout)
 pub struct CronJob {
     pub name: String,
-    job: fn(arg: &dyn Any),
+    job: JobType,
     schedule: Schedule,
     timeout: Option<Duration>,
     handler: Option<JoinHandle<()>>,
@@ -197,19 +208,48 @@ impl CronJob {
         let job_name = self.name.clone();
         let run_id = self.run_id.as_ref().unwrap().clone();
 
-        let job_thread = move || loop {
-            let now = Utc::now();
-            if let Some(next) = schedule.upcoming(Utc).take(1).next() {
-                let until_next = next - now;
-                thread::sleep(until_next.to_std().unwrap());
-                info!("job @ {job_name} # {run_id} - Execution");
-                job(&());
-                let _ = tx.send("JOB_COMPLETE".to_string());
-                break;
-            }
-        };
-
-        thread::spawn(job_thread)
+        if let JobType::Global(job) = job{
+            let job_thread = move || loop {
+                let now = Utc::now();
+                if let Some(next) = schedule.upcoming(Utc).take(1).next() {
+                    let until_next = next - now;
+                    thread::sleep(until_next.to_std().unwrap());
+                    info!("job @ {job_name} # {run_id} - Execution");
+                    job();
+                    let _ = tx.send("JOB_COMPLETE".to_string());
+                    break;
+                }
+            };
+            return thread::spawn(job_thread);
+        } else if let JobType::AssocFn(job) = job{
+            let job_thread = move || loop {
+                let now = Utc::now();
+                if let Some(next) = schedule.upcoming(Utc).take(1).next() {
+                    let until_next = next - now;
+                    thread::sleep(until_next.to_std().unwrap());
+                    info!("job @ {job_name} # {run_id} - Execution");
+                    job();
+                    let _ = tx.send("JOB_COMPLETE".to_string());
+                    break;
+                }
+            };
+            return thread::spawn(job_thread);
+        }else if let JobType::Method(job) = job {
+            let job_thread = move || loop {
+                let now = Utc::now();
+                if let Some(next) = schedule.upcoming(Utc).take(1).next() {
+                    let until_next = next - now;
+                    thread::sleep(until_next.to_std().unwrap());
+                    info!("job @ {job_name} # {run_id} - Execution");
+                    job();
+                    let _ = tx.send("JOB_COMPLETE".to_string());
+                    break;
+                }
+            };
+            return thread::spawn(job_thread);
+        }else{
+            thread::spawn(|| ())
+        }
     }
 }
 
