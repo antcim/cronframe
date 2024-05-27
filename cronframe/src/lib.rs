@@ -171,7 +171,7 @@ impl<'a> JobBuilder<'a> {
 
 pub enum CronJobType {
     Global(fn()),
-    Method(fn(_self: &dyn Any)),
+    Method(fn(_self: &dyn Any)), //maybe add object id here
     Function(fn()),
 }
 

@@ -1,6 +1,6 @@
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};
-use syn::{self, parse_macro_input, punctuated::Punctuated, spanned::Spanned, ItemFn, ItemImpl, ItemStruct, Meta};
+use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
 
 #[proc_macro_attribute]
 pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {

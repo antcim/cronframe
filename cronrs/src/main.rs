@@ -45,14 +45,14 @@ impl Users {
     }
     #[job]
     fn get_jobs(self) {
-        println!("call from get_jobs");
+        println!("call from get_jobs for seconds");
     }
 }
 
 fn main() {
     let mut cronframe = CronFrame::init();
 
-    let user = Users {
+    let user1 = Users {
         second: "0/5".to_string(),
         minute: "*".to_string(),
         hour: "*".to_string(),
@@ -63,7 +63,19 @@ fn main() {
         timeout: 0,
     };
 
-    user.helper_gatherer(&mut cronframe);
+    let user2 = Users {
+        second: "0/10".to_string(),
+        minute: "*".to_string(),
+        hour: "*".to_string(),
+        day_month: "*".to_string(),
+        month: "*".to_string(),
+        day_week: "*".to_string(),
+        year: "*".to_string(),
+        timeout: 0,
+    };
+
+    user1.helper_gatherer(&mut cronframe);
+    user2.helper_gatherer(&mut cronframe);
 
     cronframe.scheduler();
 
