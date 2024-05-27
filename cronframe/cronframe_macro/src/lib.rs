@@ -156,13 +156,22 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
         let expr = format_ident!("expr");
         let tout = format_ident!("tout");
 
+        let block_string = block.clone().into_token_stream().to_string();
+        let mut block_string_edited = block_string.replace("self", "cronframe_self");
+        block_string_edited.insert_str(1, "let cronframe_self = Box::new(arg).downcast_ref::<Self>().unwrap();");
+
+        let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();
+
+        println!("UNEDITED BLOCK:\n{block_string}");
+        println!("EDITED BLOCK:\n{block_string_edited}");
+
         let new_code = quote! {
             // original method at the user's disposal
             #origin_method
 
             // cronjob method at cronframe's disposal
             // fn cron_method_<name_of_method> ...
-            fn #cronframe_method(arg: &dyn Any) #block
+            fn #cronframe_method(arg: &dyn Any) #block_edited
 
             // fn cron_helper_<name_of_method> ...
             fn #helper(arg: &dyn Any) -> JobBuilder<'static> {
@@ -210,7 +219,6 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
         let origin_function = parsed.clone().unwrap().to_token_stream();
         let ident = parsed.clone().unwrap().sig.ident;
         let job_name = ident.to_string();
-        let block = parsed.clone().unwrap().block;
         let helper = format_ident!("cron_helper_{}", ident);
 
         let new_code = quote! {

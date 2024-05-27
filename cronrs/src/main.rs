@@ -45,7 +45,8 @@ impl Users {
     }
     #[job]
     fn get_jobs(self) {
-        println!("call from get_jobs for seconds");
+        println!("call from get_jobs for seconds {}", self.second);
+        println!("call from get_jobs");
     }
 }
 

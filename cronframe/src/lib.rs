@@ -33,6 +33,7 @@ pub enum JobBuilder<'a> {
         job: fn(arg: &dyn Any),
         cron_expr: String,
         timeout: String,
+        // add parameter to get a reference to self?
     },
     Function {
         name: &'a str,
@@ -59,7 +60,7 @@ impl<'a> JobBuilder<'a> {
 
     pub const fn method_job(
         name: &'a str,
-        job: fn(&dyn Any),
+        job: fn(arg: &dyn Any),
         cron_expr: String,
         timeout: String,
     ) -> Self {
@@ -171,7 +172,7 @@ impl<'a> JobBuilder<'a> {
 
 pub enum CronJobType {
     Global(fn()),
-    Method(fn(_self: &dyn Any)), //maybe add object id here
+    Method(fn(arg: &dyn Any)), //maybe add object id here
     Function(fn()),
 }
 
@@ -184,6 +185,7 @@ pub struct CronJob {
     channels: Option<(Sender<String>, Receiver<String>)>,
     start_time: Option<DateTime<Utc>>,
     run_id: Option<String>,
+    // add option parameter to get a reference to self in case of Method Job?
 }
 
 impl CronJob {
