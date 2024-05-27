@@ -19,22 +19,11 @@ pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
 
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(JobBuilder<'static>);
-inventory::collect!(CronObj);
-
-pub struct CronObj {
-    pub helper: fn(arg: &dyn Any) -> JobBuilder,
-}
-
-impl CronObj {
-    pub const fn new(helper: fn(arg: &dyn Any) -> JobBuilder) -> Self {
-        CronObj { helper }
-    }
-}
 
 pub enum JobBuilder<'a> {
-    Function {
+    Global {
         name: &'a str,
-        job: fn(arg: &dyn Any),
+        job: fn(),
         cron_expr: &'a str,
         timeout: &'a str,
     },
@@ -44,12 +33,18 @@ pub enum JobBuilder<'a> {
         cron_expr: String,
         timeout: String,
     },
+    Function {
+        name: &'a str,
+        job: fn(),
+        cron_expr: &'a str,
+        timeout: &'a str,
+    },
 }
 
 impl<'a> JobBuilder<'a> {
-    pub const fn from_fn(
+    pub const fn global_job(
         name: &'a str,
-        job: fn(&dyn Any),
+        job: fn(),
         cron_expr: &'a str,
         timeout: &'a str,
     ) -> Self {
@@ -61,7 +56,7 @@ impl<'a> JobBuilder<'a> {
         }
     }
 
-    pub const fn from_met(
+    pub const fn method_job(
         name: &'a str,
         job: fn(&dyn Any),
         cron_expr: String,
@@ -74,10 +69,24 @@ impl<'a> JobBuilder<'a> {
             timeout,
         }
     }
+    
+    pub const fn function_job(
+        name: &'a str,
+        job: fn(),
+        cron_expr: &'a str,
+        timeout: &'a str,
+    ) -> Self {
+        JobBuilder::Function {
+            name,
+            job,
+            cron_expr,
+            timeout,
+        }
+    }
 
     pub fn build(&self) -> CronJob {
         match self {
-            Self::Function {
+            Self::Global {
                 name,
                 job,
                 cron_expr,
@@ -94,7 +103,7 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
-                    job: job.clone(),
+                    job: CronJobType::Global(*job),
                     schedule,
                     timeout,
                     handler: None,
@@ -120,7 +129,33 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
-                    job: job.clone(),
+                    job: CronJobType::Method(*job),
+                    schedule,
+                    timeout,
+                    handler: None,
+                    channels: None,
+                    start_time: None,
+                    run_id: None,
+                }
+            }
+            Self::Function {
+                name,
+                job,
+                cron_expr,
+                timeout,
+            } => {
+                let schedule =
+                    Schedule::from_str(cron_expr).expect("Failed to parse cron expression!");
+                let timeout: i64 = timeout.parse().expect("Failed to parse timeout!");
+                let timeout = if timeout > 0 {
+                    Some(Duration::milliseconds(timeout))
+                } else {
+                    None
+                };
+
+                CronJob {
+                    name: name.to_string(),
+                    job: CronJobType::Function(*job),
                     schedule,
                     timeout,
                     handler: None,
@@ -133,16 +168,15 @@ impl<'a> JobBuilder<'a> {
     }
 }
 
-/// # CronJob
-///
-/// Internal structure for the representation of a single cronjob.
-///
-/// The expansion of the cron macro annotation provides:
-/// - the job function pointer (the original annotated function)
-/// - the get info function pointer (Schedule and Timeout)
+pub enum CronJobType {
+    Global(fn()),
+    Method(fn(_self: &dyn Any)),
+    Function(fn()),
+}
+
 pub struct CronJob {
     pub name: String,
-    job: fn(arg: &dyn Any),
+    job: CronJobType,
     schedule: Schedule,
     timeout: Option<Duration>,
     handler: Option<JoinHandle<()>>,
@@ -190,37 +224,44 @@ impl CronJob {
     }
 
     pub fn run(&self) -> JoinHandle<()> {
-        let job = self.job.clone();
         let tx = self.channels.as_ref().unwrap().0.clone();
         let _rx = self.channels.as_ref().unwrap().1.clone();
         let schedule = self.schedule.clone();
         let job_name = self.name.clone();
         let run_id = self.run_id.as_ref().unwrap().clone();
 
-        let job_thread = move || loop {
-            let now = Utc::now();
-            if let Some(next) = schedule.upcoming(Utc).take(1).next() {
-                let until_next = next - now;
-                thread::sleep(until_next.to_std().unwrap());
-                info!("job @ {job_name} # {run_id} - Execution");
-                job(&());
-                let _ = tx.send("JOB_COMPLETE".to_string());
-                break;
-            }
-        };
-
-        thread::spawn(job_thread)
+        match self.job {
+            CronJobType::Method(job) => {
+                let job_thread = move || loop {
+                    let now = Utc::now();
+                    if let Some(next) = schedule.upcoming(Utc).take(1).next() {
+                        let until_next = next - now;
+                        thread::sleep(until_next.to_std().unwrap());
+                        info!("job @ {job_name} # {run_id} - Execution");
+                        job(&());
+                        let _ = tx.send("JOB_COMPLETE".to_string());
+                        break;
+                    }
+                };
+                thread::spawn(job_thread)
+            },
+            CronJobType::Global(job) | CronJobType::Function(job)  => {
+                let job_thread = move || loop {
+                    let now = Utc::now();
+                    if let Some(next) = schedule.upcoming(Utc).take(1).next() {
+                        let until_next = next - now;
+                        thread::sleep(until_next.to_std().unwrap());
+                        info!("job @ {job_name} # {run_id} - Execution");
+                        job();
+                        let _ = tx.send("JOB_COMPLETE".to_string());
+                        break;
+                    }
+                };
+                thread::spawn(job_thread)
+            },
+        }
     }
 }
-
-/// # CronFrame
-///
-/// This is where the annotated functions are made into cronjobs.
-///    Users::cron_helper_get_jobs(&user);
-/// The `init()` method builds an instance collecting all the cronjobs.
-///
-/// The `schedule()` method provides the scheduling for the jobs and retrieves their thread handle.
-///
 pub struct CronFrame {
     pub cron_jobs: Vec<CronJob>,
     logger: Handle,
@@ -234,7 +275,6 @@ impl CronFrame {
         };
 
         info!("CronFrame Initialization Start.");
-
         info!("Colleting Global Jobs.");
         // get the automatically collected global jobs
         for job_builder in inventory::iter::<JobBuilder> {
@@ -242,17 +282,8 @@ impl CronFrame {
             info!("Found Global Job \"{}\"", cron_job.name);
             frame.cron_jobs.push(cron_job)
         }
-
         info!("Global Jobs Collected.");
-
-        // // get the automatically collected object jobs
-        // for cron_obj in inventory::iter::<CronObj> {
-        //     let job_builder = (cron_obj.helper)(&());
-        //     frame.cron_jobs.push(job_builder.build())
-        // }
-
         info!("CronFrame Initialization Complete.");
-
         frame
     }
 

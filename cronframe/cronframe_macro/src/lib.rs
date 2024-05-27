@@ -3,17 +3,6 @@ use quote::{format_ident, quote, ToTokens};
 use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
 
 #[proc_macro_attribute]
-///
-/// # CronFrame: cron macro
-///
-/// This macro allows for the definition of a global cronjob.
-///
-/// It makes use of two arguments:
-///
-/// - `expr = "* * * * * *"` for the cron expression.
-///
-/// - `timeout = "time in ms"`, 0 is for no timeout.
-///
 pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
     let args = parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
 
@@ -37,17 +26,18 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
         let parsed = syn::parse::<ItemFn>(code.clone());
 
         if parsed.is_ok() {
+            let origin_function = parsed.clone().unwrap().to_token_stream();
             let ident = parsed.clone().unwrap().sig.ident;
             let block = parsed.clone().unwrap().block;
             let job_name = ident.to_string();
 
             let new_code = quote! {
                 // original function
-                fn #ident(arg: &dyn Any) #block
+                #origin_function
 
                 // necessary for automatic job collection
                 inventory::submit! {
-                    JobBuilder::from_fn(#job_name, #ident, #cron_expr, #timeout)
+                    JobBuilder::global_job(#job_name, #ident, #cron_expr, #timeout)
                 }
             };
 
@@ -79,11 +69,6 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-///
-/// # CronFrame: cron_impl macro
-/// 
-/// This macro is used in conjunction with the `job` macro in user defined impl blocks to allow jobs inside them.
-/// 
 pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_impl = syn::parse::<ItemImpl>(code.clone()).unwrap();
     let r#impl = item_impl.to_token_stream();
@@ -103,9 +88,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         helper_funcs.push(helper.clone());
 
         let new_code_tmp = quote! {
-            inventory::submit! {
-                CronObj::new(#impl_type::#helper)
-            }
+            
         };
 
         new_code.extend(new_code_tmp.into_iter());
@@ -118,12 +101,12 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
             pub fn helper_gatherer(&self, frame: &mut CronFrame){
                 info!("Collecting Object Jobs from {}", #type_name);
 
-                for cron_obj in inventory::iter::<CronObj> {
-                    let job_builder = (cron_obj.helper)(self);
-                    let cron_job = job_builder.build();
-                    info!("Found Object Job \"{}\" from {}.", cron_job.name, #type_name);
-                    frame.cron_jobs.push(cron_job)
-                }
+                // for cron_obj in inventory::iter::<CronObj> {
+                //     let job_builder = (cron_obj.helper)(self);
+                //     let cron_job = job_builder.build();
+                //     info!("Found Object Job \"{}\" from {}.", cron_job.name, #type_name);
+                //     frame.cron_jobs.push(cron_job)
+                // }
                 info!("Object Jobs from {} Collected.", #type_name);
             }
         }
@@ -134,28 +117,29 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-///
-/// # CronFrame: job macro
-/// 
-/// This macro is used in conjunction with the `cron_impl` macro in user defined impl blocks to allow jobs inside them.
-/// 
 pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
     let parsed = syn::parse::<ItemFn>(code.clone());
 
     if check_self(&parsed) {
+        // generate code for a method job
+        let origin_method = parsed.clone().unwrap().to_token_stream();
         let ident = parsed.clone().unwrap().sig.ident;
         let job_name = ident.to_string();
         let block = parsed.clone().unwrap().block;
+        let cronframe_method = format_ident!("cron_method_{}", ident);
         let helper = format_ident!("cron_helper_{}", ident);
         let expr = format_ident!("expr");
         let tout = format_ident!("tout");
 
-        let mut new_code = quote! {
-            // original function
-            fn #ident(arg: &dyn Any) #block
-        };
+        let new_code = quote! {
+            // original method at the user's disposal
+            #origin_method
 
-        let helper_code = quote! {
+            // cronjob method at cronframe's disposal
+            // fn cron_method_<name_of_method> ...
+            fn #cronframe_method(arg: &dyn Any) #block
+
+            // fn cron_helper_<name_of_method> ...
             fn #helper(arg: &dyn Any) -> JobBuilder {
                 let this_obj = Box::new(arg).downcast_ref::<Self>().unwrap();
                 let #expr = format!(
@@ -169,13 +153,12 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
                     this_obj.year,
                 );
                 let #tout = format!("{}", this_obj.timeout);
-                JobBuilder::from_met(#job_name, Self::#ident, #expr, #tout)
+                JobBuilder::method_job(#job_name, Self::#cronframe_method, #expr, #tout)
             }
         };
-
-        new_code.extend(helper_code.into_iter());
         new_code.into()
     } else {
+        // generate code for a function job
         let args =
             parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
 
@@ -199,6 +182,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
             return code;
         }
 
+        let origin_function = parsed.clone().unwrap().to_token_stream();
         let ident = parsed.clone().unwrap().sig.ident;
         let job_name = ident.to_string();
         let block = parsed.clone().unwrap().block;
@@ -206,10 +190,10 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
 
         let new_code = quote! {
             // original function
-            fn #ident(arg: &dyn Any) #block
+            #origin_function
 
-            fn #helper(arg: &dyn Any) -> JobBuilder {
-                JobBuilder::from_fn(#job_name, Self::#ident, #cron_expr, #timeout)
+            fn #helper() -> JobBuilder<'static> {
+                JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout)
             }
         };
         new_code.into()
