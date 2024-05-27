@@ -1,6 +1,6 @@
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};
-use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
+use syn::{self, parse_macro_input, punctuated::Punctuated, spanned::Spanned, ItemFn, ItemImpl, ItemStruct, Meta};
 
 #[proc_macro_attribute]
 pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
@@ -78,6 +78,9 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let impl_items = item_impl.items.clone();
     let impl_type = item_impl.self_ty.to_token_stream();
 
+    let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{impl_type}");
+    let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{impl_type}");
+
     let mut new_code = quote! {
         #r#impl
     };
@@ -93,13 +96,13 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         let new_code_tmp = if check_self(&item_fn_parsed) {
             // method job
             quote! {
-                #[distributed_slice(CRONFRAME_METHOD_JOBS_Users)]
+                #[distributed_slice(#method_jobs)]
                 static #linkme_deserialize: fn(_self: &dyn Any)-> JobBuilder<'static> = #impl_type::#helper;
             }
         }else{
             // function job
             quote! {
-                #[distributed_slice(CRONFRAME_FUNCTION_JOBS_Users)]
+                #[distributed_slice(#function_jobs)]
                 static #linkme_deserialize: fn()-> JobBuilder<'static> = #impl_type::#helper;
             }
         };
@@ -114,7 +117,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         impl #impl_type{
             pub fn helper_gatherer(&self, frame: &mut CronFrame){
                 info!("Collecting Method Jobs from {}", #type_name);
-                for method_job in CRONFRAME_METHOD_JOBS_Users {
+                for method_job in #method_jobs {
                     let job_builder = (method_job)(self);
                     let cron_job = job_builder.build();
                     info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
@@ -123,7 +126,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                 info!("Method Jobs from {} Collected.", #type_name);
 
                 info!("Collecting Function Jobs from {}", #type_name);
-                for method_job in CRONFRAME_FUNCTION_JOBS_Users {
+                for method_job in #function_jobs {
                     let job_builder = (method_job)();
                     let cron_job = job_builder.build();
                     info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
