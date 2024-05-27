@@ -16,6 +16,7 @@ pub use std::any::{self, TypeId};
 pub use std::str::FromStr;
 pub use std::thread;
 pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
+pub use linkme::distributed_slice;
 
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(JobBuilder<'static>);

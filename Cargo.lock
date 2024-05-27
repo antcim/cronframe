@@ -111,6 +111,7 @@ dependencies = [
  "crossbeam-channel",
  "inventory",
  "lazy_static",
+ "linkme",
  "log",
  "log4rs",
  "quote",
@@ -124,6 +125,7 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "cron",
+ "linkme",
  "quote",
  "syn 2.0.53",
 ]
@@ -136,6 +138,7 @@ dependencies = [
  "cron",
  "cronframe",
  "inventory",
+ "linkme",
 ]
 
 [[package]]
@@ -270,6 +273,26 @@ name = "libc"
 version = "0.2.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae743338b92ff9146ce83992f766a31066a91a8c84a45e0e9f21e7cf6de6d346"
+
+[[package]]
+name = "linkme"
+version = "0.3.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "833222afbfe72868ac8f9770c91a33673f0d5fefc37c9dbe94aa3548b571623f"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39f0dea92dbea3271557cc2e1848723967bba81f722f95026860974ec9283f08"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.53",
+]
 
 [[package]]
 name = "lock_api"

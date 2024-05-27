@@ -55,14 +55,17 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
 pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_struct = syn::parse::<ItemStruct>(code.clone()).unwrap();
     let r#struct = item_struct.to_token_stream();
-    let cron_obj = format_ident!("CRON_OBJ_{}", item_struct.ident);
+    let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{}", item_struct.ident);
+    let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{}", item_struct.ident);
 
     let new_code = quote! {
         #r#struct
 
-        lazy_static! {
-            static ref #cron_obj: Mutex<Vec<CronJob>> = Mutex::new(Vec::new());
-        }
+        #[distributed_slice]
+        static #method_jobs: [fn(&dyn Any) -> JobBuilder<'static>];
+
+        #[distributed_slice]
+        static #function_jobs: [fn() -> JobBuilder<'static>];
     };
 
     new_code.into()
@@ -79,19 +82,30 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         #r#impl
     };
 
-    let mut helper_funcs = vec![];
-
+    let mut count = 0;
     for item in impl_items {
         let item_token = item.to_token_stream();
-        let item_fn_id = syn::parse::<ItemFn>(item_token.into()).unwrap().sig.ident;
+        let item_fn_parsed = syn::parse::<ItemFn>(item_token.into());
+        let item_fn_id = item_fn_parsed.clone().unwrap().sig.ident;
         let helper = format_ident!("cron_helper_{}", item_fn_id);
-        helper_funcs.push(helper.clone());
+        let linkme_deserialize = format_ident!("LINKME_{}_{count}", item_fn_id);
 
-        let new_code_tmp = quote! {
-            
+        let new_code_tmp = if check_self(&item_fn_parsed) {
+            // method job
+            quote! {
+                #[distributed_slice(CRONFRAME_METHOD_JOBS_Users)]
+                static #linkme_deserialize: fn(_self: &dyn Any)-> JobBuilder<'static> = #impl_type::#helper;
+            }
+        }else{
+            // function job
+            quote! {
+                #[distributed_slice(CRONFRAME_FUNCTION_JOBS_Users)]
+                static #linkme_deserialize: fn()-> JobBuilder<'static> = #impl_type::#helper;
+            }
         };
 
         new_code.extend(new_code_tmp.into_iter());
+        count += 1;
     }
 
     let type_name = impl_type.to_string();
@@ -99,15 +113,23 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let gather_fn = quote! {
         impl #impl_type{
             pub fn helper_gatherer(&self, frame: &mut CronFrame){
-                info!("Collecting Object Jobs from {}", #type_name);
+                info!("Collecting Method Jobs from {}", #type_name);
+                for method_job in CRONFRAME_METHOD_JOBS_Users {
+                    let job_builder = (method_job)(self);
+                    let cron_job = job_builder.build();
+                    info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
+                    frame.cron_jobs.push(cron_job)
+                }
+                info!("Method Jobs from {} Collected.", #type_name);
 
-                // for cron_obj in inventory::iter::<CronObj> {
-                //     let job_builder = (cron_obj.helper)(self);
-                //     let cron_job = job_builder.build();
-                //     info!("Found Object Job \"{}\" from {}.", cron_job.name, #type_name);
-                //     frame.cron_jobs.push(cron_job)
-                // }
-                info!("Object Jobs from {} Collected.", #type_name);
+                info!("Collecting Function Jobs from {}", #type_name);
+                for method_job in CRONFRAME_FUNCTION_JOBS_Users {
+                    let job_builder = (method_job)();
+                    let cron_job = job_builder.build();
+                    info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
+                    frame.cron_jobs.push(cron_job)
+                }
+                info!("Method Function from {} Collected.", #type_name);
             }
         }
     };
@@ -140,7 +162,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
             fn #cronframe_method(arg: &dyn Any) #block
 
             // fn cron_helper_<name_of_method> ...
-            fn #helper(arg: &dyn Any) -> JobBuilder {
+            fn #helper(arg: &dyn Any) -> JobBuilder<'static> {
                 let this_obj = Box::new(arg).downcast_ref::<Self>().unwrap();
                 let #expr = format!(
                     "{} {} {} {} {} {} {}",
@@ -191,7 +213,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
         let new_code = quote! {
             // original function
             #origin_function
-
+            
             fn #helper() -> JobBuilder<'static> {
                 JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout)
             }

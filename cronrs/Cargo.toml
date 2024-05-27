@@ -8,3 +8,4 @@ chrono = "0.4.38"
 cron = "0.12.1"
 cronframe = { path = "../cronframe" }
 inventory = "0.3.15"
+linkme = "0.3.26"
