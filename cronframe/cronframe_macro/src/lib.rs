@@ -121,7 +121,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                     let job_builder = (method_job)(self);
                     let cron_job = job_builder.build();
                     info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
-                    frame.cron_jobs.push(cron_job)
+                    frame.cron_jobs.lock().unwrap().push(cron_job)
                 }
                 info!("Method Jobs from {} Collected.", #type_name);
 
@@ -130,7 +130,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                     let job_builder = (method_job)();
                     let cron_job = job_builder.build();
                     info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
-                    frame.cron_jobs.push(cron_job)
+                    frame.cron_jobs.lock().unwrap().push(cron_job)
                 }
                 info!("Method Function from {} Collected.", #type_name);
             }
@@ -158,7 +158,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
 
         let block_string = block.clone().into_token_stream().to_string();
         let mut block_string_edited = block_string.replace("self", "cronframe_self");
-        block_string_edited.insert_str(1, "let cronframe_self = Box::new(arg).downcast_ref::<Self>().unwrap();");
+        //block_string_edited.insert_str(1, "let cronframe_self = Box::new(arg).downcast_ref::<Self>().unwrap();");
 
         let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();
 
