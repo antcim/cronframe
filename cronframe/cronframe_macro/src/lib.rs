@@ -28,7 +28,6 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
         if parsed.is_ok() {
             let origin_function = parsed.clone().unwrap().to_token_stream();
             let ident = parsed.clone().unwrap().sig.ident;
-            let block = parsed.clone().unwrap().block;
             let job_name = ident.to_string();
 
             let new_code = quote! {
@@ -115,7 +114,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let gather_fn = quote! {
         impl #impl_type{
-            pub fn helper_gatherer(&self, frame: &mut CronFrame){
+            pub fn helper_gatherer(&self, frame: Arc<CronFrame>){
                 info!("Collecting Method Jobs from {}", #type_name);
                 for method_job in #method_jobs {
                     let job_builder = (method_job)(self);
@@ -157,7 +156,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
         let tout = format_ident!("tout");
 
         let block_string = block.clone().into_token_stream().to_string();
-        let mut block_string_edited = block_string.replace("self", "cronframe_self");
+        let block_string_edited = block_string.replace("self", "cronframe_self");
         //block_string_edited.insert_str(1, "let cronframe_self = Box::new(arg).downcast_ref::<Self>().unwrap();");
 
         let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();

@@ -52,7 +52,6 @@ impl Users {
 
 fn main() {
     let cronframe = CronFrame::init();
-    cronframe.scheduler();
 
     let user1 = Users {
         second: "0/5".to_string(),
@@ -76,10 +75,10 @@ fn main() {
         timeout: 0,
     };
 
-    //user1.helper_gatherer(&mut cronframe);
-    //user2.helper_gatherer(&mut cronframe);
+    user1.helper_gatherer(cronframe.clone());
+    user2.helper_gatherer(cronframe.clone());
 
-    //cronframe.scheduler();
+    cronframe.scheduler();
 
     loop {
         println!("Enter x to quit...");

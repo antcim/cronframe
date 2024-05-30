@@ -1,4 +1,5 @@
-#[macro_use] extern crate rocket;
+#[macro_use]
+extern crate rocket;
 extern crate lazy_static;
 use chrono::DateTime;
 pub use chrono::{Duration, Utc};
@@ -15,7 +16,7 @@ use rand::distributions::{Alphanumeric, DistString};
 pub use std::any::Any;
 pub use std::any::{self, TypeId};
 pub use std::str::FromStr;
-use std::sync::Arc;
+pub use std::sync::Arc;
 pub use std::thread;
 pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
 
@@ -310,16 +311,43 @@ impl CronFrame {
 
             let mut cron_jobs = instance.cron_jobs.lock().unwrap();
 
-            for cron_job in &mut(*cron_jobs) {
-                if !instance.handlers.lock().unwrap().contains_key(&cron_job.name) {
+            for cron_job in &mut (*cron_jobs) {
+                if !instance
+                    .handlers
+                    .lock()
+                    .unwrap()
+                    .contains_key(&cron_job.name)
+                {
                     if cron_job.check_timeout() {
                         info!("job @ {} - Reached Timeout", cron_job.name);
-                        // TODO remove timedout job from list of actives?
+                        // TODO remove timed-out job from list of actives?
                         continue;
                     }
+
                     let handle = (*cron_job).try_schedule();
+
                     if handle.is_some() {
-                        instance.handlers.lock().unwrap().insert(cron_job.name.clone(), handle.unwrap());
+                        if let CronJobType::Method(_) = cron_job.job {
+                            if !cron_job.name.ends_with("mtdjb") {
+                                let rnd_str =
+                                    Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
+                                let key = format!("{}_{}_mtdjb", cron_job.name, rnd_str);
+                                cron_job.name = key;
+                            }
+                        } else if let CronJobType::Function(_) = cron_job.job {
+                            if !cron_job.name.ends_with("fnjb") {
+                                let rnd_str =
+                                    Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
+                                let key = format!("{}_{}_fnjb", cron_job.name, rnd_str);
+                                cron_job.name = key;
+                            }
+                        }
+
+                        instance
+                            .handlers
+                            .lock()
+                            .unwrap()
+                            .insert(cron_job.name.clone(), handle.unwrap());
                         info!(
                             "job @ {} # {} - Scheduled.",
                             cron_job.name,
@@ -327,8 +355,16 @@ impl CronFrame {
                         );
                     }
                 } else {
-                    let _tx = cron_job.channels.clone().expect("error: unwrapping tx channel").0;
-                    let rx = cron_job.channels.clone().expect("error: unwrapping rx channel").1;
+                    let _tx = cron_job
+                        .channels
+                        .clone()
+                        .expect("error: unwrapping tx channel")
+                        .0;
+                    let rx = cron_job
+                        .channels
+                        .clone()
+                        .expect("error: unwrapping rx channel")
+                        .1;
 
                     match rx.try_recv() {
                         Ok(message) => {
@@ -338,7 +374,11 @@ impl CronFrame {
                                     cron_job.name,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                instance.handlers.lock().unwrap().remove(cron_job.name.as_str());
+                                instance
+                                    .handlers
+                                    .lock()
+                                    .unwrap()
+                                    .remove(cron_job.name.as_str());
                                 cron_job.channels = None;
                                 cron_job.run_id = None;
                             }
@@ -376,7 +416,7 @@ impl CronFrame {
 }
 
 #[get("/")]
-fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> String{
+fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> String {
     //cronframe.scheduler();
     //format!("{}", cronframe.cron_jobs[0].name)
     "running".to_string()
@@ -386,13 +426,15 @@ fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
     let tokio_runtime = rocket::tokio::runtime::Runtime::new()?;
 
     let config = rocket::Config {
-        port: 8002,
+        port: 8001,
         address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
         ..rocket::Config::debug_default()
     };
 
-    let rocket = rocket::custom(&config).mount("/", routes![home]).manage(frame);
-    
+    let rocket = rocket::custom(&config)
+        .mount("/", routes![home])
+        .manage(frame);
+
     tokio_runtime.block_on(async move {
         let _ = rocket.launch().await;
     });
