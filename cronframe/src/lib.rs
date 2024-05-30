@@ -52,7 +52,7 @@ impl<'a> JobBuilder<'a> {
         cron_expr: &'a str,
         timeout: &'a str,
     ) -> Self {
-        JobBuilder::Function {
+        JobBuilder::Global {
             name,
             job,
             cron_expr,
@@ -334,7 +334,9 @@ impl CronFrame {
                                 let key = format!("{}_{}_mtdjb", cron_job.name, rnd_str);
                                 cron_job.name = key;
                             }
-                        } else if let CronJobType::Function(_) = cron_job.job {
+                        } 
+                        
+                        if let CronJobType::Function(_) = cron_job.job {
                             if !cron_job.name.ends_with("fnjb") {
                                 let rnd_str =
                                     Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
@@ -417,9 +419,13 @@ impl CronFrame {
 
 #[get("/")]
 fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> String {
-    //cronframe.scheduler();
-    //format!("{}", cronframe.cron_jobs[0].name)
-    "running".to_string()
+    let mut available_jobs = String::from("Available Jobs:");
+
+    for job in cronframe.cron_jobs.lock().unwrap().iter(){
+        available_jobs.push_str(format!("\n{}", job.name).as_str());
+    }
+
+    available_jobs
 }
 
 fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
