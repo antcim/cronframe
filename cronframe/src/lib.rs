@@ -1,29 +1,28 @@
 #[macro_use]
 extern crate rocket;
-extern crate lazy_static;
 use chrono::DateTime;
 pub use chrono::{Duration, Utc};
 pub use cron::Schedule;
 pub use cronframe_macro::{cron, cron_impl, cron_obj, job};
 use crossbeam_channel::{Receiver, Sender};
-pub use lazy_static::lazy_static;
 pub use linkme::distributed_slice;
 pub use log::{info, warn, LevelFilter};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use rand::distributions::{Alphanumeric, DistString};
+use rand::distributions::DistString;
 pub use std::any::Any;
 pub use std::any::{self, TypeId};
 pub use std::str::FromStr;
 pub use std::sync::Arc;
-pub use std::thread;
 pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
 
 mod server;
 
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(JobBuilder<'static>);
+
+const ID_SIZE: usize = 8;
 
 pub enum JobBuilder<'a> {
     Global {
@@ -109,6 +108,7 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
+                    id: generate_id(ID_SIZE),
                     job: CronJobType::Global(*job),
                     schedule,
                     timeout,
@@ -134,6 +134,7 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
+                    id: generate_id(ID_SIZE),
                     job: CronJobType::Method(*job),
                     schedule,
                     timeout,
@@ -159,6 +160,7 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
+                    id: generate_id(ID_SIZE),
                     job: CronJobType::Function(*job),
                     schedule,
                     timeout,
@@ -181,6 +183,7 @@ pub enum CronJobType {
 #[derive(Debug, Clone)]
 pub struct CronJob {
     pub name: String,
+    id: String,
     job: CronJobType,
     schedule: Schedule,
     timeout: Option<Duration>,
@@ -193,7 +196,7 @@ pub struct CronJob {
 impl CronJob {
     pub fn try_schedule(&mut self) -> Option<JoinHandle<()>> {
         if self.check_schedule() {
-            self.run_id = Some(Alphanumeric.sample_string(&mut rand::thread_rng(), 8));
+            self.run_id = Some(generate_id(ID_SIZE));
             self.channels = Some(crossbeam_channel::bounded(1));
             if self.start_time.is_none() {
                 self.start_time = Some(Utc::now());
@@ -231,7 +234,7 @@ impl CronJob {
         let tx = self.channels.as_ref().unwrap().0.clone();
         let _rx = self.channels.as_ref().unwrap().1.clone();
         let schedule = self.schedule.clone();
-        let job_name = self.name.clone();
+        let job_id = format!("{} ID#{}", self.name, self.id);
         let run_id = self.run_id.as_ref().unwrap().clone();
 
         match self.job {
@@ -240,28 +243,28 @@ impl CronJob {
                     let now = Utc::now();
                     if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                         let until_next = next - now;
-                        thread::sleep(until_next.to_std().unwrap());
-                        info!("job @ {job_name} # {run_id} - Execution");
+                        std::thread::sleep(until_next.to_std().unwrap());
+                        info!("job @{job_id} RUN_ID#{run_id} - Execution");
                         job(&());
                         let _ = tx.send("JOB_COMPLETE".to_string());
                         break;
                     }
                 };
-                thread::spawn(job_thread)
+                std::thread::spawn(job_thread)
             }
             CronJobType::Global(job) | CronJobType::Function(job) => {
                 let job_thread = move || loop {
                     let now = Utc::now();
                     if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                         let until_next = next - now;
-                        thread::sleep(until_next.to_std().unwrap());
-                        info!("job @ {job_name} # {run_id} - Execution");
+                        std::thread::sleep(until_next.to_std().unwrap());
+                        info!("job @{job_id} RUN_ID#{run_id} - Execution");
                         job();
                         let _ = tx.send("JOB_COMPLETE".to_string());
                         break;
                     }
                 };
-                thread::spawn(job_thread)
+                std::thread::spawn(job_thread)
             }
         }
     }
@@ -282,7 +285,7 @@ impl CronFrame {
 
         info!("CronFrame Init Start.");
         info!("Colleting Global Jobs.");
-        // get the automatically collected global jobs
+        
         for job_builder in inventory::iter::<JobBuilder> {
             let cron_job = job_builder.build();
             info!("Found Global Job \"{}\"", cron_job.name);
@@ -294,7 +297,7 @@ impl CronFrame {
         info!("CronFrame Server Init");
         let frame = Arc::new(frame);
         let ret_frame = frame.clone();
-        // spawn the server thread
+
         std::thread::spawn(move || server::server(frame));
         info!("CronFrame Server Running...");
         ret_frame
@@ -309,19 +312,23 @@ impl CronFrame {
 
         let scheduler = move || loop {
             // sleep some otherwise the cpu consumption goes to the moon
-            thread::sleep(Duration::milliseconds(500).to_std().unwrap());
+            std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
 
             let mut cron_jobs = instance.cron_jobs.lock().unwrap();
 
             for cron_job in &mut (*cron_jobs) {
+                let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
+                
+                // if the job_id key is not in the hashmap then attempt to schedule it
+                // if scheduling is a succed then add the key to the hashmap
                 if !instance
                     .handlers
                     .lock()
                     .unwrap()
-                    .contains_key(&cron_job.name)
+                    .contains_key(&job_id)
                 {
                     if cron_job.check_timeout() {
-                        info!("job @ {} - Reached Timeout", cron_job.name);
+                        info!("job @{} - Reached Timeout", job_id);
                         // TODO remove timed-out job from list of actives?
                         continue;
                     }
@@ -329,36 +336,21 @@ impl CronFrame {
                     let handle = (*cron_job).try_schedule();
 
                     if handle.is_some() {
-                        if let CronJobType::Method(_) = cron_job.job {
-                            if !cron_job.name.ends_with("mtdjb") {
-                                let rnd_str =
-                                    Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
-                                let key = format!("{}_{}_mtdjb", cron_job.name, rnd_str);
-                                cron_job.name = key;
-                            }
-                        }
-
-                        if let CronJobType::Function(_) = cron_job.job {
-                            if !cron_job.name.ends_with("fnjb") {
-                                let rnd_str =
-                                    Alphanumeric.sample_string(&mut rand::thread_rng(), 4);
-                                let key = format!("{}_{}_fnjb", cron_job.name, rnd_str);
-                                cron_job.name = key;
-                            }
-                        }
-
                         instance
                             .handlers
                             .lock()
                             .unwrap()
-                            .insert(cron_job.name.clone(), handle.unwrap());
+                            .insert(job_id.clone(), handle.unwrap());
                         info!(
-                            "job @ {} # {} - Scheduled.",
-                            cron_job.name,
+                            "job @{} RUN_ID#{} - Scheduled.",
+                            job_id,
                             cron_job.run_id.as_ref().unwrap()
                         );
                     }
-                } else {
+                } 
+                // the job_id key is in the hashmap and running
+                // check to see if it sent a message that says it finished
+                else {
                     let _tx = cron_job
                         .channels
                         .clone()
@@ -374,15 +366,15 @@ impl CronFrame {
                         Ok(message) => {
                             if message == "JOB_COMPLETE" {
                                 info!(
-                                    "job @ {} # {} - Completed.",
-                                    cron_job.name,
+                                    "job @{} RUN_ID#{} - Completed.",
+                                    job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
                                 instance
                                     .handlers
                                     .lock()
                                     .unwrap()
-                                    .remove(cron_job.name.as_str());
+                                    .remove(job_id.as_str());
                                 cron_job.channels = None;
                                 cron_job.run_id = None;
                             }
@@ -393,7 +385,7 @@ impl CronFrame {
                 }
             }
         };
-        thread::spawn(scheduler);
+        std::thread::spawn(scheduler);
         info!("CronFrame Scheduler Running...");
     }
 
@@ -417,4 +409,8 @@ impl CronFrame {
 
         log4rs::init_config(config).unwrap()
     }
+}
+
+fn generate_id(len: usize) -> String{
+    rand::distributions::Alphanumeric.sample_string(&mut rand::thread_rng(), len)
 }
