@@ -1,0 +1,10 @@
+{% extends "base" %}
+
+{% block content %}
+    Status: running
+    <ol>
+        {% for cron_job in cron_jobs %}
+            <li><a href="/job/{{cron_job}}">{{cron_job}}</li>
+        {% endfor %}
+    </ol>
+{% endblock content %}

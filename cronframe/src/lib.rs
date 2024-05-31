@@ -20,6 +20,8 @@ pub use std::sync::Arc;
 pub use std::thread;
 pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
 
+mod server;
+
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(JobBuilder<'static>);
 
@@ -293,7 +295,7 @@ impl CronFrame {
         let frame = Arc::new(frame);
         let ret_frame = frame.clone();
         // spawn the server thread
-        std::thread::spawn(move || server(frame));
+        std::thread::spawn(move || server::server(frame));
         info!("CronFrame Server Running...");
         ret_frame
     }
@@ -334,8 +336,8 @@ impl CronFrame {
                                 let key = format!("{}_{}_mtdjb", cron_job.name, rnd_str);
                                 cron_job.name = key;
                             }
-                        } 
-                        
+                        }
+
                         if let CronJobType::Function(_) = cron_job.job {
                             if !cron_job.name.ends_with("fnjb") {
                                 let rnd_str =
@@ -415,35 +417,4 @@ impl CronFrame {
 
         log4rs::init_config(config).unwrap()
     }
-}
-
-#[get("/")]
-fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> String {
-    let mut available_jobs = String::from("Available Jobs:");
-
-    for job in cronframe.cron_jobs.lock().unwrap().iter(){
-        available_jobs.push_str(format!("\n{}", job.name).as_str());
-    }
-
-    available_jobs
-}
-
-fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
-    let tokio_runtime = rocket::tokio::runtime::Runtime::new()?;
-
-    let config = rocket::Config {
-        port: 8001,
-        address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
-        ..rocket::Config::debug_default()
-    };
-
-    let rocket = rocket::custom(&config)
-        .mount("/", routes![home])
-        .manage(frame);
-
-    tokio_runtime.block_on(async move {
-        let _ = rocket.launch().await;
-    });
-
-    Ok(0)
 }
