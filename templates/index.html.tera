@@ -1,10 +1,11 @@
 {% extends "base" %}
 
 {% block content %}
-    Status: running
+    <h2>Status: running</h2>
     <ol>
         {% for cron_job in cron_jobs %}
-            <li><a href="/job/{{cron_job}}">{{cron_job}}</li>
+            {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
+            <li><a href="{{link}}">{{cron_job.name}}</li>
         {% endfor %}
     </ol>
 {% endblock content %}

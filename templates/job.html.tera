@@ -3,13 +3,14 @@
 {% block content %}
     <h2>Job Info</h2>
     <ul>
-        <li>Name: {{job_name}}</li>
-        <li>Type: </li>
-        <li>Run ID: </li>
-        <li>Status: </li>
-        <li>Timeout: </li>
-        <li>Schedule: </li>
-        <li>Next Schedule: </li>
-        <li>Cron expression: {{job_info}}</li>
+        <li>Name: {{job_info.name}}</li>
+        <li>ID: {{job_info.id}}</li>
+        <li>Type: {{job_info.type}}</li>
+        <li>Run ID: {{job_info.run_id}}</li>
+        <li>Status: {{job_info.status}}</li>
+        <li>Timeout: {{job_info.timeout}}</li>
+        <li>Schedule: {{job_info.schedule}}</li>
+        <li>Next Schedule: {{job_info.next_schedule}}</li>
+        <li>Cron expression: {{job_info.cron_expression}}</li>
     </ul>
 {% endblock content %}

@@ -285,7 +285,7 @@ impl CronFrame {
 
         info!("CronFrame Init Start.");
         info!("Colleting Global Jobs.");
-        
+
         for job_builder in inventory::iter::<JobBuilder> {
             let cron_job = job_builder.build();
             info!("Found Global Job \"{}\"", cron_job.name);
@@ -318,15 +318,10 @@ impl CronFrame {
 
             for cron_job in &mut (*cron_jobs) {
                 let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
-                
+
                 // if the job_id key is not in the hashmap then attempt to schedule it
                 // if scheduling is a succed then add the key to the hashmap
-                if !instance
-                    .handlers
-                    .lock()
-                    .unwrap()
-                    .contains_key(&job_id)
-                {
+                if !instance.handlers.lock().unwrap().contains_key(&job_id) {
                     if cron_job.check_timeout() {
                         info!("job @{} - Reached Timeout", job_id);
                         // TODO remove timed-out job from list of actives?
@@ -347,7 +342,7 @@ impl CronFrame {
                             cron_job.run_id.as_ref().unwrap()
                         );
                     }
-                } 
+                }
                 // the job_id key is in the hashmap and running
                 // check to see if it sent a message that says it finished
                 else {
@@ -370,11 +365,7 @@ impl CronFrame {
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                instance
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .remove(job_id.as_str());
+                                instance.handlers.lock().unwrap().remove(job_id.as_str());
                                 cron_job.channels = None;
                                 cron_job.run_id = None;
                             }
@@ -411,6 +402,6 @@ impl CronFrame {
     }
 }
 
-fn generate_id(len: usize) -> String{
+fn generate_id(len: usize) -> String {
     rand::distributions::Alphanumeric.sample_string(&mut rand::thread_rng(), len)
 }

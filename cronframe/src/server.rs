@@ -1,5 +1,6 @@
-use std::sync::Arc;
+use rocket::serde::Serialize;
 use rocket_dyn_templates::{context, Template};
+use std::sync::Arc;
 
 use crate::CronFrame;
 
@@ -25,37 +26,60 @@ pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
     Ok(0)
 }
 
-#[get("/")]
-fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
-    let mut available_jobs = vec![];
-
-    for job in cronframe.cron_jobs.lock().unwrap().iter() {
-        available_jobs.push(job.name.clone());
-    }
-
-    Template::render(
-        "index",
-        context! {
-            cron_jobs: available_jobs,
-        },
-    )
+#[derive(Serialize)]
+#[serde(crate = "rocket::serde")]
+struct JobList {
+    name: String,
+    id: String,
 }
 
-#[get("/job/<name>")]
-fn job_info(name: String, cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
-    let mut job_info = "not found".to_string();
+#[get("/")]
+fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
+    let mut cron_jobs = vec![];
 
     for job in cronframe.cron_jobs.lock().unwrap().iter() {
-        if job.name == name{
-            job_info = job.schedule.to_string()
+        cron_jobs.push(JobList {
+            name: job.name.clone(),
+            id: job.id.clone(),
+        });
+    }
+
+    Template::render("index", context! {cron_jobs})
+}
+
+#[derive(Serialize, Default)]
+#[serde(crate = "rocket::serde")]
+struct JobInfo {
+    name: String,
+    id: String,
+    r#type: String,
+    run_id: String,
+    status: String,
+    timeout: String,
+    schedule: String,
+    next_schedule: String,
+    cron_expression: String,
+}
+
+#[get("/job/<name>/<id>")]
+fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
+    let mut job_info = JobInfo::default();
+
+    for job in cronframe.cron_jobs.lock().unwrap().iter() {
+        if job.name == name && job.id == id {
+            job_info = JobInfo {
+                name: job.name.clone(),
+                id: job.id.clone(),
+                r#type: "tbd".to_string(),
+                run_id: job.id.clone(),
+                status: "tbd".to_string(),
+                timeout: job.timeout.unwrap().to_string(),
+                schedule: "tbd".to_string(),
+                next_schedule: "tbd".to_string(),
+                cron_expression: job.schedule.to_string(),
+            };
         }
     }
 
-    Template::render(
-        "job",
-        context! {
-            job_name: name,
-            job_info: job_info, 
-        },
-    )
+    Template::render("job", context! {job_info})
 }
