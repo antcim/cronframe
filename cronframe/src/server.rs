@@ -1,3 +1,4 @@
+use log::info;
 use rocket::{response::Redirect, serde::Serialize};
 use rocket_dyn_templates::{context, Template};
 use std::sync::Arc;
@@ -92,7 +93,9 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
 fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Arc<CronFrame>>) {
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
         if job.name == name && job.id == id {
+            let job_id = format!("{} ID#{}", job.name, job.id);
             job.set_timeout(value);
+            info!("job @{job_id} - Timeout Update");
         }
     }
     Redirect::to("/job/<name>/<id>");

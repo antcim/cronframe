@@ -2,6 +2,8 @@
 
 {% block content %}
 <h2>Job Info</h2>
+
+{% if job_info.name != ""%}
 <ul>
     <li>Name: {{job_info.name}}</li>
     <li>ID: {{job_info.id}}</li>
@@ -10,7 +12,7 @@
     <li>Status: {{job_info.status}}</li>
     <li>
         Timeout: {{job_info.timeout}}
-        <input oninput="setTimeout(this.value)" type ="text" placeholder="enter timout in ms" >
+        <input oninput="setTimeout(this.value)" type="text" placeholder="enter timout in ms">
         <button onclick="updateTimeout()">Update</button>
     </li>
     <li>Schedule: {{job_info.schedule}}</li>
@@ -22,7 +24,7 @@
 
     const setTimeout = (value) => {
         console.log(value);
-        timeout = value 
+        timeout = value
     };
 
     const updateTimeout = () => {
@@ -41,4 +43,7 @@
         };
     }
 </script>
+{% else %}
+<p>Job not found</p>
+{% endif %}
 {% endblock content %}
