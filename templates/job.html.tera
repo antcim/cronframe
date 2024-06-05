@@ -1,16 +1,44 @@
 {% extends "base" %}
 
 {% block content %}
-    <h2>Job Info</h2>
-    <ul>
-        <li>Name: {{job_info.name}}</li>
-        <li>ID: {{job_info.id}}</li>
-        <li>Type: {{job_info.type}}</li>
-        <li>Run ID: {{job_info.run_id}}</li>
-        <li>Status: {{job_info.status}}</li>
-        <li>Timeout: {{job_info.timeout}}</li>
-        <li>Schedule: {{job_info.schedule}}</li>
-        <li>Next Schedule: {{job_info.next_schedule}}</li>
-        <li>Cron expression: {{job_info.cron_expression}}</li>
-    </ul>
+<h2>Job Info</h2>
+<ul>
+    <li>Name: {{job_info.name}}</li>
+    <li>ID: {{job_info.id}}</li>
+    <li>Type: {{job_info.type}}</li>
+    <li>Run ID: {{job_info.run_id}}</li>
+    <li>Status: {{job_info.status}}</li>
+    <li>
+        Timeout: {{job_info.timeout}}
+        <input oninput="setTimeout(this.value)" type ="text" placeholder="enter timout in ms" >
+        <button onclick="updateTimeout()">Update</button>
+    </li>
+    <li>Schedule: {{job_info.schedule}}</li>
+    <li>Next Schedule: {{job_info.next_schedule}}</li>
+    <li>Cron expression: {{job_info.cron_expression}}</li>
+</ul>
+<script>
+    let timeout = 0;
+
+    const setTimeout = (value) => {
+        console.log(value);
+        timeout = value 
+    };
+
+    const updateTimeout = () => {
+        console.log("request to: " + window.location.href + "/toutset/" + timeout);
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", window.location.href + "/toutset/" + timeout);
+        xhr.send();
+        xhr.responseType = "json";
+        xhr.onload = () => {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                console.log(xhr.response);
+                location.reload();
+            } else {
+                console.log(`Error: ${xhr.status}`);
+            }
+        };
+    }
+</script>
 {% endblock content %}

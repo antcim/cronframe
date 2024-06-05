@@ -217,6 +217,14 @@ impl CronJob {
         false
     }
 
+    pub fn set_timeout(&mut self, value: i64) {
+        self.timeout = if value > 0 {
+            Some(Duration::milliseconds(value))
+        } else {
+            None
+        };
+    }
+
     pub fn check_timeout(&self) -> bool {
         if let Some(timeout) = self.timeout {
             if self.start_time.is_some() {

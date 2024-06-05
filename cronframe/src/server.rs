@@ -1,4 +1,4 @@
-use rocket::serde::Serialize;
+use rocket::{response::Redirect, serde::Serialize};
 use rocket_dyn_templates::{context, Template};
 use std::sync::Arc;
 
@@ -15,7 +15,7 @@ pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
     };
 
     let rocket = rocket::custom(&config)
-        .mount("/", routes![home, job_info])
+        .mount("/", routes![home, job_info, update_timeout])
         .attach(Template::fairing())
         .manage(frame);
 
@@ -86,4 +86,14 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
     }
 
     Template::render("job", context! {job_info})
+}
+
+#[get("/job/<name>/<id>/toutset/<value>")]
+fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Arc<CronFrame>>) {
+    for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
+        if job.name == name && job.id == id {
+            job.set_timeout(value);
+        }
+    }
+    Redirect::to("/job/<name>/<id>");
 }
