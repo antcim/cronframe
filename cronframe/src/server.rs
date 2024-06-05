@@ -98,5 +98,4 @@ fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Ar
             info!("job @{job_id} - Timeout Update");
         }
     }
-    Redirect::to("/job/<name>/<id>");
 }
