@@ -73,7 +73,11 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
                 r#type: "tbd".to_string(),
                 run_id: job.id.clone(),
                 status: "tbd".to_string(),
-                timeout: job.timeout.unwrap().to_string(),
+                timeout: if job.timeout.is_some(){
+                    job.timeout.unwrap().to_string()
+                }else{
+                    "None".into()
+                },
                 schedule: "tbd".to_string(),
                 next_schedule: "tbd".to_string(),
                 cron_expression: job.schedule.to_string(),
