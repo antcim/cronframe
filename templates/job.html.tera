@@ -11,16 +11,21 @@
     <li>Run ID: {{job_info.run_id}}</li>
     <li>Status: {{job_info.status}}</li>
     <li>
-        Timeout: {{job_info.timeout}}
+        <p>Timeout: {{job_info.timeout}}</p>
         <input oninput="setTimeout(this.value)" type="text" placeholder="enter timout in ms">
         <button onclick="updateTimeout()">Update</button>
     </li>
     <li>Schedule: {{job_info.schedule}}</li>
     <li>Next Schedule: {{job_info.next_schedule}}</li>
-    <li>Cron expression: {{job_info.cron_expression}}</li>
+    <li>
+        <p>Cron expression: {{job_info.cron_expression}}</p>
+        <input oninput="setSchedule(this.value)" type="text" placeholder="enter cron expression">
+        <button onclick="updateSchedule()">Update</button>
+    </li>
 </ul>
 <script>
     let timeout = 0;
+    let schedule = "* * * * * * *";
 
     const setTimeout = (value) => {
         console.log(value);
@@ -31,6 +36,27 @@
         console.log("request to: " + window.location.href + "/toutset/" + timeout);
         const xhr = new XMLHttpRequest();
         xhr.open("GET", window.location.href + "/toutset/" + timeout);
+        xhr.send();
+        xhr.responseType = "json";
+        xhr.onload = () => {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                console.log(xhr.response);
+                location.reload();
+            } else {
+                console.log(`Error: ${xhr.status}`);
+            }
+        };
+    }
+
+    const setSchedule = (value) => {
+        console.log(value);
+        schedule = value
+    };
+
+    const updateSchedule = () => {
+        console.log("request to: " + window.location.href + "/schedset/" + schedule);
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", window.location.href + "/schedset/" + schedule.replace("/", "slh"));
         xhr.send();
         xhr.responseType = "json";
         xhr.onload = () => {

@@ -225,6 +225,11 @@ impl CronJob {
         };
     }
 
+    pub fn set_schedule(&mut self, expression: &str) {
+        let expr = expression.replace("slh", "/").replace("%20", " ");
+        self.schedule = Schedule::from_str(expr.as_str()).expect("Failed to parse cron expression!");
+    }
+
     pub fn check_timeout(&self) -> bool {
         if let Some(timeout) = self.timeout {
             if self.start_time.is_some() {
