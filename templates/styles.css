@@ -1,0 +1,105 @@
+body{
+    background: #F6F6F6;
+    color: #494949;
+}
+
+a{
+    text-decoration: none;
+}
+
+header{
+    padding: 15px;
+}
+
+#logo{
+    font-weight: bold;
+    font-size: 30pt;
+}
+
+footer{
+    padding: 15px;
+    text-align: right;
+}
+
+#container{
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: white;
+    padding: 10px;
+    padding-top: 5px;
+    padding-bottomn: 5px;
+    border-left: 3px solid #FF3D00;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    width: 800px;
+    margin: auto;
+    box-shadow: 0px 0px 3px 0px rgba(0,0,0,.1);
+}
+
+#status{
+    background: rgba(51, 255, 0, .12);
+    padding: 15px;
+    border-radius: 6px;
+}
+
+#content{
+    background: #F1F1F1;
+    padding: 15px;
+    border-radius: 6px;
+}
+
+#job_info{
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.job_info_item{
+    padding: 5px;
+    border-bottom: 1px solid rgba(0,0,0,.05)
+}
+
+.job_info_item:nth-child(1){
+    font-weight: bold;
+    font-size: 16pt;
+}
+
+.job_info_item:last-child{
+    border: 0px;
+}
+
+input[type=text], select {
+    padding: 10px;
+    display: inline-block;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+button {
+    background-color: rgba(0,0,0,.5);
+    color: white;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+button:active {
+    background-color: #FF3D00;
+    color: white;
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}

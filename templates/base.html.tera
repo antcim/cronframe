@@ -4,18 +4,30 @@
 <head>
     <meta charset="utf-8" />
     <title>CronFrame</title>
+    <link rel="stylesheet" href="/styles">
 </head>
 
 <body>
-    <header>
-        <h1>CronFrame</h1>
-    </header>
+    <div id="container">
+        <header>
+            <div id="logo">
+                <a href="/"><span style="color:#494949">Cron</span><span style="color:#FF3D00">Frame</span></a>
+            </div>
+        </header>
 
-    {% block content %}{% endblock content %}
+        <div id="status">
+            Status: running
+        </div>
 
-    <footer>
-        <p>footer</p>
-    </footer>
+        <div id="content">
+            {% block content %}
+            {% endblock content %}
+        </div>
+
+        <footer>
+            &lt;/&gt; Antonio Cimino
+        </footer>
+    </div>
 </body>
 
 </html>

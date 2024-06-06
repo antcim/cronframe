@@ -1,5 +1,5 @@
 use log::{info, Log};
-use rocket::{config::Shutdown, serde::Serialize};
+use rocket::{config::Shutdown, fs::relative, fs::FileServer, serde::Serialize};
 use rocket_dyn_templates::{context, Template};
 use std::sync::Arc;
 
@@ -23,8 +23,9 @@ pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
     let rocket = rocket::custom(&config)
         .mount(
             "/",
-            routes![home, job_info, update_timeout, update_schedule],
+            routes![styles, home, job_info, update_timeout, update_schedule],
         )
+        //.mount("/public", FileServer::from("/templates"))
         .attach(Template::fairing())
         .manage(frame);
 
@@ -33,6 +34,11 @@ pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
     });
 
     Ok(0)
+}
+
+#[get("/styles")]
+async fn styles() -> Result<rocket::fs::NamedFile, std::io::Error> {
+    rocket::fs::NamedFile::open("templates/styles.css").await
 }
 
 #[derive(Serialize)]

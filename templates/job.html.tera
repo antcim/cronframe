@@ -1,28 +1,28 @@
 {% extends "base" %}
 
 {% block content %}
-<h2>Job Info</h2>
 
 {% if job_info.name != ""%}
-<ul>
-    <li>Name: {{job_info.name}}</li>
-    <li>ID: {{job_info.id}}</li>
-    <li>Type: {{job_info.type}}</li>
-    <li>Run ID: {{job_info.run_id}}</li>
-    <li>Status: {{job_info.status}}</li>
-    <li>
-        <p>Timeout: {{job_info.timeout}}</p>
+<div id="job_info">
+    <div class = "job_info_item">Job Info</div>
+    <div class = "job_info_item">Name: {{job_info.name}}</div>
+    <div class = "job_info_item">ID: {{job_info.id}}</div>
+    <div class = "job_info_item">Type: {{job_info.type}}</div>
+    <div class = "job_info_item">Run ID: {{job_info.run_id}}</div>
+    <div class = "job_info_item">Status: {{job_info.status}}</div>
+    <div class = "job_info_item">
+        Timeout: {{job_info.timeout}}
         <input oninput="setTimeout(this.value)" type="text" placeholder="enter timout in ms">
         <button onclick="updateTimeout()">Update</button>
-    </li>
-    <li>Schedule: {{job_info.schedule}}</li>
-    <li>Next Schedule: {{job_info.next_schedule}}</li>
-    <li>
-        <p>Cron expression: {{job_info.cron_expression}}</p>
+    </div>
+    <div class = "job_info_item">Schedule: {{job_info.schedule}}</div>
+    <div class = "job_info_item">Next Schedule: {{job_info.next_schedule}}</div>
+    <div class = "job_info_item">
+        Cron expression: {{job_info.cron_expression}}
         <input oninput="setSchedule(this.value)" type="text" placeholder="enter cron expression">
         <button onclick="updateSchedule()">Update</button>
-    </li>
-</ul>
+    </div>
+</div>
 <script>
     let timeout = 0;
     let schedule = "* * * * * * *";
@@ -70,6 +70,10 @@
     }
 </script>
 {% else %}
-<p>Job not found</p>
+<div id="job_info">
+    <div class = "job_info_item">
+        Job not found
+    </div>
+</div>
 {% endif %}
 {% endblock content %}
