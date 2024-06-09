@@ -225,9 +225,23 @@ impl CronJob {
         };
     }
 
-    pub fn set_schedule(&mut self, expression: &str) {
+    pub fn status(&self) -> String{
+        if self.check_timeout(){
+            "Timed-Out".to_string()
+        }else if self.run_id.is_some() {
+            "Running".to_string()
+        }else{
+            "Awaiting Schedule".to_string()
+        }
+    }
+
+    pub fn set_schedule(&mut self, expression: &str) -> bool {
         let expr = expression.replace("slh", "/").replace("%20", " ");
-        self.schedule = Schedule::from_str(expr.as_str()).expect("Failed to parse cron expression!");
+        if let Ok(schedule) = Schedule::from_str(expr.as_str()){
+            self.schedule = schedule;
+            return true;
+        }
+        false 
     }
 
     pub fn check_timeout(&self) -> bool {
@@ -241,6 +255,24 @@ impl CronJob {
             }
         }
         false
+    }
+
+    pub fn schedule(&self) -> String{
+        self.schedule.to_string()
+    }
+
+    pub fn upcoming(&self) -> String{
+        if self.check_timeout(){
+            return "None due to timeout.".to_string();
+        }
+        self.schedule.upcoming(Utc).into_iter().next().unwrap().to_string()
+    }
+
+    pub fn get_run_id(&self) -> String{
+        match &self.run_id{
+            Some(string) => string.clone(),
+            None => "None".into()
+        }
     }
 
     pub fn run(&self) -> JoinHandle<()> {

@@ -4,24 +4,34 @@
 
 {% if job_info.name != ""%}
 <div id="job_info">
-    <div class = "job_info_item">Job Info</div>
-    <div class = "job_info_item">Name: {{job_info.name}}</div>
-    <div class = "job_info_item">ID: {{job_info.id}}</div>
-    <div class = "job_info_item">Type: {{job_info.type}}</div>
-    <div class = "job_info_item">Run ID: {{job_info.run_id}}</div>
-    <div class = "job_info_item">Status: {{job_info.status}}</div>
-    <div class = "job_info_item">
+    <div class="job_info_item">Job Info @{{job_info.name}}</div>
+    <div class="job_info_item">Name: {{job_info.name}}</div>
+    <div class="job_info_item">ID: {{job_info.id}}</div>
+    <div class="job_info_item">Type: {{job_info.type}}</div>
+    {% if job_info.run_id != "None" %}
+        <div class="job_info_item">Run ID: {{job_info.run_id}}</div>
+    {% endif %}
+    <div class="job_info_item">
+        Status:
+        {% if job_info.status == "Timed-Out" %}
+            <div class="line_status_orange">{{job_info.status}}</div>
+        {% elif job_info.status == "Running" %}   
+            <div class="line_status_green">{{job_info.status}}</div>
+        {% else %}   
+            <div class="line_status_yellow">{{job_info.status}}</div>
+        {% endif %}
+    </div>
+    <div class="job_info_item">
         Timeout: {{job_info.timeout}}
-        <input oninput="setTimeout(this.value)" type="text" placeholder="enter timout in ms">
+        <input oninput="setTimeout(this.value)" type="number" min="0" placeholder="enter timout in ms">
         <button onclick="updateTimeout()">Update</button>
     </div>
-    <div class = "job_info_item">Schedule: {{job_info.schedule}}</div>
-    <div class = "job_info_item">Next Schedule: {{job_info.next_schedule}}</div>
-    <div class = "job_info_item">
-        Cron expression: {{job_info.cron_expression}}
+    <div class="job_info_item">
+        Schedule: {{job_info.schedule}}
         <input oninput="setSchedule(this.value)" type="text" placeholder="enter cron expression">
         <button onclick="updateSchedule()">Update</button>
     </div>
+    <div class="job_info_item">Upcoming: {{job_info.upcoming}}</div>
 </div>
 <script>
     let timeout = 0;
@@ -71,7 +81,7 @@
 </script>
 {% else %}
 <div id="job_info">
-    <div class = "job_info_item">
+    <div class="job_info_item">
         Job not found
     </div>
 </div>

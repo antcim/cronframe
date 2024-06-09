@@ -1,9 +1,10 @@
-use log::{info, Log};
-use rocket::{config::Shutdown, fs::relative, fs::FileServer, serde::Serialize};
+use chrono::Utc;
+use log::info;
+use rocket::{config::Shutdown, serde::Serialize};
 use rocket_dyn_templates::{context, Template};
 use std::sync::Arc;
 
-use crate::CronFrame;
+use crate::{CronFrame, CronJobType};
 
 pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
     let tokio_runtime = rocket::tokio::runtime::Runtime::new()?;
@@ -72,8 +73,7 @@ struct JobInfo {
     status: String,
     timeout: String,
     schedule: String,
-    next_schedule: String,
-    cron_expression: String,
+    upcoming: String,
 }
 
 #[get("/job/<name>/<id>")]
@@ -85,18 +85,22 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
             job_info = JobInfo {
                 name: job.name.clone(),
                 id: job.id.clone(),
-                r#type: "tbd".to_string(),
-                run_id: job.id.clone(),
-                status: "tbd".to_string(),
+                r#type: match job.job{
+                    CronJobType::Global(_) => "Global".to_string(),
+                    CronJobType::Function(_) => "Function".to_string(),
+                    CronJobType::Method(_) => "Method".to_string(),
+                },
+                run_id: job.get_run_id(),
+                status: job.status(),
                 timeout: if job.timeout.is_some() {
                     job.timeout.unwrap().to_string()
                 } else {
                     "None".into()
                 },
-                schedule: "tbd".to_string(),
-                next_schedule: "tbd".to_string(),
-                cron_expression: job.schedule.to_string(),
+                schedule: job.schedule(),
+                upcoming: job.upcoming(),
             };
+            break;
         }
     }
 
@@ -124,8 +128,11 @@ fn update_schedule(
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
         if job.name == name && job.id == id {
             let job_id = format!("{} ID#{}", job.name, job.id);
-            job.set_schedule(expression);
-            info!("job @{job_id} - Schedule Update");
+            if job.set_schedule(expression){
+                info!("job @{job_id} - Schedule Update");
+            }else{
+                info!("job @{job_id} - Schedule Update Fail - Cron Expression Parse Error");
+            }
         }
     }
 }
