@@ -1,4 +1,3 @@
-use chrono::Utc;
 use log::info;
 use rocket::{config::Shutdown, serde::Serialize};
 use rocket_dyn_templates::{context, Template};

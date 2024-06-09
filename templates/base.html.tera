@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <title>CronFrame</title>
+    <link href='https://fonts.googleapis.com/css?family=Lato' rel='stylesheet'>
     <link rel="stylesheet" href="/styles">
 </head>
 
@@ -16,14 +17,13 @@
         </header>
 
         <div id="status">
-            Status: running
+            Status: Running . . .
         </div>
 
         <div id="content">
             {% block content %}
             {% endblock content %}
         </div>
-
         <footer>
             &lt;/&gt; Antonio Cimino
         </footer>

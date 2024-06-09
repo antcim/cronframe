@@ -1,10 +1,31 @@
 body{
     background: #F6F6F6;
     color: #494949;
+    font-family: "Lato";
 }
 
 a{
     text-decoration: none;
+}
+
+/* unvisited link */
+a:link {
+    color: #FF3D00;
+}
+
+  /* visited link */
+a:visited {
+    color: #ffa702;
+}
+
+/* mouse over link */
+a:hover {
+    color: green;
+}
+
+/* selected link */
+a:active {
+    color: red;
 }
 
 header{
@@ -38,9 +59,11 @@ footer{
 }
 
 #status{
-    background: rgba(51, 255, 0, .12);
+    font-weight: bold;
+    background: rgba(51, 255, 0, .3);
     padding: 15px;
     border-radius: 6px;
+    color: rgba(0,0,0,.4);
 }
 
 #content{
@@ -57,12 +80,14 @@ footer{
 
 .job_info_item{
     padding: 5px;
+    padding-bottom: 10px;
     border-bottom: 1px solid rgba(0,0,0,.05)
 }
 
 .job_info_item:nth-child(1){
     font-weight: bold;
     font-size: 16pt;
+    padding-bottom: 15px;
 }
 
 .job_info_item:last-child{
