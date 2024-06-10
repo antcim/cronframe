@@ -1,5 +1,4 @@
 use cronframe::{CronFrame, *};
-use std::io;
 
 //  Cron Expression
 //  * * * * * * *
@@ -83,7 +82,7 @@ fn main() {
     loop {
         println!("Enter x to quit...");
         let mut user_input: String = String::new();
-        io::stdin()
+        std::io::stdin()
             .read_line(&mut user_input)
             .expect("Error on user input read!");
 

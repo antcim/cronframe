@@ -29,12 +29,28 @@ a:active {
 }
 
 header{
+    display: flex;
     padding: 15px;
+    align-items: center;
+    justify-content: center;
 }
 
 #logo{
+    flex: 2;
     font-weight: bold;
     font-size: 30pt;
+}
+
+#refresh{
+    padding-top: 6px;
+    hight: 25px;
+    width: 25px;
+    opacity: 0.5;
+}
+
+#refresh:hover{
+    cursor: pointer;
+    opacity: 1;
 }
 
 footer{

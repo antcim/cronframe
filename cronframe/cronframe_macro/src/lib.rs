@@ -156,9 +156,12 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
         let tout = format_ident!("tout");
 
         let block_string = block.clone().into_token_stream().to_string();
-        let mut block_string_edited = block_string.replace("self", "cronframe_self");
-        block_string_edited.insert_str(1, "let cron_frame_instance = arg.clone();
-                let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();");
+        let mut block_string_edited = block_string.replace("self.", "cronframe_self.");
+        block_string_edited.insert_str(
+            1,
+            "let cron_frame_instance = arg.clone();
+                let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();",
+        );
 
         let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();
 
@@ -178,11 +181,6 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
                 let instance = arg.clone();
                 let this_obj = (*instance).downcast_ref::<Self>().unwrap();
 
-                println!(
-                    "{:?} ",
-                    this_obj,
-                );
-
                 let #expr = format!(
                     "{} {} {} {} {} {} {}",
                     this_obj.second.clone(),
@@ -194,8 +192,6 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
                     this_obj.year.clone(),
                 );
                 let #tout = format!("{}", this_obj.timeout);
-                // let #expr = format!(" ");
-                // let #tout = format!(" ");
                 let instance = arg.clone();
 
                 JobBuilder::method_job(#job_name, Self::#cronframe_method, #expr.clone(), #tout, instance)

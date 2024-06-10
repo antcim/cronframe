@@ -110,6 +110,7 @@ fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Ar
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
         if job.name == name && job.id == id {
             let job_id = format!("{} ID#{}", job.name, job.id);
+            job.start_time = None;
             job.set_timeout(value);
             info!("job @{job_id} - Timeout Update");
         }
