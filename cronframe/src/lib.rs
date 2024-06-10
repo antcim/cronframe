@@ -28,6 +28,7 @@ inventory::collect!(JobBuilder<'static>);
 
 const ID_SIZE: usize = 8;
 
+#[derive(Debug, Clone)]
 pub enum JobBuilder<'a> {
     Global {
         name: &'a str,
@@ -348,10 +349,11 @@ impl CronFrame {
         info!("Colleting Global Jobs.");
 
         for job_builder in inventory::iter::<JobBuilder> {
-            let cron_job = job_builder.build();
+            let cron_job = job_builder.clone().build();
             info!("Found Global Job \"{}\"", cron_job.name);
             frame.cron_jobs.lock().unwrap().push(cron_job)
         }
+
         info!("Global Jobs Collected.");
         info!("CronFrame Init Complete.");
 
