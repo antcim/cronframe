@@ -1,22 +1,38 @@
+use crate::{config::read_config, CronFrame, CronJobType};
 use log::info;
 use rocket::{config::Shutdown, serde::Serialize};
 use rocket_dyn_templates::{context, Template};
 use std::sync::Arc;
-use crate::{CronFrame, CronJobType};
 
 pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
     let tokio_runtime = rocket::tokio::runtime::Runtime::new()?;
 
-    let config = rocket::Config {
-        port: 8002,
-        address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
-        temp_dir: "templates".into(),
-        shutdown: Shutdown {
-            ctrlc: false,
-            ..Default::default()
+    let config = match read_config() {
+        Some(config_data) => rocket::Config {
+            port: config_data.server.port,
+            address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
+            temp_dir: "templates".into(),
+            shutdown: Shutdown {
+                ctrlc: false,
+                ..Default::default()
+            },
+            cli_colors: false,
+            ..rocket::Config::release_default()
         },
-        cli_colors: false,
-        ..rocket::Config::debug_default()
+        None => {
+            // default config
+            rocket::Config {
+                port: 8002,
+                address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
+                temp_dir: "templates".into(),
+                shutdown: Shutdown {
+                    ctrlc: false,
+                    ..Default::default()
+                },
+                cli_colors: false,
+                ..rocket::Config::release_default()
+            }
+        }
     };
 
     let rocket = rocket::custom(&config)
@@ -24,9 +40,13 @@ pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
             "/",
             routes![styles, home, job_info, update_timeout, update_schedule],
         )
-        //.mount("/public", FileServer::from("/templates"))
         .attach(Template::fairing())
         .manage(frame);
+
+    println!(
+        "CronFrame running at http://{}:{}",
+        config.address, config.port
+    );
 
     tokio_runtime.block_on(async move {
         let _ = rocket.launch().await;
@@ -83,7 +103,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
             job_info = JobInfo {
                 name: job.name.clone(),
                 id: job.id.clone(),
-                r#type: match job.job{
+                r#type: match job.job {
                     CronJobType::Global(_) => "Global".to_string(),
                     CronJobType::Function(_) => "Function".to_string(),
                     CronJobType::Method(_) => "Method".to_string(),
@@ -127,9 +147,9 @@ fn update_schedule(
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
         if job.name == name && job.id == id {
             let job_id = format!("{} ID#{}", job.name, job.id);
-            if job.set_schedule(expression){
+            if job.set_schedule(expression) {
                 info!("job @{job_id} - Schedule Update");
-            }else{
+            } else {
                 info!("job @{job_id} - Schedule Update Fail - Cron Expression Parse Error");
             }
         }

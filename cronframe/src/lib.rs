@@ -22,6 +22,7 @@ pub use std::{
 };
 
 mod server;
+mod config;
 
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(JobBuilder<'static>);
