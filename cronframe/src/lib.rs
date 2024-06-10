@@ -1,21 +1,25 @@
 #[macro_use]
 extern crate rocket;
-use chrono::DateTime;
-pub use chrono::{Duration, Utc};
+pub use chrono::{DateTime, Duration, Utc};
 pub use cron::Schedule;
 pub use cronframe_macro::{cron, cron_impl, cron_obj, job};
 use crossbeam_channel::{Receiver, Sender};
 pub use linkme::distributed_slice;
 pub use log::{info, warn, LevelFilter};
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Config, Root};
-use log4rs::encode::pattern::PatternEncoder;
+use log4rs::{
+    append::file::FileAppender,
+    config::{Appender, Config, Root},
+    encode::pattern::PatternEncoder,
+};
 use rand::distributions::DistString;
-pub use std::any::Any;
-pub use std::any::{self, TypeId};
-pub use std::str::FromStr;
-pub use std::sync::Arc;
-pub use std::{collections::HashMap, sync::Mutex, thread::JoinHandle, vec};
+pub use std::{
+    any::{self, Any, TypeId},
+    collections::HashMap,
+    str::FromStr,
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
+    vec,
+};
 
 mod server;
 
@@ -225,23 +229,23 @@ impl CronJob {
         };
     }
 
-    pub fn status(&self) -> String{
-        if self.check_timeout(){
+    pub fn status(&self) -> String {
+        if self.check_timeout() {
             "Timed-Out".to_string()
-        }else if self.run_id.is_some() {
+        } else if self.run_id.is_some() {
             "Running".to_string()
-        }else{
+        } else {
             "Awaiting Schedule".to_string()
         }
     }
 
     pub fn set_schedule(&mut self, expression: &str) -> bool {
         let expr = expression.replace("slh", "/").replace("%20", " ");
-        if let Ok(schedule) = Schedule::from_str(expr.as_str()){
+        if let Ok(schedule) = Schedule::from_str(expr.as_str()) {
             self.schedule = schedule;
             return true;
         }
-        false 
+        false
     }
 
     pub fn check_timeout(&self) -> bool {
@@ -257,21 +261,26 @@ impl CronJob {
         false
     }
 
-    pub fn schedule(&self) -> String{
+    pub fn schedule(&self) -> String {
         self.schedule.to_string()
     }
 
-    pub fn upcoming(&self) -> String{
-        if self.check_timeout(){
+    pub fn upcoming(&self) -> String {
+        if self.check_timeout() {
             return "None due to timeout.".to_string();
         }
-        self.schedule.upcoming(Utc).into_iter().next().unwrap().to_string()
+        self.schedule
+            .upcoming(Utc)
+            .into_iter()
+            .next()
+            .unwrap()
+            .to_string()
     }
 
-    pub fn get_run_id(&self) -> String{
-        match &self.run_id{
+    pub fn get_run_id(&self) -> String {
+        match &self.run_id {
             Some(string) => string.clone(),
-            None => "None".into()
+            None => "None".into(),
         }
     }
 

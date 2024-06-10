@@ -2,7 +2,6 @@ use log::info;
 use rocket::{config::Shutdown, serde::Serialize};
 use rocket_dyn_templates::{context, Template};
 use std::sync::Arc;
-
 use crate::{CronFrame, CronJobType};
 
 pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
