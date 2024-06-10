@@ -37,10 +37,10 @@ pub enum JobBuilder<'a> {
     },
     Method {
         name: &'a str,
-        job: fn(arg: &dyn Any),
+        job: fn(arg: Arc<Box<dyn Any + Send + Sync>>),
         cron_expr: String,
         timeout: String,
-        // add parameter to get a reference to self?
+        instance: Arc<Box<dyn Any + Send + Sync>>
     },
     Function {
         name: &'a str,
@@ -67,15 +67,17 @@ impl<'a> JobBuilder<'a> {
 
     pub const fn method_job(
         name: &'a str,
-        job: fn(arg: &dyn Any),
+        job: fn(arg: Arc<Box<dyn Any + Send + Sync>>),
         cron_expr: String,
         timeout: String,
+        instance: Arc<Box<dyn Any + Send + Sync>>
     ) -> Self {
         JobBuilder::Method {
             name,
             job,
             cron_expr,
             timeout,
+            instance
         }
     }
 
@@ -93,7 +95,7 @@ impl<'a> JobBuilder<'a> {
         }
     }
 
-    pub fn build(&self) -> CronJob {
+    pub fn build(self) -> CronJob {
         match self {
             Self::Global {
                 name,
@@ -113,12 +115,13 @@ impl<'a> JobBuilder<'a> {
                 CronJob {
                     name: name.to_string(),
                     id: generate_id(ID_SIZE),
-                    job: CronJobType::Global(*job),
+                    job: CronJobType::Global(job),
                     schedule,
                     timeout,
                     channels: None,
                     start_time: None,
                     run_id: None,
+                    instance: None
                 }
             }
             Self::Method {
@@ -126,9 +129,10 @@ impl<'a> JobBuilder<'a> {
                 job,
                 cron_expr,
                 timeout,
+                instance,
             } => {
                 let schedule =
-                    Schedule::from_str(cron_expr).expect("Failed to parse cron expression!");
+                    Schedule::from_str(&cron_expr).expect("Failed to parse cron expression!");
                 let timeout: i64 = timeout.parse().expect("Failed to parse timeout!");
                 let timeout = if timeout > 0 {
                     Some(Duration::milliseconds(timeout))
@@ -139,12 +143,13 @@ impl<'a> JobBuilder<'a> {
                 CronJob {
                     name: name.to_string(),
                     id: generate_id(ID_SIZE),
-                    job: CronJobType::Method(*job),
+                    job: CronJobType::Method(job),
                     schedule,
                     timeout,
                     channels: None,
                     start_time: None,
                     run_id: None,
+                    instance: Some(instance)
                 }
             }
             Self::Function {
@@ -165,12 +170,13 @@ impl<'a> JobBuilder<'a> {
                 CronJob {
                     name: name.to_string(),
                     id: generate_id(ID_SIZE),
-                    job: CronJobType::Function(*job),
+                    job: CronJobType::Function(job),
                     schedule,
                     timeout,
                     channels: None,
                     start_time: None,
                     run_id: None,
+                    instance: None
                 }
             }
         }
@@ -180,7 +186,7 @@ impl<'a> JobBuilder<'a> {
 #[derive(Debug, Clone)]
 pub enum CronJobType {
     Global(fn()),
-    Method(fn(arg: &dyn Any)), //maybe add object id here
+    Method(fn(arg: Arc<Box<dyn Any + Send + Sync>>)), //maybe add object id here
     Function(fn()),
 }
 
@@ -194,7 +200,7 @@ pub struct CronJob {
     channels: Option<(Sender<String>, Receiver<String>)>,
     start_time: Option<DateTime<Utc>>,
     run_id: Option<String>,
-    // add option parameter to get a reference to self in case of Method Job?
+    instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
 }
 
 impl CronJob {
@@ -290,16 +296,17 @@ impl CronJob {
         let schedule = self.schedule.clone();
         let job_id = format!("{} ID#{}", self.name, self.id);
         let run_id = self.run_id.as_ref().unwrap().clone();
-
+        
         match self.job {
             CronJobType::Method(job) => {
+                let instance = self.instance.clone().unwrap();
                 let job_thread = move || loop {
                     let now = Utc::now();
                     if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                         let until_next = next - now;
                         std::thread::sleep(until_next.to_std().unwrap());
                         info!("job @{job_id} RUN_ID#{run_id} - Execution");
-                        job(&());
+                        job(instance);
                         let _ = tx.send("JOB_COMPLETE".to_string());
                         break;
                     }

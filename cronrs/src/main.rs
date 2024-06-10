@@ -24,7 +24,7 @@ fn testfn() {
 fn another_test() {
     println!("call from another_test");
 }
-
+#[derive(Debug, Clone)]
 #[cron_obj] // this macro does nothing for now
 struct Users {
     second: String,
@@ -45,8 +45,8 @@ impl Users {
     }
     #[job]
     fn get_jobs(self) {
-        //println!("call from get_jobs for seconds {}", self.second);
-        println!("call from get_jobs");
+        println!("call from get_jobs for seconds {}", self.second);
+        //println!("call from get_jobs");
     }
 }
 

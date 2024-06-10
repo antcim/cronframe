@@ -61,7 +61,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
         #r#struct
 
         #[distributed_slice]
-        static #method_jobs: [fn(&dyn Any) -> JobBuilder<'static>];
+        static #method_jobs: [fn(Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static>];
 
         #[distributed_slice]
         static #function_jobs: [fn() -> JobBuilder<'static>];
@@ -96,9 +96,9 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
             // method job
             quote! {
                 #[distributed_slice(#method_jobs)]
-                static #linkme_deserialize: fn(_self: &dyn Any)-> JobBuilder<'static> = #impl_type::#helper;
+                static #linkme_deserialize: fn(_self: Arc<Box<dyn Any + Send + Sync>>)-> JobBuilder<'static> = #impl_type::#helper;
             }
-        }else{
+        } else {
             // function job
             quote! {
                 #[distributed_slice(#function_jobs)]
@@ -117,7 +117,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
             pub fn helper_gatherer(&self, frame: Arc<CronFrame>){
                 info!("Collecting Method Jobs from {}", #type_name);
                 for method_job in #method_jobs {
-                    let job_builder = (method_job)(self);
+                    let job_builder = (method_job)(Arc::new(Box::new(self.clone())));
                     let cron_job = job_builder.build();
                     info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
                     frame.cron_jobs.lock().unwrap().push(cron_job)
@@ -156,8 +156,9 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
         let tout = format_ident!("tout");
 
         let block_string = block.clone().into_token_stream().to_string();
-        let block_string_edited = block_string.replace("self", "cronframe_self");
-        //block_string_edited.insert_str(1, "let cronframe_self = Box::new(arg).downcast_ref::<Self>().unwrap();");
+        let mut block_string_edited = block_string.replace("self", "cronframe_self");
+        block_string_edited.insert_str(1, "let cron_frame_instance = arg.clone();
+                let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();");
 
         let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();
 
@@ -170,23 +171,34 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
 
             // cronjob method at cronframe's disposal
             // fn cron_method_<name_of_method> ...
-            fn #cronframe_method(arg: &dyn Any) #block_edited
+            fn #cronframe_method(arg: Arc<Box<dyn Any + Send + Sync>>) #block_edited
 
             // fn cron_helper_<name_of_method> ...
-            fn #helper(arg: &dyn Any) -> JobBuilder<'static> {
-                let this_obj = Box::new(arg).downcast_ref::<Self>().unwrap();
+            fn #helper(arg: Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static> {
+                let instance = arg.clone();
+                let this_obj = (*instance).downcast_ref::<Self>().unwrap();
+
+                println!(
+                    "{:?} ",
+                    this_obj,
+                );
+
                 let #expr = format!(
                     "{} {} {} {} {} {} {}",
-                    this_obj.second,
-                    this_obj.minute,
-                    this_obj.hour,
-                    this_obj.day_month,
-                    this_obj.month,
-                    this_obj.day_week,
-                    this_obj.year,
+                    this_obj.second.clone(),
+                    this_obj.minute.clone(),
+                    this_obj.hour.clone(),
+                    this_obj.day_month.clone(),
+                    this_obj.month.clone(),
+                    this_obj.day_week.clone(),
+                    this_obj.year.clone(),
                 );
                 let #tout = format!("{}", this_obj.timeout);
-                JobBuilder::method_job(#job_name, Self::#cronframe_method, #expr, #tout)
+                // let #expr = format!(" ");
+                // let #tout = format!(" ");
+                let instance = arg.clone();
+
+                JobBuilder::method_job(#job_name, Self::#cronframe_method, #expr.clone(), #tout, instance)
             }
         };
         new_code.into()
@@ -223,7 +235,7 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
         let new_code = quote! {
             // original function
             #origin_function
-            
+
             fn #helper() -> JobBuilder<'static> {
                 JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout)
             }
