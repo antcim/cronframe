@@ -174,7 +174,17 @@ button:active {
 .line_status_orange{
     font-weight: bold;
     display: inline-block;
-    background: rgba(255, 61, 00, .8);
+    background: rgba(255, 61, 0, .8);
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,.1);
+    color: rgba(0,0,0,.4);
+}
+
+.line_status_gray{
+    font-weight: bold;
+    display: inline-block;
+    background: rgba(0, 0, 0, .5);
     padding: 10px;
     border-radius: 6px;
     border: 1px solid rgba(0,0,0,.1);

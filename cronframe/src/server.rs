@@ -1,4 +1,4 @@
-use crate::{config::read_config, CronFrame, CronJobType};
+use crate::{config::read_config, cronframe::CronFrame, CronJobType};
 use log::info;
 use rocket::{config::Shutdown, serde::Serialize};
 use rocket_dyn_templates::{context, Template};

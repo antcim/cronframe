@@ -13,8 +13,10 @@
     {% endif %}
     <div class="job_info_item">
         Status:
-        {% if job_info.status == "Timed-Out" %}
+        {% if job_info.status == "Failed" %}
             <div class="line_status_orange">{{job_info.status}}</div>
+        {% elif job_info.status == "Timed-Out" %}
+            <div class="line_status_gray">{{job_info.status}}</div>
         {% elif job_info.status == "Running" %}   
             <div class="line_status_green">{{job_info.status}}</div>
         {% else %}   

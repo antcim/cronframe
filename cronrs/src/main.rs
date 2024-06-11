@@ -1,4 +1,8 @@
-use cronframe::{CronFrame, *};
+#[macro_use]
+extern crate cronframe;
+use core::panic;
+
+use cronframe::{Any, Arc, CronFrame, JobBuilder};
 
 //  Cron Expression
 //  * * * * * * *
@@ -23,6 +27,21 @@ fn testfn() {
 fn another_test() {
     println!("call from another_test");
 }
+
+#[cron(expr = "0/30 * * * * * *", timeout = "0")]
+fn heavy_job() {
+    let mut _count: i128 = 0;
+
+    for i in 0..5000000000 {
+        _count += i;
+    }
+}
+
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn failing_job() {
+    panic!()
+}
+
 #[derive(Debug, Clone)]
 #[cron_obj] // this macro does nothing for now
 struct Users {
