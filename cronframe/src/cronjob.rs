@@ -8,6 +8,7 @@ use std::{
 use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
+use syn::TraitItemMacro;
 
 use crate::{utils, CronJobType, ID_SIZE};
 
@@ -120,11 +121,18 @@ impl CronJob {
         let schedule = self.schedule.clone();
         let job_id = format!("{} ID#{}", self.name, self.id);
         let run_id = self.run_id.as_ref().unwrap().clone();
+        let new_tx = tx.clone();
+
+        let tick_thread = move || loop{
+            std::thread::sleep(chrono::Duration::milliseconds(500).to_std().unwrap());
+            let _ = new_tx.send("JOB_WORKING".to_string());
+        };
 
         match self.job {
             CronJobType::Method(job) => {
                 let instance = self.instance.clone().unwrap();
                 let job_thread = move || {
+                    std::thread::spawn(tick_thread);
                     loop {
                         let now = Utc::now();
                         if let Some(next) = schedule.upcoming(Utc).take(1).next() {
@@ -140,16 +148,19 @@ impl CronJob {
                 std::thread::spawn(job_thread)
             }
             CronJobType::Global(job) | CronJobType::Function(job) => {
-                let job_thread = move || loop {
-                    let now = Utc::now();
-                    if let Some(next) = schedule.upcoming(Utc).take(1).next() {
-                        let until_next = next - now;
-                        std::thread::sleep(until_next.to_std().unwrap());
-                        info!("job @{job_id} RUN_ID#{run_id} - Execution");
-                        job();
-                        let _ = tx.send("JOB_COMPLETE".to_string());
-                        break;
-                    }
+                let job_thread = move || {
+                    std::thread::spawn(tick_thread);
+                    loop {
+                        let now = Utc::now();
+                        if let Some(next) = schedule.upcoming(Utc).take(1).next() {
+                            let until_next = next - now;
+                            std::thread::sleep(until_next.to_std().unwrap());
+                            info!("job @{job_id} RUN_ID#{run_id} - Execution");
+                            job();
+                            let _ = tx.send("JOB_COMPLETE".to_string());
+                            break;
+                        }
+                    };
                 };
                 std::thread::spawn(job_thread)
             }

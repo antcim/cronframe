@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    os::unix::thread::JoinHandleExt,
     sync::{Arc, Mutex},
     thread::JoinHandle,
 };
@@ -13,6 +14,7 @@ pub struct CronFrame {
     handlers: Mutex<HashMap<String, JoinHandle<()>>>,
     _logger: log4rs::Handle,
 }
+
 impl CronFrame {
     pub fn init() -> Arc<CronFrame> {
         let _logger = logger::default_logger();
@@ -83,10 +85,10 @@ impl CronFrame {
                         );
                     }
                 }
-                // the job_id key is in the hashmap and running
-                // check to see if it sent a message that says it finished
+                // the job is in the hashmap and running
+                // check to see if it sent a message that says it finished or aborted
                 else {
-                    let _tx = cron_job
+                    let tx = cron_job
                         .channels
                         .clone()
                         .expect("error: unwrapping tx channel")
@@ -109,6 +111,22 @@ impl CronFrame {
                                 cron_job.channels = None;
                                 cron_job.run_id = None;
                                 cron_job.failed = false;
+                            } else if message == "JOB_WORKING" {
+                                info!(
+                                    "job @{} RUN_ID#{} - Working...",
+                                    job_id,
+                                    cron_job.run_id.as_ref().unwrap()
+                                );
+                                let terminated = instance
+                                    .handlers
+                                    .lock()
+                                    .unwrap()
+                                    .get(job_id.as_str())
+                                    .unwrap()
+                                    .is_finished();
+                                if terminated {
+                                    cron_job.failed = true;
+                                }
                             }
                         }
                         Err(_error) => {}
