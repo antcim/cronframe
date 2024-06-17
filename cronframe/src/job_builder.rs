@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use chrono::Duration;
 use cron::Schedule;
+use uuid::Uuid;
 
 use crate::cronjob::CronJob;
 use crate::{utils, CronJobType, ID_SIZE};
@@ -95,7 +96,7 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
-                    id: utils::generate_id(ID_SIZE),
+                    id: Uuid::new_v4(),
                     job: CronJobType::Global(job),
                     schedule,
                     timeout,
@@ -124,7 +125,7 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
-                    id: utils::generate_id(ID_SIZE),
+                    id: Uuid::new_v4(),
                     job: CronJobType::Method(job),
                     schedule,
                     timeout,
@@ -152,7 +153,7 @@ impl<'a> JobBuilder<'a> {
 
                 CronJob {
                     name: name.to_string(),
-                    id: utils::generate_id(ID_SIZE),
+                    id: Uuid::new_v4(),
                     job: CronJobType::Function(job),
                     schedule,
                     timeout,

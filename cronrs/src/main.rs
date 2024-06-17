@@ -61,6 +61,7 @@ impl Users {
     fn my_obj_job() {
         println!("call from my_obj_job");
     }
+    
     #[job]
     fn get_jobs(self) {
         println!("call from get_jobs for seconds {}", self.second);

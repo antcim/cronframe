@@ -1,2 +1,3 @@
 [server]
 port = 8098
+log_dir = ""

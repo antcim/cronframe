@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    os::unix::thread::JoinHandleExt,
     sync::{Arc, Mutex},
     thread::JoinHandle,
 };
@@ -35,7 +34,7 @@ impl CronFrame {
 
         info!("Global Jobs Collected.");
         info!("CronFrame Init Complete.");
-
+        
         info!("CronFrame Server Init");
         let frame = Arc::new(frame);
         let ret_frame = frame.clone();

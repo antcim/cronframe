@@ -74,7 +74,7 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     for job in cronframe.cron_jobs.lock().unwrap().iter() {
         cron_jobs.push(JobList {
             name: job.name.clone(),
-            id: job.id.clone(),
+            id: job.id.to_string(),
         });
     }
 
@@ -99,10 +99,10 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
     let mut job_info = JobInfo::default();
 
     for job in cronframe.cron_jobs.lock().unwrap().iter() {
-        if job.name == name && job.id == id {
+        if job.name == name && job.id.to_string() == id {
             job_info = JobInfo {
                 name: job.name.clone(),
-                id: job.id.clone(),
+                id: job.id.to_string(),
                 r#type: match job.job {
                     CronJobType::Global(_) => "Global".to_string(),
                     CronJobType::Function(_) => "Function".to_string(),
@@ -128,7 +128,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
 #[get("/job/<name>/<id>/toutset/<value>")]
 fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Arc<CronFrame>>) {
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
-        if job.name == name && job.id == id {
+        if job.name == name && job.id.to_string() == id {
             let job_id = format!("{} ID#{}", job.name, job.id);
             job.start_time = None;
             job.set_timeout(value);
@@ -145,7 +145,7 @@ fn update_schedule(
     cronframe: &rocket::State<Arc<CronFrame>>,
 ) {
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
-        if job.name == name && job.id == id {
+        if job.name == name && job.id.to_string() == id {
             let job_id = format!("{} ID#{}", job.name, job.id);
             if job.set_schedule(expression) {
                 info!("job @{job_id} - Schedule Update");

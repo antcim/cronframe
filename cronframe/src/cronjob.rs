@@ -2,26 +2,26 @@ use std::{
     any::Any,
     str::FromStr,
     sync::Arc,
-    thread::{self, JoinHandle}
+    thread::JoinHandle
 };
 
 use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
-use syn::TraitItemMacro;
+use uuid::Uuid;
 
 use crate::{utils, CronJobType, ID_SIZE};
 
 #[derive(Debug, Clone)]
 pub struct CronJob {
     pub name: String,
-    pub id: String,
+    pub id: Uuid,
     pub job: CronJobType,
     pub schedule: Schedule,
     pub timeout: Option<Duration>,
     pub channels: Option<(Sender<String>, Receiver<String>)>,
     pub start_time: Option<DateTime<Utc>>,
-    pub run_id: Option<String>,
+    pub run_id: Option<Uuid>,
     pub instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
     pub failed: bool,
 }
@@ -29,7 +29,7 @@ pub struct CronJob {
 impl CronJob {
     pub fn try_schedule(&mut self) -> Option<JoinHandle<()>> {
         if self.check_schedule() {
-            self.run_id = Some(utils::generate_id(ID_SIZE));
+            self.run_id = Some(Uuid::new_v4());
             self.channels = Some(crossbeam_channel::bounded(1));
             if self.start_time.is_none() {
                 self.start_time = Some(Utc::now());
@@ -110,7 +110,7 @@ impl CronJob {
 
     pub fn get_run_id(&self) -> String {
         match &self.run_id {
-            Some(string) => string.clone(),
+            Some(uuid) => uuid.to_string(),
             None => "None".into(),
         }
     }
