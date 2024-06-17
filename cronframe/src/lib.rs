@@ -24,8 +24,6 @@ pub use cronframe::CronFrame;
 // necessary to gather all the annotated jobs automatically
 inventory::collect!(JobBuilder<'static>);
 
-const ID_SIZE: usize = 16;
-
 #[derive(Debug, Clone)]
 pub enum CronJobType {
     Global(fn()),

@@ -1,16 +1,11 @@
-use std::{
-    any::Any,
-    str::FromStr,
-    sync::Arc,
-    thread::JoinHandle
-};
+use std::{any::Any, str::FromStr, sync::Arc, thread::JoinHandle};
 
 use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
 use uuid::Uuid;
 
-use crate::{utils, CronJobType, ID_SIZE};
+use crate::CronJobType;
 
 #[derive(Debug, Clone)]
 pub struct CronJob {
@@ -116,54 +111,35 @@ impl CronJob {
     }
 
     pub fn run(&self) -> JoinHandle<()> {
+        let cron_job = self.clone();
         let tx = self.channels.as_ref().unwrap().0.clone();
         let _rx = self.channels.as_ref().unwrap().1.clone();
         let schedule = self.schedule.clone();
         let job_id = format!("{} ID#{}", self.name, self.id);
         let run_id = self.run_id.as_ref().unwrap().clone();
-        let new_tx = tx.clone();
 
-        let tick_thread = move || loop{
-            std::thread::sleep(chrono::Duration::milliseconds(500).to_std().unwrap());
-            let _ = new_tx.send("JOB_WORKING".to_string());
+        let job_thread = move || {
+            let now = Utc::now();
+            if let Some(next) = schedule.upcoming(Utc).take(1).next() {
+                let until_next = next - now;
+                std::thread::sleep(until_next.to_std().unwrap());
+                info!("job @{job_id} RUN_ID#{run_id} - Execution");
+                match cron_job.job {
+                    CronJobType::Global(job) | CronJobType::Function(job) => job(),
+                    CronJobType::Method(job) => job(cron_job.instance.unwrap()),
+                }
+            }
         };
 
-        match self.job {
-            CronJobType::Method(job) => {
-                let instance = self.instance.clone().unwrap();
-                let job_thread = move || {
-                    std::thread::spawn(tick_thread);
-                    loop {
-                        let now = Utc::now();
-                        if let Some(next) = schedule.upcoming(Utc).take(1).next() {
-                            let until_next = next - now;
-                            std::thread::sleep(until_next.to_std().unwrap());
-                            info!("job @{job_id} RUN_ID#{run_id} - Execution");
-                            job(instance);
-                            let _ = tx.send("JOB_COMPLETE".to_string());
-                            break;
-                        }
-                    };
-                };
-                std::thread::spawn(job_thread)
+        let control_thread = move || match std::thread::spawn(job_thread).join() {
+            Ok(_) => {
+                let _ = tx.send("JOB_COMPLETE".to_string());
             }
-            CronJobType::Global(job) | CronJobType::Function(job) => {
-                let job_thread = move || {
-                    std::thread::spawn(tick_thread);
-                    loop {
-                        let now = Utc::now();
-                        if let Some(next) = schedule.upcoming(Utc).take(1).next() {
-                            let until_next = next - now;
-                            std::thread::sleep(until_next.to_std().unwrap());
-                            info!("job @{job_id} RUN_ID#{run_id} - Execution");
-                            job();
-                            let _ = tx.send("JOB_COMPLETE".to_string());
-                            break;
-                        }
-                    };
-                };
-                std::thread::spawn(job_thread)
+            Err(_) => {
+                let _ = tx.send("JOB_ABORT".to_string());
             }
-        }
+        };
+
+        std::thread::spawn(control_thread)
     }
 }

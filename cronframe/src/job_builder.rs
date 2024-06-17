@@ -7,7 +7,7 @@ use cron::Schedule;
 use uuid::Uuid;
 
 use crate::cronjob::CronJob;
-use crate::{utils, CronJobType, ID_SIZE};
+use crate::CronJobType;
 
 #[derive(Debug, Clone)]
 pub enum JobBuilder<'a> {

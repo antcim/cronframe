@@ -23,8 +23,8 @@ impl CronFrame {
             _logger,
         };
 
-        info!("CronFrame Init Start.");
-        info!("Colleting Global Jobs.");
+        info!("CronFrame Init Start");
+        info!("Colleting Global Jobs");
 
         for job_builder in inventory::iter::<JobBuilder> {
             let cron_job = job_builder.clone().build();
@@ -32,15 +32,15 @@ impl CronFrame {
             frame.cron_jobs.lock().unwrap().push(cron_job)
         }
 
-        info!("Global Jobs Collected.");
-        info!("CronFrame Init Complete.");
+        info!("Global Jobs Collected");
+        info!("CronFrame Init Complete");
         
         info!("CronFrame Server Init");
         let frame = Arc::new(frame);
         let ret_frame = frame.clone();
 
         std::thread::spawn(move || server::server(frame));
-        info!("CronFrame Server Running...");
+        info!("CronFrame Server Running");
         ret_frame
     }
 
@@ -78,7 +78,7 @@ impl CronFrame {
                             .unwrap()
                             .insert(job_id.clone(), handle.unwrap());
                         info!(
-                            "job @{} RUN_ID#{} - Scheduled.",
+                            "job @{} RUN_ID#{} - Scheduled",
                             job_id,
                             cron_job.run_id.as_ref().unwrap()
                         );
@@ -102,7 +102,7 @@ impl CronFrame {
                         Ok(message) => {
                             if message == "JOB_COMPLETE" {
                                 info!(
-                                    "job @{} RUN_ID#{} - Completed.",
+                                    "job @{} RUN_ID#{} - Completed",
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
@@ -110,22 +110,13 @@ impl CronFrame {
                                 cron_job.channels = None;
                                 cron_job.run_id = None;
                                 cron_job.failed = false;
-                            } else if message == "JOB_WORKING" {
+                            } else if message == "JOB_ABORT" {
                                 info!(
-                                    "job @{} RUN_ID#{} - Working...",
+                                    "job @{} RUN_ID#{} - Aborted",
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                let terminated = instance
-                                    .handlers
-                                    .lock()
-                                    .unwrap()
-                                    .get(job_id.as_str())
-                                    .unwrap()
-                                    .is_finished();
-                                if terminated {
-                                    cron_job.failed = true;
-                                }
+                                cron_job.failed = true;
                             }
                         }
                         Err(_error) => {}
@@ -135,6 +126,6 @@ impl CronFrame {
             }
         };
         std::thread::spawn(scheduler);
-        info!("CronFrame Scheduler Running...");
+        info!("CronFrame Scheduler Running");
     }
 }
