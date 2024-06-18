@@ -15,7 +15,7 @@ pub fn default_logger() -> log4rs::Handle {
         .build("archive_log/log{}.log", window_size)
         .unwrap();
 
-    let size_limit = 5000 * 1024;
+    let size_limit = 1000 * 1024;
 
     let trigger = SizeTrigger::new(size_limit);
 

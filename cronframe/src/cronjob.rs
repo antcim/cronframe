@@ -29,7 +29,18 @@ impl CronJob {
             if self.start_time.is_none() {
                 self.start_time = Some(Utc::now());
             }
-            return Some(self.run());
+
+            let gracefull_period = 250; // ms
+            let first_try = Utc::now();
+            let limit_time = first_try + Duration::milliseconds(gracefull_period);
+
+            while Utc::now() < limit_time{
+                match self.run() {
+                    Ok(handle) => return Some(handle),
+                    Err(_error) => (),
+                }
+            }
+            return None;
         }
         None
     }
@@ -110,7 +121,7 @@ impl CronJob {
         }
     }
 
-    pub fn run(&self) -> JoinHandle<()> {
+    pub fn run(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
         let tx = self.channels.as_ref().unwrap().0.clone();
         let _rx = self.channels.as_ref().unwrap().1.clone();
@@ -140,6 +151,8 @@ impl CronJob {
             }
         };
 
-        std::thread::spawn(control_thread)
+        // std::thread::spawn(control_thread)
+
+        std::thread::Builder::spawn(std::thread::Builder::new(), control_thread)
     }
 }
