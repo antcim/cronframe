@@ -190,3 +190,13 @@ button:active {
     border: 1px solid rgba(0,0,0,.1);
     color: rgba(0,0,0,.4);
 }
+
+.clipboard{
+    margin: 2px;
+    opacity: 0.5;
+}
+
+.clipboard:hover{
+    opacity: 0.8;
+    cursor: pointer;
+}

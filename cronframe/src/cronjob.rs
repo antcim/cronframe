@@ -34,10 +34,20 @@ impl CronJob {
             let first_try = Utc::now();
             let limit_time = first_try + Duration::milliseconds(gracefull_period);
 
+            // try to schedule as long as in the graceful period
+            let mut graceful_log = false;
             while Utc::now() < limit_time{
                 match self.run() {
-                    Ok(handle) => return Some(handle),
+                    Ok(handle) => {
+                        return Some(handle)
+                    },
                     Err(_error) => (),
+                }
+                if !graceful_log{
+                    graceful_log = true;
+                    let job_id = format!("{} ID#{}", self.name, self.id);
+                    let run_id = self.run_id.unwrap().to_string();
+                    info!("job @{job_id} RUN_ID#{run_id} - Graceful Period Scheduling");
                 }
             }
             return None;
