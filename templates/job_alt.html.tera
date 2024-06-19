@@ -98,6 +98,7 @@
         <td colspan="2">{{job_info.upcoming}}</td>
     </tr>
 </table>
+
 <script>
     let timeout = 0;
     let schedule = "* * * * * * *";
@@ -147,8 +148,41 @@
     const copyToClipBoard = (element) => {
         var copyText = document.getElementById(element);
         navigator.clipboard.writeText(copyText.innerHTML);
+        toast("Copied to Clipboard");
+    }
+
+    let notify_shown = false;
+
+    const toast = (text) => {
+        if (notify_shown) return;
+
+        notify_shown = true;
+
+        var toast = document.createElement('div');
+        toast.className = "clipboard_toast";
+
+        var message = document.createElement("div");
+        message.textContent = text;
+        toast.appendChild(message);
+
+        var close = document.createElement("div");
+        close.className = "close_toast";
+        close.innerHTML = "x"
+        close.addEventListener("click", () => {
+            toast.remove();
+            notify_shown = false;
+        })
+        toast.append(close);
+
+        document.body.appendChild(toast);
+
+        window.setTimeout(() => {
+            toast.remove();
+            notify_shown = false;
+        }, 3000);
     }
 </script>
+
 {% else %}
 <div id="job_info">
     <div class="job_info_item">

@@ -12,7 +12,7 @@ use log4rs::{
 pub fn default_logger() -> log4rs::Handle {
     let window_size = 3;
     let roller = FixedWindowRoller::builder()
-        .build("archive_log/log{}.log", window_size)
+        .build("log/old_log{}.log", window_size)
         .unwrap();
 
     let size_limit = 1000 * 1024;

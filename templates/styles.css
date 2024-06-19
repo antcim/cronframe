@@ -236,3 +236,29 @@ table{
 #job_list tr:last-child td:last-child{
     border: 0px;
 }
+
+.clipboard_toast{
+    background: rgba(255, 61, 0, .8);
+    color: rgba(0,0,0,.4);
+    border-radius: 6px;
+    top:0;
+    right: 0;
+    margin-right: 15px;
+    margin-top: 15px;
+    position:fixed;
+    display:flex;
+    flex-direction:row;
+    align-items: center;
+    padding: 15px;
+    gap: 10px;
+}
+
+.close_toast {
+    font-weight: bold;
+    cursor:pointer;
+    margin-top: -2px;
+}
+
+.close_toast:hover {
+    color: white;
+}
