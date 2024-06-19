@@ -1,29 +1,25 @@
 body{
     background: #F6F6F6;
     color: #494949;
-    font-family: "Lato";
+    font-family: "Lato"!important;
 }
 
 a{
     text-decoration: none;
 }
 
-/* unvisited link */
 a:link {
     color: #FF3D00;
 }
 
-  /* visited link */
 a:visited {
     color: #ffa702;
 }
 
-/* mouse over link */
 a:hover {
     color: green;
 }
 
-/* selected link */
 a:active {
     color: red;
 }
@@ -42,8 +38,8 @@ header{
 }
 
 #refresh{
-    padding-top: 6px;
-    hight: 25px;
+    display: inline-block;
+    hight: auto;
     width: 25px;
     opacity: 0.5;
 }
@@ -86,28 +82,6 @@ footer{
     background: #F1F1F1;
     padding: 15px;
     border-radius: 6px;
-}
-
-#job_info{
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.job_info_item{
-    padding: 5px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(0,0,0,.05)
-}
-
-.job_info_item:nth-child(1){
-    font-weight: bold;
-    font-size: 16pt;
-    padding-bottom: 15px;
-}
-
-.job_info_item:last-child{
-    border: 0px;
 }
 
 input[type=text], input[type=number] {
@@ -184,7 +158,7 @@ button:active {
 .line_status_gray{
     font-weight: bold;
     display: inline-block;
-    background: rgba(0, 0, 0, .5);
+    background: rgba(0, 0, 0, .3);
     padding: 10px;
     border-radius: 6px;
     border: 1px solid rgba(0,0,0,.1);
@@ -199,4 +173,66 @@ button:active {
 .clipboard:hover{
     opacity: 0.8;
     cursor: pointer;
+}
+
+.id_cont{
+    display: inline;
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(0,0,0,.1);
+}
+
+table{
+    border-collapse: collapse;
+}
+
+#job_info td{
+    padding: 15px;
+    border-bottom: 1px solid rgba(0,0,0,.05)
+}
+
+#job_info th, #job_info td:nth-child(1){
+    font-weight: bold;
+    font-size: 16pt;
+    border-right: 1px solid rgba(0,0,0,.05)
+}
+
+#job_info th{
+    text-align: left;
+    font-size: 20pt;
+    padding: 15px;
+    border: 0;
+}
+
+#job_info tr:last-child td{
+    border: 0px;
+    border-right: 1px solid rgba(0,0,0,.05)
+}
+
+#job_info tr:last-child td:last-child{
+    border: 0px;
+}
+
+#job_list td{
+    padding: 15px;
+    border-bottom: 1px solid rgba(0,0,0,.05)
+}
+
+#job_list th, #job_list td:nth-child(1){
+    font-weight: bold;
+}
+
+#job_list th{
+    text-align: left;
+    font-size: 20pt;
+    padding: 15px;
+    border: 0;
+}
+
+#job_list tr:last-child td{
+    border: 0px;
+}
+
+#job_list tr:last-child td:last-child{
+    border: 0px;
 }

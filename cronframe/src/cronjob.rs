@@ -1,6 +1,6 @@
 use std::{any::Any, str::FromStr, sync::Arc, thread::JoinHandle};
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, Local, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
 use uuid::Uuid;
@@ -117,7 +117,7 @@ impl CronJob {
             return "None due to timeout.".to_string();
         }
         self.schedule
-            .upcoming(Utc)
+            .upcoming(Local)
             .into_iter()
             .next()
             .unwrap()

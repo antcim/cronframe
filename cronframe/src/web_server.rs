@@ -122,7 +122,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
         }
     }
 
-    Template::render("job", context! {job_info})
+    Template::render("job_alt", context! {job_info})
 }
 
 #[get("/job/<name>/<id>/toutset/<value>")]

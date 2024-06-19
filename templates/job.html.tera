@@ -7,26 +7,32 @@
     <div class="job_info_item">Job Info @{{job_info.name}}</div>
     <div class="job_info_item">Name: {{job_info.name}}</div>
     <div class="job_info_item">
-        ID: <span id="job_id">{{job_info.id}}</span>
-        <span class="clipboard" onclick="copyToClipBoard('job_id')" title="copy to clipboard">
-            <?xml version="1.0" ?>
-            <svg width="16px" height="16px" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                <path
-                    d="M464 0c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48H176c-26.51 0-48-21.49-48-48V48c0-26.51 21.49-48 48-48h288M176 416c-44.112 0-80-35.888-80-80V128H48c-26.51 0-48 21.49-48 48v288c0 26.51 21.49 48 48 48h288c26.51 0 48-21.49 48-48v-48H176z" />
-            </svg>
-        </span>
+        ID:
+        <div class="id_cont">
+            <span id="job_id">{{job_info.id}}</span>
+            <span class="clipboard" onclick="copyToClipBoard('job_id')" title="copy to clipboard">
+                <?xml version="1.0" ?>
+                <svg width="16px" height="16px" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M464 0c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48H176c-26.51 0-48-21.49-48-48V48c0-26.51 21.49-48 48-48h288M176 416c-44.112 0-80-35.888-80-80V128H48c-26.51 0-48 21.49-48 48v288c0 26.51 21.49 48 48 48h288c26.51 0 48-21.49 48-48v-48H176z" />
+                </svg>
+            </span>
+        </div>
     </div>
     <div class="job_info_item">Type: {{job_info.type}}</div>
     {% if job_info.run_id != "None" %}
     <div class="job_info_item">
-        Run ID: <span id="run_id">{{job_info.run_id}}</span>
-        <span class="clipboard" onclick="copyToClipBoard('run_id')" title="copy to clipboard">
-            <?xml version="1.0" ?>
-            <svg width="16px" height="16px" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-                <path
-                    d="M464 0c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48H176c-26.51 0-48-21.49-48-48V48c0-26.51 21.49-48 48-48h288M176 416c-44.112 0-80-35.888-80-80V128H48c-26.51 0-48 21.49-48 48v288c0 26.51 21.49 48 48 48h288c26.51 0 48-21.49 48-48v-48H176z" />
-            </svg>
-        </span>
+        Run ID:
+        <div class="id_cont">
+            <span id="run_id">{{job_info.run_id}}</span>
+            <span class="clipboard" onclick="copyToClipBoard('run_id')" title="copy to clipboard">
+                <?xml version="1.0" ?>
+                <svg width="16px" height="16px" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M464 0c26.51 0 48 21.49 48 48v288c0 26.51-21.49 48-48 48H176c-26.51 0-48-21.49-48-48V48c0-26.51 21.49-48 48-48h288M176 416c-44.112 0-80-35.888-80-80V128H48c-26.51 0-48 21.49-48 48v288c0 26.51 21.49 48 48 48h288c26.51 0 48-21.49 48-48v-48H176z" />
+                </svg>
+            </span>
+        </div>
     </div>
     {% endif %}
     <div class="job_info_item">

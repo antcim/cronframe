@@ -6,7 +6,7 @@ use std::{
 
 use chrono::Duration;
 
-use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, server};
+use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, web_server};
 
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
@@ -39,7 +39,7 @@ impl CronFrame {
         let frame = Arc::new(frame);
         let ret_frame = frame.clone();
 
-        std::thread::spawn(move || server::server(frame));
+        std::thread::spawn(move || web_server::server(frame));
         info!("CronFrame Server Running");
         ret_frame
     }

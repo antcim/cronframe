@@ -1,5 +1,6 @@
-use rand::distributions::DistString;
+use chrono::{DateTime, Local, Utc};
 
-pub fn generate_id(len: usize) -> String {
-    rand::distributions::Alphanumeric.sample_string(&mut rand::thread_rng(), len)
+pub fn local_time(utc_time: DateTime<Utc>) -> DateTime<Local>{
+    let local_time: DateTime<Local> = DateTime::from(utc_time);
+    local_time
 }

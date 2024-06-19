@@ -15,7 +15,7 @@ mod cronframe;
 mod cronjob;
 mod job_builder;
 mod logger;
-mod server;
+mod web_server;
 mod utils;
 
 pub use job_builder::JobBuilder;

@@ -1,11 +1,27 @@
 {% extends "base" %}
 
 {% block content %}
-<div id="job_info">
-    <div class="job_info_item">Current Jobs</div>
+<table id="job_list">
+    <tr>
+        <th>
+            Current Jobs
+            <div id="refresh" onclick="reloadPage()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 25">
+                    <path
+                        d="M21,15v-5c0-3.866-3.134-7-7-7l-3,0c-0.552,0-1,0.448-1,1v0c0,1.657,1.343,3,3,3h1	c1.657,0,3,1.343,3,3v5h-1.294c-0.615,0-0.924,0.742-0.491,1.178l3.075,3.104c0.391,0.395,1.03,0.395,1.421,0l3.075-3.104	C23.218,15.742,22.908,15,22.294,15H21z"
+                        opacity=".35"></path>
+                    <path
+                        d="M3,9v5c0,3.866,3.134,7,7,7h3c0.552,0,1-0.448,1-1v0c0-1.657-1.343-3-3-3h-1c-1.657,0-3-1.343-3-3V9h1.294	c0.615,0,0.924-0.742,0.491-1.178L5.71,4.717c-0.391-0.395-1.03-0.395-1.421,0L1.215,7.822C0.782,8.258,1.092,9,1.706,9H3z">
+                    </path>
+                </svg>
+            </div>
+        </th>
+    </tr>
     {% for cron_job in cron_jobs %}
     {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
-    <div class="job_info_item"><a href="{{link}}">{{cron_job.name}}</a></div>
+    <tr>
+        <td><a href="{{link}}">{{cron_job.name}}</a></td>
+    </tr>
     {% endfor %}
-</div>
+</table>
 {% endblock content %}
