@@ -4,7 +4,7 @@ use std::{
     thread::JoinHandle,
 };
 
-use chrono::Duration;
+use chrono::{Duration, Utc};
 
 use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, web_server};
 

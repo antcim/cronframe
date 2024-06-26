@@ -21,7 +21,7 @@ pub fn default_logger() -> log4rs::Handle {
 
     let policy = CompoundPolicy::new(Box::new(trigger), Box::new(roller));
 
-    let pattern = "{d(%Y-%m-%d %H:%M:%S UTC%Z)} {l} {t} - {m}{n}";
+    let pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}";
 
     let log_file = RollingFileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(pattern)))

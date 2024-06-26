@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 #[macro_use]
 extern crate rocket;
 
@@ -17,6 +19,7 @@ mod job_builder;
 mod logger;
 mod web_server;
 mod utils;
+mod tests;
 
 pub use job_builder::JobBuilder;
 pub use cronframe::CronFrame;
