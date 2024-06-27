@@ -45,7 +45,7 @@ fn failing_job() {
 }
 
 #[derive(Debug, Clone)]
-#[cron_obj] // this macro does nothing for now
+#[cron_obj]
 struct Users {
     second: String,
     minute: String,
@@ -71,7 +71,7 @@ impl Users {
 }
 
 fn main() {
-    let cronframe = CronFrame::init();
+    let cronframe = CronFrame::init(None);
 
     let user1 = Users {
         second: "0/5".to_string(),

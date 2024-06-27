@@ -1,26 +1,33 @@
 use std::{
-    collections::HashMap,
-    sync::{Arc, Mutex},
-    thread::JoinHandle,
+    alloc::GlobalAlloc, collections::HashMap, sync::{Arc, Mutex}, thread::JoinHandle
 };
 
 use chrono::{Duration, Utc};
 
-use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, web_server};
+use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronJobType};
+
+#[derive(PartialEq)]
+pub enum CronFilter{
+    Global,
+    Function,
+    Method
+}
 
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
     handlers: Mutex<HashMap<String, JoinHandle<()>>>,
     _logger: log4rs::Handle,
+    filter: Option<CronFilter>
 }
 
 impl CronFrame {
-    pub fn init() -> Arc<CronFrame> {
+    pub fn init(filter: Option<CronFilter>) -> Arc<CronFrame> {
         let _logger = logger::default_logger();
         let frame = CronFrame {
             cron_jobs: Mutex::new(vec![]),
             handlers: Mutex::new(HashMap::new()),
             _logger,
+            filter,
         };
 
         info!("CronFrame Init Start");
@@ -58,6 +65,18 @@ impl CronFrame {
             let mut cron_jobs = instance.cron_jobs.lock().unwrap();
 
             for cron_job in &mut (*cron_jobs) {
+                if let Some(filter) = &instance.filter{
+                    let job_type = match cron_job.job {
+                        CronJobType::Global(_) => CronFilter::Global,
+                        CronJobType::Function(_) => CronFilter::Function,
+                        CronJobType::Method(_) => CronFilter::Method,
+                    };
+
+                    if job_type != *filter{
+                        continue;
+                    }
+                }
+                
                 let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
 
                 // if the job_id key is not in the hashmap then attempt to schedule it

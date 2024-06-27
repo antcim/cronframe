@@ -1,22 +1,61 @@
+use crate::cronframe::CronFilter;
+use crate::distributed_slice;
+use crate::{Any, Arc, CronFrame, JobBuilder};
+use chrono::{DateTime, Duration, Local, Timelike, Utc};
+use cronframe_macro::{cron, cron_impl, cron_obj, job};
 use std::fs;
 
-use chrono::{DateTime, Duration, Local, Timelike, Utc};
-
-use crate::{CronFrame, JobBuilder};
-use cronframe_macro::cron;
-
-#[cron(expr = "0/5 * * * * * *", timeout = "0")]
-fn testfn() {
-    println!("call from testfn");
-}
-
 #[test]
-fn global_job() {
+fn function_job() {
+    #[derive(Debug, Clone)]
+    #[cron_obj]
+    struct Users {
+        second: String,
+        minute: String,
+        hour: String,
+        day_month: String,
+        month: String,
+        day_week: String,
+        year: String,
+        timeout: u64,
+    }
+
+    #[cron_impl]
+    impl Users {
+        // this job executes every minute
+        #[job(expr = "0 * * * * *", timeout = "0")]
+        fn my_function_job() {
+            println!("call from function job");
+        }
+    }
+
     let file_path = "log/latest.log";
-    let cronframe = CronFrame::init();
+    let cronframe = CronFrame::init(Some(CronFilter::Function));
+
+    let user1 = Users {
+        second: String::default(),
+        minute: String::default(),
+        hour: String::default(),
+        day_month: String::default(),
+        month: String::default(),
+        day_week: String::default(),
+        year: String::default(),
+        timeout: 0,
+    };
+    user1.helper_gatherer(cronframe.clone());
+
+    for job in cronframe.cron_jobs.lock().unwrap().iter() {
+        println!("job name = {}", job.name);
+    }
 
     // execute for a given time
-    let mut first_run: DateTime<Utc> = cronframe.cron_jobs.lock().unwrap()[0]
+    let mut first_run: DateTime<Utc> = cronframe
+        .cron_jobs
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|job| job.name.contains("my_function_job"))
+        .unwrap()
         .upcoming()
         .parse()
         .unwrap();
@@ -26,17 +65,13 @@ fn global_job() {
     println!("First Run = {first_run}");
 
     let start_time = Utc::now();
-    let duration = Duration::seconds(15);
+    let duration = Duration::minutes(2);
     let end_time = start_time + duration;
 
     println!("difference = {}", first_run - start_time);
     if first_run - start_time <= Duration::milliseconds(500) {
         println!("OLD First Run = {first_run}");
-        // first_run = cronframe.cron_jobs.lock().unwrap()[0]
-        //     .upcoming()
-        //     .parse()
-        //     .unwrap();
-        first_run = first_run + Duration::seconds(5);
+        first_run = first_run + Duration::minutes(1);
         println!("NEW First Run = {first_run}");
     }
 
@@ -72,7 +107,7 @@ fn global_job() {
         }
     }
 
-    let duration = Duration::seconds(5);
+    let duration = Duration::seconds(60);
 
     // check the first run of the job matches the expected time
     assert!(first_run == exec_times[0]);
