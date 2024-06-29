@@ -92,6 +92,7 @@ struct JobInfo {
     timeout: String,
     schedule: String,
     upcoming: String,
+    fail: bool,
 }
 
 #[get("/job/<name>/<id>")]
@@ -117,12 +118,13 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
                 },
                 schedule: job.schedule(),
                 upcoming: job.upcoming(),
+                fail: job.failed,
             };
             break;
         }
     }
 
-    Template::render("job_alt", context! {job_info})
+    Template::render("job", context! {job_info})
 }
 
 #[get("/job/<name>/<id>/toutset/<value>")]

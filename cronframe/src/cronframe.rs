@@ -22,7 +22,8 @@ pub struct CronFrame {
 
 impl CronFrame {
     pub fn init(filter: Option<CronFilter>) -> Arc<CronFrame> {
-        let _logger = logger::default_logger();
+        let _logger = logger::rolling_logger();
+
         let frame = CronFrame {
             cron_jobs: Mutex::new(vec![]),
             handlers: Mutex::new(HashMap::new()),
@@ -82,9 +83,11 @@ impl CronFrame {
                 // if the job_id key is not in the hashmap then attempt to schedule it
                 // if scheduling is a success then add the key to the hashmap
                 if !instance.handlers.lock().unwrap().contains_key(&job_id) {
+                    // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
+                        // TODO make this a one time message
+                        // TODO make a timedout job resume on the following day
                         info!("job @{} - Reached Timeout", job_id);
-                        // TODO remove timed-out job from list of actives?
                         continue;
                     }
 
@@ -135,6 +138,9 @@ impl CronFrame {
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
+                                instance.handlers.lock().unwrap().remove(job_id.as_str());
+                                cron_job.channels = None;
+                                cron_job.run_id = None;
                                 cron_job.failed = true;
                             }
                         }

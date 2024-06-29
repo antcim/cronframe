@@ -1,4 +1,4 @@
-use std::{any::Any, str::FromStr, sync::Arc, thread::JoinHandle};
+use std::{any::Any, borrow::Borrow, str::FromStr, sync::Arc, thread::JoinHandle};
 
 use chrono::{DateTime, Duration, Local, Utc};
 use cron::Schedule;
@@ -26,33 +26,18 @@ impl CronJob {
         if self.check_schedule() {
             self.run_id = Some(Uuid::new_v4());
             self.channels = Some(crossbeam_channel::bounded(1));
+
             if self.start_time.is_none() {
                 self.start_time = Some(Utc::now());
             }
 
-            let gracefull_period = 250; // ms
-            let first_try = Utc::now();
-            let limit_time = first_try + Duration::milliseconds(gracefull_period);
-
-            // try to schedule as long as in the graceful period
-            let mut graceful_log = false;
-            while Utc::now() < limit_time{
-                match self.run() {
-                    Ok(handle) => {
-                        return Some(handle)
-                    },
-                    Err(_error) => (),
-                }
-                if !graceful_log{
-                    graceful_log = true;
-                    let job_id = format!("{} ID#{}", self.name, self.id);
-                    let run_id = self.run_id.unwrap().to_string();
-                    info!("job @{job_id} RUN_ID#{run_id} - Graceful Period Scheduling");
-                }
+            match self.run() {
+                Ok(handle) => Some(handle),
+                Err(_error) => None,
             }
-            return None;
+        } else {
+            None
         }
-        None
     }
 
     pub fn check_schedule(&self) -> bool {
@@ -75,9 +60,7 @@ impl CronJob {
     }
 
     pub fn status(&self) -> String {
-        if self.failed {
-            "Failed".to_string()
-        } else if self.check_timeout() {
+        if self.check_timeout() {
             "Timed-Out".to_string()
         } else if self.run_id.is_some() {
             "Running".to_string()
@@ -152,17 +135,23 @@ impl CronJob {
             }
         };
 
-        let control_thread = move || match std::thread::spawn(job_thread).join() {
-            Ok(_) => {
-                let _ = tx.send("JOB_COMPLETE".to_string());
+        let control_thread = move || {
+            let job_handle = std::thread::spawn(job_thread); 
+
+            while !job_handle.is_finished(){
+                std::thread::sleep(Duration::milliseconds(250).to_std().unwrap());
             }
-            Err(_) => {
-                let _ = tx.send("JOB_ABORT".to_string());
-            }
+
+            match job_handle.join() {
+                Ok(_) => {
+                    let _ = tx.send("JOB_COMPLETE".to_string());
+                }
+                Err(_) => {
+                    let _ = tx.send("JOB_ABORT".to_string());
+                }
+            };
         };
-
-        // std::thread::spawn(control_thread)
-
+        
         std::thread::Builder::spawn(std::thread::Builder::new(), control_thread)
     }
 }

@@ -59,7 +59,7 @@ struct Users {
 
 #[cron_impl]
 impl Users {
-    #[job(expr = "* * * * * * *", timeout = "10000")]
+    #[job(expr = "0 0 * * * * *", timeout = "10000")]
     fn my_obj_job() {
         println!("call from my_obj_job");
     }

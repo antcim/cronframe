@@ -7,7 +7,7 @@ use std::fs;
 
 #[derive(Debug, Clone)]
 #[cron_obj]
-struct Users {
+struct TestingStr {
     second: String,
     minute: String,
     hour: String,
@@ -19,7 +19,7 @@ struct Users {
 }
 
 #[cron_impl]
-impl Users {
+impl TestingStr {
     // this job executes every minute
     #[job(expr = "0 * * * * *", timeout = "0")]
     fn my_function_job() {
@@ -37,7 +37,7 @@ fn function_job() {
     let file_path = "log/latest.log";
     let cronframe = CronFrame::init(Some(CronFilter::Function));
 
-    let user1 = Users {
+    let user1 = TestingStr {
         second: String::default(),
         minute: String::default(),
         hour: String::default(),
@@ -131,7 +131,7 @@ fn function_job_timeout() {
     let file_path = "log/latest.log";
     let cronframe = CronFrame::init(Some(CronFilter::Function));
 
-    let user1 = Users {
+    let user1 = TestingStr {
         second: String::default(),
         minute: String::default(),
         hour: String::default(),

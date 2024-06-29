@@ -165,8 +165,8 @@ pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
 
         let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();
 
-        println!("UNEDITED BLOCK:\n{block_string}");
-        println!("EDITED BLOCK:\n{block_string_edited}");
+        //println!("UNEDITED BLOCK:\n{block_string}");
+        //println!("EDITED BLOCK:\n{block_string_edited}");
 
         let new_code = quote! {
             // original method at the user's disposal
