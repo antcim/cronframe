@@ -1,19 +1,23 @@
 use crate::cronframe::CronFilter;
-use crate::distributed_slice;
+use crate::tests::init_logger;
+use crate::{distributed_slice, logger};
 use crate::{Any, Arc, CronFrame, JobBuilder};
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use cronframe_macro::{cron, cron_impl, cron_obj, job};
 use std::fs;
 
+
 #[test]
-fn global_job() {
+fn global_job_std() {
     #[cron(expr = "0/5 * * * * * *", timeout = "0")]
-    fn my_global_job() {
-        println!("call from global job");
+    fn my_global_job_std() {
+        println!("call from global job standard");
     }
 
+    init_logger();
+
     let file_path = "log/latest.log";
-    let cronframe = CronFrame::init(Some(CronFilter::Global));
+    let cronframe = CronFrame::init(Some(CronFilter::Global), false);
 
     // execute for a given time
     let mut first_run: DateTime<Utc> = cronframe
@@ -21,7 +25,7 @@ fn global_job() {
         .lock()
         .unwrap()
         .iter()
-        .find(|job| job.name.contains("my_global_job"))
+        .find(|job| job.name.contains("my_global_job_std"))
         .unwrap()
         .upcoming()
         .parse()
@@ -65,12 +69,14 @@ fn global_job() {
     let lines = file_content.lines();
     let mut exec_times = Vec::new();
     for line in lines {
-        if line.contains("Execution") {
-            let time = (&line[..26]).to_owned();
-            println!("{time} : str");
-            let time: DateTime<Utc> = time.parse().unwrap();
-            println!("{time} : datetime");
-            exec_times.push(time);
+        if line.contains("my_global_job_std ") {
+            if line.contains("Execution") {
+                let time = (&line[..26]).to_owned();
+                println!("{time} : str");
+                let time: DateTime<Utc> = time.parse().unwrap();
+                println!("{time} : datetime");
+                exec_times.push(time);
+            }
         }
     }
 
@@ -86,17 +92,21 @@ fn global_job() {
             "execution time interval error"
         );
     }
+
+    cronframe.quit();
 }
 
 #[test]
 fn global_job_timeout() {
     #[cron(expr = "0/5 * * * * * *", timeout = "15000")]
     fn my_global_job_timeout() {
-        println!("call from global job");
+        println!("call from global job with timeout");
     }
 
+    init_logger();
+
     let file_path = "log/latest.log";
-    let cronframe = CronFrame::init(Some(CronFilter::Global));
+    let cronframe = CronFrame::init(Some(CronFilter::Global), false);
 
     // execute for a given time
     let mut first_run: DateTime<Utc> = cronframe
@@ -149,7 +159,7 @@ fn global_job_timeout() {
     let mut exec_times = Vec::new();
     let mut timeouts = Vec::new();
     for line in lines {
-        if line.contains("my_global_job_timeout "){
+        if line.contains("my_global_job_timeout ") {
             if line.contains("Execution") {
                 let time = (&line[..26]).to_owned();
                 //println!("{time} : str");
@@ -165,7 +175,7 @@ fn global_job_timeout() {
     }
 
     let duration = Duration::seconds(5);
-    // timeout here is actually 15 seconds 
+    // timeout here is actually 15 seconds
     // but it is counted in the scheduler from the moment a job thread is spawned
     // a job thread is spawned at least 500ms before its scheduled execution
     // so here we account for the previous second pertaining the scheduling and not the execution
@@ -182,5 +192,7 @@ fn global_job_timeout() {
         );
     }
 
-    assert!(first_run + timeout == timeouts[0], "timeout error")
+    assert!(first_run + timeout == timeouts[0], "timeout error");
+
+    cronframe.quit();
 }

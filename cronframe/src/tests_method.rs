@@ -1,5 +1,6 @@
 use crate::cronframe::CronFilter;
-use crate::distributed_slice;
+use crate::tests::init_logger;
+use crate::{distributed_slice, logger};
 use crate::{Any, Arc, CronFrame, JobBuilder};
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use cronframe_macro::{cron, cron_impl, cron_obj, job};
@@ -21,7 +22,7 @@ struct TestStruct {
 #[cron_impl]
 impl TestStruct {
     #[job]
-    fn my_method_job(self) {
+    fn my_method_job_std(self) {
         println!("call from method_job");
     }
 
@@ -34,9 +35,11 @@ impl TestStruct {
 // this test runs for 15 minutes
 // a job is run every 5 minutes on the minute
 #[test]
-fn method_job() {
+fn method_job_std() {
+    init_logger();
+
     let file_path = "log/latest.log";
-    let cronframe = CronFrame::init(Some(CronFilter::Method));
+    let cronframe = CronFrame::init(Some(CronFilter::Method), false);
 
     let testsruct = TestStruct {
         second: "0".to_string(),
@@ -56,7 +59,7 @@ fn method_job() {
         .lock()
         .unwrap()
         .iter()
-        .find(|job| job.name.contains("my_method_job"))
+        .find(|job| job.name.contains("my_method_job_std"))
         .unwrap()
         .upcoming()
         .parse()
@@ -100,12 +103,14 @@ fn method_job() {
     let lines = file_content.lines();
     let mut exec_times = Vec::new();
     for line in lines {
-        if line.contains("Execution") {
-            let time = (&line[..26]).to_owned();
-            println!("{time} : str");
-            let time: DateTime<Utc> = time.parse().unwrap();
-            println!("{time} : datetime");
-            exec_times.push(time);
+        if line.contains("my_method_job_std "){
+            if line.contains("Execution") {
+                let time = (&line[..26]).to_owned();
+                println!("{time} : str");
+                let time: DateTime<Utc> = time.parse().unwrap();
+                println!("{time} : datetime");
+                exec_times.push(time);
+            }
         }
     }
 
@@ -121,6 +126,8 @@ fn method_job() {
             "execution time interval error"
         );
     }
+
+    cronframe.quit();
 }
 
 // this test runs for 15 minutes
@@ -128,8 +135,10 @@ fn method_job() {
 // the job timeouts after 12 minutes
 #[test]
 fn method_job_timeout() {
+    init_logger();
+
     let file_path = "log/latest.log";
-    let cronframe = CronFrame::init(Some(CronFilter::Method));
+    let cronframe = CronFrame::init(Some(CronFilter::Method), false);
 
     let testsruct = TestStruct {
         second: "0".to_string(),
@@ -227,5 +236,7 @@ fn method_job_timeout() {
         );
     }
 
-    assert!(first_run + timeout == timeouts[0], "timeout error")
+    assert!(first_run + timeout == timeouts[0], "timeout error");
+
+    cronframe.quit();
 }

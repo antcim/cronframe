@@ -1,34 +1,52 @@
 use std::{
-    alloc::GlobalAlloc, collections::HashMap, sync::{Arc, Mutex}, thread::JoinHandle
+    alloc::GlobalAlloc,
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
 };
 
 use chrono::{Duration, Utc};
+use crossbeam_channel::{Receiver, Sender};
+use rocket::Shutdown;
 
 use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronJobType};
 
 #[derive(PartialEq)]
-pub enum CronFilter{
+pub enum CronFilter {
     Global,
     Function,
-    Method
+    Method,
 }
-
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
     handlers: Mutex<HashMap<String, JoinHandle<()>>>,
-    _logger: log4rs::Handle,
-    filter: Option<CronFilter>
+    logger: Option<log4rs::Handle>,
+    pub web_server_channels: (Sender<Shutdown>, Receiver<Shutdown>),
+    pub filter: Option<CronFilter>,
+    server_handle: Mutex<Option<Shutdown>>,
 }
 
 impl CronFrame {
-    pub fn init(filter: Option<CronFilter>) -> Arc<CronFrame> {
-        let _logger = logger::rolling_logger();
+    const QUIT: std::sync::Mutex<bool> = Mutex::new(false);
 
-        let frame = CronFrame {
+    pub fn default() -> Arc<CronFrame> {
+        CronFrame::init(None, true)
+    }
+
+    pub fn init(filter: Option<CronFilter>, use_logger: bool) -> Arc<CronFrame> {
+        let mut logger = None;
+
+        if use_logger {
+            logger = Some(logger::rolling_logger());
+        }
+
+        let mut frame = CronFrame {
             cron_jobs: Mutex::new(vec![]),
             handlers: Mutex::new(HashMap::new()),
-            _logger,
+            logger,
+            web_server_channels: crossbeam_channel::bounded(1),
             filter,
+            server_handle: Mutex::new(None),
         };
 
         info!("CronFrame Init Start");
@@ -42,14 +60,26 @@ impl CronFrame {
 
         info!("Global Jobs Collected");
         info!("CronFrame Init Complete");
-        
-        info!("CronFrame Server Init");
-        let frame = Arc::new(frame);
-        let ret_frame = frame.clone();
 
-        std::thread::spawn(move || web_server::server(frame));
+        info!("CronFrame Server Init");
+        let mut frame = Arc::new(frame);
+        let server_frame = frame.clone();
+
+        std::thread::spawn(move || web_server::web_server(server_frame));
+
+        *frame.server_handle.lock().unwrap() = match frame.web_server_channels.1.recv() {
+            Ok(handle) => {
+                println!("Handle Received");
+                Some(handle)
+            }
+            Err(error) => {
+                println!("Handle ERROR: {error}");
+                None
+            }
+        };
+
         info!("CronFrame Server Running");
-        ret_frame
+        frame
     }
 
     pub fn add_job(&mut self, job: CronJob) {
@@ -63,21 +93,25 @@ impl CronFrame {
             // sleep some otherwise the cpu consumption goes to the moon
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
 
+            if *CronFrame::QUIT.lock().unwrap() {
+                break;
+            }
+
             let mut cron_jobs = instance.cron_jobs.lock().unwrap();
 
             for cron_job in &mut (*cron_jobs) {
-                if let Some(filter) = &instance.filter{
+                if let Some(filter) = &instance.filter {
                     let job_type = match cron_job.job {
                         CronJobType::Global(_) => CronFilter::Global,
                         CronJobType::Function(_) => CronFilter::Function,
                         CronJobType::Method(_) => CronFilter::Method,
                     };
 
-                    if job_type != *filter{
+                    if job_type != *filter {
                         continue;
                     }
                 }
-                
+
                 let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
 
                 // if the job_id key is not in the hashmap then attempt to schedule it
@@ -85,9 +119,11 @@ impl CronFrame {
                 if !instance.handlers.lock().unwrap().contains_key(&job_id) {
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
-                        // TODO make this a one time message
                         // TODO make a timedout job resume on the following day
-                        info!("job @{} - Reached Timeout", job_id);
+                        if !cron_job.timeout_notified {
+                            info!("job @{} - Reached Timeout", job_id);
+                            cron_job.timeout_notified = true;
+                        }
                         continue;
                     }
 
@@ -131,7 +167,6 @@ impl CronFrame {
                                 instance.handlers.lock().unwrap().remove(job_id.as_str());
                                 cron_job.channels = None;
                                 cron_job.run_id = None;
-                                cron_job.failed = false;
                             } else if message == "JOB_ABORT" {
                                 info!(
                                     "job @{} RUN_ID#{} - Aborted",
@@ -152,5 +187,21 @@ impl CronFrame {
         };
         std::thread::spawn(scheduler);
         info!("CronFrame Scheduler Running");
+    }
+
+    pub fn quit(self: &Arc<Self>) {
+        *CronFrame::QUIT.lock().unwrap() = true;
+
+        let instance = self.clone();
+
+        let tmp = instance
+            .server_handle
+            .lock()
+            .unwrap()
+            .clone()
+            .unwrap()
+            .notify();
+
+        std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
     }
 }

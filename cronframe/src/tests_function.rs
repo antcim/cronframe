@@ -1,5 +1,6 @@
 use crate::cronframe::CronFilter;
-use crate::distributed_slice;
+use crate::tests::init_logger;
+use crate::{distributed_slice, logger};
 use crate::{Any, Arc, CronFrame, JobBuilder};
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use cronframe_macro::{cron, cron_impl, cron_obj, job};
@@ -22,7 +23,7 @@ struct TestingStr {
 impl TestingStr {
     // this job executes every minute
     #[job(expr = "0 * * * * *", timeout = "0")]
-    fn my_function_job() {
+    fn my_function_job_std() {
         println!("call from function job");
     }
     // this job executes every minute but quits after 3 minutes
@@ -33,9 +34,11 @@ impl TestingStr {
 }
 
 #[test]
-fn function_job() {
+fn function_job_std() {
+    init_logger();
+
     let file_path = "log/latest.log";
-    let cronframe = CronFrame::init(Some(CronFilter::Function));
+    let cronframe = CronFrame::init(Some(CronFilter::Function), false);
 
     let user1 = TestingStr {
         second: String::default(),
@@ -49,17 +52,13 @@ fn function_job() {
     };
     user1.helper_gatherer(cronframe.clone());
 
-    for job in cronframe.cron_jobs.lock().unwrap().iter() {
-        println!("job name = {}", job.name);
-    }
-
     // execute for a given time
     let mut first_run: DateTime<Utc> = cronframe
         .cron_jobs
         .lock()
         .unwrap()
         .iter()
-        .find(|job| job.name.contains("my_function_job"))
+        .find(|job| job.name.contains("my_function_job_std"))
         .unwrap()
         .upcoming()
         .parse()
@@ -103,12 +102,14 @@ fn function_job() {
     let lines = file_content.lines();
     let mut exec_times = Vec::new();
     for line in lines {
-        if line.contains("Execution") {
-            let time = (&line[..26]).to_owned();
-            println!("{time} : str");
-            let time: DateTime<Utc> = time.parse().unwrap();
-            println!("{time} : datetime");
-            exec_times.push(time);
+        if line.contains("my_function_job_std ") {
+            if line.contains("Execution") {
+                let time = (&line[..26]).to_owned();
+                println!("{time} : str");
+                let time: DateTime<Utc> = time.parse().unwrap();
+                println!("{time} : datetime");
+                exec_times.push(time);
+            }
         }
     }
 
@@ -124,12 +125,16 @@ fn function_job() {
             "execution time interval error"
         );
     }
+
+    cronframe.quit();
 }
 
 #[test]
 fn function_job_timeout() {
+    init_logger();
+
     let file_path = "log/latest.log";
-    let cronframe = CronFrame::init(Some(CronFilter::Function));
+    let cronframe = CronFrame::init(Some(CronFilter::Function), false);
 
     let user1 = TestingStr {
         second: String::default(),
@@ -227,6 +232,8 @@ fn function_job_timeout() {
         );
     }
 
-    assert!(first_run + timeout == timeouts[0], "timeout error")
+    assert!(first_run + timeout == timeouts[0], "timeout error");
+
+    cronframe.quit();
 }
 

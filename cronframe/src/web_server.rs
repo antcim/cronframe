@@ -1,11 +1,17 @@
-use crate::{config::read_config, cronframe::CronFrame, CronJobType};
+use crate::{
+    config::read_config,
+    cronframe::{self, CronFilter, CronFrame},
+    CronJobType,
+};
 use log::info;
-use rocket::{config::Shutdown, serde::Serialize};
+use rocket::{config::Shutdown, futures::FutureExt, serde::Serialize};
 use rocket_dyn_templates::{context, Template};
 use std::sync::Arc;
 
-pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
-    let tokio_runtime = rocket::tokio::runtime::Runtime::new()?;
+pub fn web_server(frame: Arc<CronFrame>) {
+    let cronframe = frame.clone();
+
+    let tokio_runtime = rocket::tokio::runtime::Runtime::new().unwrap();
 
     let config = match read_config() {
         Some(config_data) => rocket::Config {
@@ -43,16 +49,21 @@ pub fn server(frame: Arc<CronFrame>) -> anyhow::Result<i32> {
         .attach(Template::fairing())
         .manage(frame);
 
-    println!(
-        "CronFrame running at http://{}:{}",
-        config.address, config.port
-    );
+    let (tx, rx) = cronframe.web_server_channels.clone();
+
+    println!("HERE 0");
 
     tokio_runtime.block_on(async move {
-        let _ = rocket.launch().await;
+        let rocket = rocket.ignite().await;
+        let shutdown_handle = rocket.as_ref().unwrap().shutdown();
+        println!("SENDING STUFF NOW!!!");
+        let _ = tx.send(shutdown_handle);
+        println!(
+            "CronFrame running at http://{}:{}",
+            config.address, config.port
+        );
+        let _ = rocket.unwrap().launch().await;
     });
-
-    Ok(0)
 }
 
 #[get("/styles")]
@@ -72,10 +83,18 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     let mut cron_jobs = vec![];
 
     for job in cronframe.cron_jobs.lock().unwrap().iter() {
-        cron_jobs.push(JobList {
-            name: job.name.clone(),
-            id: job.id.to_string(),
-        });
+        let job_type = match job.job {
+            CronJobType::Global(_) => CronFilter::Global,
+            CronJobType::Function(_) => CronFilter::Function,
+            CronJobType::Method(_) => CronFilter::Method,
+        };
+
+        if cronframe.filter.is_none() || cronframe.filter == Some(job_type) {
+            cron_jobs.push(JobList {
+                name: job.name.clone(),
+                id: job.id.to_string(),
+            });
+        }
     }
 
     Template::render("index", context! {cron_jobs})

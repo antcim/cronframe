@@ -19,6 +19,7 @@ mod job_builder;
 mod logger;
 mod web_server;
 mod utils;
+mod tests;
 mod tests_function;
 mod tests_global;
 mod tests_method;

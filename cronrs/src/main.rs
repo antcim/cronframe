@@ -71,7 +71,7 @@ impl Users {
 }
 
 fn main() {
-    let cronframe = CronFrame::init(None);
+    let cronframe = CronFrame::default();
 
     let user1 = Users {
         second: "0/5".to_string(),
