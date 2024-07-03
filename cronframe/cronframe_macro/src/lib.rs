@@ -141,103 +141,136 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 }
 
 #[proc_macro_attribute]
-pub fn job(att: TokenStream, code: TokenStream) -> TokenStream {
+pub fn fn_job(att: TokenStream, code: TokenStream) -> TokenStream {
     let parsed = syn::parse::<ItemFn>(code.clone());
 
     if check_self(&parsed) {
-        // generate code for a method job
-        let origin_method = parsed.clone().unwrap().to_token_stream();
-        let ident = parsed.clone().unwrap().sig.ident;
-        let job_name = ident.to_string();
-        let block = parsed.clone().unwrap().block;
-        let cronframe_method = format_ident!("cron_method_{}", ident);
-        let helper = format_ident!("cron_helper_{}", ident);
-        let expr = format_ident!("expr");
-        let tout = format_ident!("tout");
-
-        let block_string = block.clone().into_token_stream().to_string();
-        let mut block_string_edited = block_string.replace("self.", "cronframe_self.");
-        block_string_edited.insert_str(
-            1,
-            "let cron_frame_instance = arg.clone();
-                let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();",
-        );
-
-        let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();
-
-        //println!("UNEDITED BLOCK:\n{block_string}");
-        //println!("EDITED BLOCK:\n{block_string_edited}");
-
-        let new_code = quote! {
-            // original method at the user's disposal
-            #origin_method
-
-            // cronjob method at cronframe's disposal
-            // fn cron_method_<name_of_method> ...
-            fn #cronframe_method(arg: Arc<Box<dyn Any + Send + Sync>>) #block_edited
-
-            // fn cron_helper_<name_of_method> ...
-            fn #helper(arg: Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static> {
-                let instance = arg.clone();
-                let this_obj = (*instance).downcast_ref::<Self>().unwrap();
-
-                let #expr = format!(
-                    "{} {} {} {} {} {} {}",
-                    this_obj.second.clone(),
-                    this_obj.minute.clone(),
-                    this_obj.hour.clone(),
-                    this_obj.day_month.clone(),
-                    this_obj.month.clone(),
-                    this_obj.day_week.clone(),
-                    this_obj.year.clone(),
-                );
-                let #tout = format!("{}", this_obj.timeout);
-                let instance = arg.clone();
-
-                JobBuilder::method_job(#job_name, Self::#cronframe_method, #expr.clone(), #tout, instance)
-            }
-        };
-        new_code.into()
-    } else {
-        // generate code for a function job
-        let args =
-            parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
-
-        let args = args.into_iter().map(|x| {
-            x.require_name_value()
-                .map(|x| {
-                    let arg_name = x.path.to_token_stream().to_string();
-                    let arg_val = x.value.to_token_stream().to_string();
-                    (arg_name, arg_val.replace("\"", ""))
-                })
-                .unwrap()
-        });
-
-        // should contain ("expr", "* * * * * *")
-        let (arg_1_name, cron_expr) = args.clone().peekable().nth(0).unwrap();
-
-        // should contain ("timeout", "u64")
-        let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
-
-        if arg_1_name != "expr" && arg_2_name != "timeout" {
-            return code;
-        }
-
-        let origin_function = parsed.clone().unwrap().to_token_stream();
-        let ident = parsed.clone().unwrap().sig.ident;
-        let job_name = ident.to_string();
-        let helper = format_ident!("cron_helper_{}", ident);
-
-        let new_code = quote! {
-            // original function
-            #origin_function
-
-            fn #helper() -> JobBuilder<'static> {
-                JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout)
-            }
-        };
-        new_code.into()
+        // self is present -> compilation error
     }
+
+    // generate code for a function job
+    let args = parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
+
+    let args = args.into_iter().map(|x| {
+        x.require_name_value()
+            .map(|x| {
+                let arg_name = x.path.to_token_stream().to_string();
+                let arg_val = x.value.to_token_stream().to_string();
+                (arg_name, arg_val.replace("\"", ""))
+            })
+            .unwrap()
+    });
+
+    // should contain ("expr", "* * * * * *")
+    let (arg_1_name, cron_expr) = args.clone().peekable().nth(0).unwrap();
+
+    // should contain ("timeout", "time in ms")
+    let (arg_2_name, timeout) = args.peekable().nth(1).unwrap();
+
+    if arg_1_name != "expr" && arg_2_name != "timeout" {
+        // wrong argument names -> compilation error
+        return code;
+    }
+
+    let origin_function = parsed.clone().unwrap().to_token_stream();
+    let ident = parsed.clone().unwrap().sig.ident;
+    let job_name = ident.to_string();
+    let helper = format_ident!("cron_helper_{}", ident);
+
+    let new_code = quote! {
+        // original function
+        #origin_function
+
+        fn #helper() -> JobBuilder<'static> {
+            JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout)
+        }
+    };
+    new_code.into()
+}
+
+#[proc_macro_attribute]
+pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
+    let parsed = syn::parse::<ItemFn>(code.clone());
+
+    if !check_self(&parsed) {
+        // self is missing -> compilation error
+    }
+
+    // generate code for a function job
+    let args = parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
+
+    let args = args.into_iter().map(|x| {
+        x.require_name_value()
+            .map(|x| {
+                let arg_name = x.path.to_token_stream().to_string();
+                let arg_val = x.value.to_token_stream().to_string();
+                (arg_name, arg_val.replace("\"", ""))
+            })
+            .unwrap()
+    });
+
+    // should contain ("expr", "name of expression field")
+    let (arg_1_name, cron_expr) = args.clone().peekable().nth(0).unwrap();
+
+    if arg_1_name != "expr" {
+        // wrong argument name -> compilation error
+        return code;
+    }
+
+    // generate code for a method job
+    let origin_method = parsed.clone().unwrap().to_token_stream();
+    let ident = parsed.clone().unwrap().sig.ident;
+    let job_name = ident.to_string();
+    let block = parsed.clone().unwrap().block;
+    let cronframe_method = format_ident!("cron_method_{}", ident);
+    let helper = format_ident!("cron_helper_{}", ident);
+    let expr = format_ident!("expr");
+    let tout = format_ident!("tout");
+
+    // this is to replace the native self with the self from cronframe
+    let block_string = block.clone().into_token_stream().to_string();
+    let mut block_string_edited = block_string.replace("self.", "cronframe_self.");
+    block_string_edited.insert_str(
+        1,
+        "let cron_frame_instance = arg.clone();
+                let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();",
+    );
+
+    let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();
+
+    //println!("UNEDITED BLOCK:\n{block_string}");
+    //println!("EDITED BLOCK:\n{block_string_edited}");
+
+    let mut new_code = quote! {
+        // original method at the user's disposal
+        #origin_method
+
+        // cronjob method at cronframe's disposal
+        // fn cron_method_<name_of_method> ...
+        fn #cronframe_method(arg: Arc<Box<dyn Any + Send + Sync>>) #block_edited
+    };
+
+    let helper_code = quote! {
+        // fn cron_helper_<name_of_method> ...
+        fn #helper(arg: Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static> {
+            let instance = arg.clone();
+            let this_obj = (*instance).downcast_ref::<Self>().unwrap();
+
+            let #expr = this_obj.cron_expr.expr();
+            let #tout = format!("{}", this_obj.cron_expr.timeout());
+            let instance = arg.clone();
+
+            JobBuilder::method_job(#job_name, Self::#cronframe_method, #expr.clone(), #tout, instance)
+        }
+    };
+
+    // replace the placeholder cron_expr with the name of the field
+    let helper_code_edited = helper_code.clone().into_token_stream().to_string().replace("cron_expr", &cron_expr);
+    let block_edited: proc_macro2::TokenStream = helper_code_edited.parse().unwrap();
+
+    new_code.extend(block_edited.into_iter());
+
+    new_code.into()
 }
 
 fn check_self(parsed: &Result<ItemFn, syn::Error>) -> bool {

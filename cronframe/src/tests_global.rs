@@ -1,7 +1,6 @@
-use crate::cronframe::CronFilter;
 use crate::tests::init_logger;
 use crate::{distributed_slice, logger};
-use crate::{Any, Arc, CronFrame, JobBuilder};
+use crate::{Any, Arc, CronFrame, JobBuilder, CronFilter};
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use cronframe_macro::{cron, cron_impl, cron_obj, job};
 use std::fs;

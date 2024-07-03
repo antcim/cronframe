@@ -1,7 +1,8 @@
 use crate::{
     config::read_config,
-    cronframe::{self, CronFilter, CronFrame},
+    cronframe::{self, CronFrame},
     CronJobType,
+    CronFilter
 };
 use log::info;
 use rocket::{config::Shutdown, futures::FutureExt, serde::Serialize};

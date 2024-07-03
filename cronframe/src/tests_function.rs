@@ -1,4 +1,4 @@
-use crate::cronframe::CronFilter;
+use crate::CronFilter;
 use crate::tests::init_logger;
 use crate::{distributed_slice, logger};
 use crate::{Any, Arc, CronFrame, JobBuilder};

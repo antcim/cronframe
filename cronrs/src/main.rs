@@ -4,7 +4,7 @@
 extern crate cronframe;
 use core::panic;
 
-use cronframe::{Any, Arc, CronFrame, JobBuilder};
+use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder};
 
 //  Cron Expression
 //  * * * * * * *
@@ -45,52 +45,43 @@ fn failing_job() {
 #[derive(Debug, Clone)]
 #[cron_obj]
 struct Users {
-    second: String,
-    minute: String,
-    hour: String,
-    day_month: String,
-    month: String,
-    day_week: String,
-    year: String,
-    timeout: u64,
+    expr: CronFrameExpr,
+    expr1: CronFrameExpr,
 }
 
 #[cron_impl]
 impl Users {
-    #[job(expr = "0 0 * * * * *", timeout = "10000")]
-    fn my_obj_job() {
+    #[fn_job(expr = "0 0 * * * * *", timeout = "10000")]
+    fn my_function_job() {
         println!("call from my_obj_job");
     }
     
-    #[job]
-    fn get_jobs(self) {
-        println!("call from get_jobs for seconds {}", self.second);
+    #[mt_job(expr = "expr")]
+    fn my_method_job_1(self) {
+        println!("call from my_method_job_1 for expr {}", self.expr.expr());
+    }
+
+    #[mt_job(expr = "expr1")]
+    fn my_method_job_2(self) {
+        println!("call from get_jobs for expr {}", self.expr1.expr());
     }
 }
 
 fn main() {
     let cronframe = CronFrame::default();
 
+    let expr1 = CronFrameExpr::new("0/5", "*", "*", "*", "*", "*", "*", 0);
+    let expr2 = CronFrameExpr::new("0/10", "*", "*", "*", "*", "*", "*", 20000);
+    let expr3 = CronFrameExpr::new("0/7", "*", "*", "*", "*", "*", "*", 10000);
+
     let user1 = Users {
-        second: "0/5".to_string(),
-        minute: "*".to_string(),
-        hour: "*".to_string(),
-        day_month: "*".to_string(),
-        month: "*".to_string(),
-        day_week: "*".to_string(),
-        year: "*".to_string(),
-        timeout: 0,
+        expr: expr1,
+        expr1: expr3.clone()
     };
 
     let user2 = Users {
-        second: "0/10".to_string(),
-        minute: "*".to_string(),
-        hour: "*".to_string(),
-        day_month: "*".to_string(),
-        month: "*".to_string(),
-        day_week: "*".to_string(),
-        year: "*".to_string(),
-        timeout: 0,
+        expr: expr2,
+        expr1: expr3
     };
 
     user1.helper_gatherer(cronframe.clone());

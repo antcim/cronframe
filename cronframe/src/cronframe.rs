@@ -9,14 +9,7 @@ use chrono::{Duration, Utc};
 use crossbeam_channel::{Receiver, Sender};
 use rocket::Shutdown;
 
-use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronJobType};
-
-#[derive(PartialEq)]
-pub enum CronFilter {
-    Global,
-    Function,
-    Method,
-}
+use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronFilter, CronJobType};
 
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
