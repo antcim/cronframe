@@ -10,15 +10,13 @@ use cronframe::{Any, Arc, CronFrame, JobBuilder};
 //  * * * * * * *
 //  | | | | | | |
 //  | | | | | | └─ year
-//  | | | | | └─── day of week (0 to 7, Sunday to Saturday, 0 and 7 both work for Sunday or three letter day)
+//  | | | | | └─── day of week (1 to 7 for Sunday to Saturday, or three letter day)
 //  | | | | └───── month (1 to 12 or 3 letter month like Jen, Feb, Mar, ...)
 //  | | | └─────── day of month (1 to 31)
-//  | | └───────── hour (0 to 23)
-//  | └─────────── minute (0 to 59)
-//  └───────────── second (0 to 59), optional, defaults to every second "*"
+//  | | └───────── hours (0 to 23)
+//  | └─────────── minutes (0 to 59)
+//  └───────────── seconds (0 to 59)
 // "*" works as a jolly for any value will do
-
-// this executes every 5 seconds, timeouts after 10 seconds
 
 #[cron(expr = "0/5 * * * * * *", timeout = "0")]
 fn testfn() {

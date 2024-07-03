@@ -1,10 +1,13 @@
 use log4rs::{
-    append::{file::FileAppender, rolling_file::{
-        policy::compound::{
-            roll::fixed_window::FixedWindowRoller, trigger::size::SizeTrigger, CompoundPolicy,
+    append::{
+        file::FileAppender,
+        rolling_file::{
+            policy::compound::{
+                roll::fixed_window::FixedWindowRoller, trigger::size::SizeTrigger, CompoundPolicy,
+            },
+            RollingFileAppender,
         },
-        RollingFileAppender,
-    }},
+    },
     config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
 };
@@ -28,6 +31,44 @@ pub fn appender_logger() -> log4rs::Handle {
         .unwrap();
 
     log4rs::init_config(config).unwrap()
+}
+
+pub fn appender_config() -> log4rs::Config  {
+    let pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}";
+
+    let log_file = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new(pattern)))
+        .append(false)
+        .build("log/latest.log")
+        .unwrap();
+
+    Config::builder()
+        .appender(Appender::builder().build("log_file", Box::new(log_file)))
+        .build(
+            Root::builder()
+                .appender("log_file")
+                .build(log::LevelFilter::Info),
+        )
+        .unwrap()
+}
+
+pub fn trash_config() -> log4rs::Config {
+    let pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}";
+
+    let log_file = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new(pattern)))
+        .append(false)
+        .build("log/trash.log")
+        .unwrap();
+
+    Config::builder()
+        .appender(Appender::builder().build("log_file", Box::new(log_file)))
+        .build(
+            Root::builder()
+                .appender("log_file")
+                .build(log::LevelFilter::Info),
+        )
+        .unwrap()
 }
 
 pub fn rolling_logger() -> log4rs::Handle {

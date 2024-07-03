@@ -17,6 +17,7 @@ pub enum CronFilter {
     Function,
     Method,
 }
+
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
     handlers: Mutex<HashMap<String, JoinHandle<()>>>,
@@ -193,6 +194,7 @@ impl CronFrame {
         *CronFrame::QUIT.lock().unwrap() = true;
 
         let instance = self.clone();
+        let logger = instance.logger.as_ref().unwrap().set_config(logger::trash_config());
 
         let tmp = instance
             .server_handle
@@ -203,5 +205,10 @@ impl CronFrame {
             .notify();
 
         std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
+    }
+
+    pub fn set_logger_config(self: &Arc<Self>){
+        let instance = self.clone();
+        let logger = instance.logger.as_ref().unwrap().set_config(logger::appender_config());
     }
 }

@@ -110,7 +110,8 @@ struct JobInfo {
     status: String,
     timeout: String,
     schedule: String,
-    upcoming: String,
+    upcoming_utc: String,
+    upcoming_local: String,
     fail: bool,
 }
 
@@ -136,7 +137,8 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
                     "None".into()
                 },
                 schedule: job.schedule(),
-                upcoming: job.upcoming(),
+                upcoming_utc: job.upcoming_utc(),
+                upcoming_local: job.upcoming_local(),
                 fail: job.failed,
             };
             break;

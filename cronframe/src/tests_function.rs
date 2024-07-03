@@ -36,9 +36,10 @@ impl TestingStr {
 #[test]
 fn function_job_std() {
     init_logger();
-
     let file_path = "log/latest.log";
+
     let cronframe = CronFrame::init(Some(CronFilter::Function), false);
+    cronframe.set_logger_config();
 
     let user1 = TestingStr {
         second: String::default(),
@@ -60,7 +61,7 @@ fn function_job_std() {
         .iter()
         .find(|job| job.name.contains("my_function_job_std"))
         .unwrap()
-        .upcoming()
+        .upcoming_utc()
         .parse()
         .unwrap();
 
@@ -84,6 +85,7 @@ fn function_job_std() {
 
     // make the lib execute for given time
     while end_time > Utc::now() {}
+    cronframe.quit();
 
     // we need to get the current log file
     // if we don't have it, test fails
@@ -125,16 +127,15 @@ fn function_job_std() {
             "execution time interval error"
         );
     }
-
-    cronframe.quit();
 }
 
 #[test]
 fn function_job_timeout() {
     init_logger();
-
     let file_path = "log/latest.log";
+
     let cronframe = CronFrame::init(Some(CronFilter::Function), false);
+    cronframe.set_logger_config();
 
     let user1 = TestingStr {
         second: String::default(),
@@ -156,7 +157,7 @@ fn function_job_timeout() {
         .iter()
         .find(|job| job.name.contains("my_function_job_timeout"))
         .unwrap()
-        .upcoming()
+        .upcoming_utc()
         .parse()
         .unwrap();
 
@@ -180,6 +181,7 @@ fn function_job_timeout() {
 
     // make the lib execute for given time
     while end_time > Utc::now() {}
+    cronframe.quit();
 
     // we need to get the current log file
     // if we don't have it, test fails
@@ -233,7 +235,4 @@ fn function_job_timeout() {
     }
 
     assert!(first_run + timeout == timeouts[0], "timeout error");
-
-    cronframe.quit();
 }
-

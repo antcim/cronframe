@@ -102,11 +102,10 @@
         </td>
     </tr>
     <tr>
-        <td>Upcoming (Local)</td>
+        <td>Upcoming</td>
         <td colspan="2">
-            {{job_info.upcoming}} (Local)
-            <br>
-            {{job_info.upcoming}} (Utc)
+            <p>{{job_info.upcoming_utc}}</p>
+            <p>{{job_info.upcoming_local}} (Local)</p>
         </td>
     </tr>
 </table>
