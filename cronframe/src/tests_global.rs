@@ -6,19 +6,23 @@ use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use cronframe_macro::{cron, cron_impl, cron_obj, job};
 use std::fs;
 
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn my_global_job_std() {
+    println!("call from global job standard");
+}
+
+#[cron(expr = "0/5 * * * * * *", timeout = "15000")]
+    fn my_global_job_timeout() {
+        println!("call from global job with timeout");
+    }
 
 #[test]
 fn global_job_std() {
-    #[cron(expr = "0/5 * * * * * *", timeout = "0")]
-    fn my_global_job_std() {
-        println!("call from global job standard");
-    }
+    let file_path = "log/global_job_std.log";
 
-    init_logger();
-    let file_path = "log/latest.log";
+    init_logger(file_path);
 
     let cronframe = CronFrame::init(Some(CronFilter::Global), false);
-    cronframe.set_logger_config();
 
     // execute for a given time
     let mut first_run: DateTime<Utc> = cronframe
@@ -98,16 +102,11 @@ fn global_job_std() {
 
 #[test]
 fn global_job_timeout() {
-    #[cron(expr = "0/5 * * * * * *", timeout = "15000")]
-    fn my_global_job_timeout() {
-        println!("call from global job with timeout");
-    }
+    let file_path = "log/global_job_timeout.log";
 
-    init_logger();
-    let file_path = "log/latest.log";
-
+    init_logger(file_path);
+    
     let cronframe = CronFrame::init(Some(CronFilter::Global), false);
-    cronframe.set_logger_config();
 
     // execute for a given time
     let mut first_run: DateTime<Utc> = cronframe

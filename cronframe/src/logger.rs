@@ -12,13 +12,13 @@ use log4rs::{
     encode::pattern::PatternEncoder,
 };
 
-pub fn appender_logger() -> log4rs::Handle {
+pub fn appender_logger(log_file: &str) -> log4rs::Handle {
     let pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}";
 
     let log_file = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(pattern)))
         .append(false)
-        .build("log/latest.log")
+        .build(log_file)
         .unwrap();
 
     let config = Config::builder()
@@ -33,32 +33,13 @@ pub fn appender_logger() -> log4rs::Handle {
     log4rs::init_config(config).unwrap()
 }
 
-pub fn appender_config() -> log4rs::Config  {
+pub fn appender_config(log_file: &str) -> log4rs::Config  {
     let pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}";
 
     let log_file = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(pattern)))
         .append(false)
-        .build("log/latest.log")
-        .unwrap();
-
-    Config::builder()
-        .appender(Appender::builder().build("log_file", Box::new(log_file)))
-        .build(
-            Root::builder()
-                .appender("log_file")
-                .build(log::LevelFilter::Info),
-        )
-        .unwrap()
-}
-
-pub fn trash_config() -> log4rs::Config {
-    let pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}";
-
-    let log_file = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new(pattern)))
-        .append(false)
-        .build("log/trash.log")
+        .build(log_file)
         .unwrap();
 
     Config::builder()

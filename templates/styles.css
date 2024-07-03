@@ -6,6 +6,7 @@ body{
 
 a{
     text-decoration: none;
+    text-shadow: 1px 1px 1px rgba(255,255,255,1);
 }
 
 a:link {
@@ -62,12 +63,11 @@ footer{
     padding: 10px;
     padding-top: 5px;
     padding-bottomn: 5px;
-    border-left: 3px solid #FF3D00;
-    border-top-right-radius: 6px;
-    border-bottom-right-radius: 6px;
+    border--radius: 6px;
     width: 800px;
     margin: auto;
     box-shadow: 0px 0px 3px 0px rgba(0,0,0,.1);
+    border-top: 4px solid #FF3D00;
 }
 
 #status{

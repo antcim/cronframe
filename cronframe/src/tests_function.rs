@@ -8,7 +8,7 @@ use std::fs;
 
 #[derive(Debug, Clone)]
 #[cron_obj]
-struct TestingStr {
+struct FunctionStd {
     second: String,
     minute: String,
     hour: String,
@@ -20,12 +20,29 @@ struct TestingStr {
 }
 
 #[cron_impl]
-impl TestingStr {
+impl FunctionStd {
     // this job executes every minute
     #[job(expr = "0 * * * * *", timeout = "0")]
     fn my_function_job_std() {
         println!("call from function job");
     }
+}
+
+#[derive(Debug, Clone)]
+#[cron_obj]
+struct FunctionTimeout {
+    second: String,
+    minute: String,
+    hour: String,
+    day_month: String,
+    month: String,
+    day_week: String,
+    year: String,
+    timeout: u64,
+}
+
+#[cron_impl]
+impl FunctionTimeout {
     // this job executes every minute but quits after 3 minutes
     #[job(expr = "0 * * * * *", timeout = "180000")]
     fn my_function_job_timeout() {
@@ -35,13 +52,13 @@ impl TestingStr {
 
 #[test]
 fn function_job_std() {
-    init_logger();
-    let file_path = "log/latest.log";
+    let file_path = "log/function_job_std.log";
+
+    init_logger(file_path);
 
     let cronframe = CronFrame::init(Some(CronFilter::Function), false);
-    cronframe.set_logger_config();
 
-    let user1 = TestingStr {
+    let user1 = FunctionStd {
         second: String::default(),
         minute: String::default(),
         hour: String::default(),
@@ -131,13 +148,13 @@ fn function_job_std() {
 
 #[test]
 fn function_job_timeout() {
-    init_logger();
-    let file_path = "log/latest.log";
+    let file_path = "log/function_job_timeout.log";
+
+    init_logger(file_path);
 
     let cronframe = CronFrame::init(Some(CronFilter::Function), false);
-    cronframe.set_logger_config();
 
-    let user1 = TestingStr {
+    let user1 = FunctionTimeout {
         second: String::default(),
         minute: String::default(),
         hour: String::default(),

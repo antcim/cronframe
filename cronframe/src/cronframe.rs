@@ -95,6 +95,7 @@ impl CronFrame {
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
 
             if *CronFrame::QUIT.lock().unwrap() {
+                println!("QUITTING CRONFRAME!!!");
                 break;
             }
 
@@ -120,7 +121,7 @@ impl CronFrame {
                 if !instance.handlers.lock().unwrap().contains_key(&job_id) {
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
-                        // TODO make a timedout job resume on the following day
+                        // TODO make a timed-out job resume on the following day
                         if !cron_job.timeout_notified {
                             info!("job @{} - Reached Timeout", job_id);
                             cron_job.timeout_notified = true;
@@ -192,9 +193,9 @@ impl CronFrame {
 
     pub fn quit(self: &Arc<Self>) {
         *CronFrame::QUIT.lock().unwrap() = true;
+        info!("CronFrame Scheduler Shutdown");
 
         let instance = self.clone();
-        let logger = instance.logger.as_ref().unwrap().set_config(logger::trash_config());
 
         let tmp = instance
             .server_handle
@@ -203,12 +204,5 @@ impl CronFrame {
             .clone()
             .unwrap()
             .notify();
-
-        std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
-    }
-
-    pub fn set_logger_config(self: &Arc<Self>){
-        let instance = self.clone();
-        let logger = instance.logger.as_ref().unwrap().set_config(logger::appender_config());
     }
 }

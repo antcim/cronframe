@@ -8,7 +8,7 @@ use std::fs;
 
 #[derive(Debug, Clone)]
 #[cron_obj]
-struct TestStruct {
+struct MethodStd {
     second: String,
     minute: String,
     hour: String,
@@ -20,15 +20,10 @@ struct TestStruct {
 }
 
 #[cron_impl]
-impl TestStruct {
+impl MethodStd {
     #[job]
     fn my_method_job_std(self) {
         println!("call from method_job");
-    }
-
-    #[job]
-    fn my_method_job_timeout(self) {
-        println!("call from method_job_timeout");
     }
 }
 
@@ -36,13 +31,13 @@ impl TestStruct {
 // a job is run every 5 minutes on the minute
 #[test]
 fn method_job_std() {
-    init_logger();
-    let file_path = "log/latest.log";
+    let file_path = "log/method_job_std.log";
+
+    init_logger(file_path);
 
     let cronframe = CronFrame::init(Some(CronFilter::Method), false);
-    cronframe.set_logger_config();
 
-    let testsruct = TestStruct {
+    let testsruct = MethodStd {
         second: "0".to_string(),
         minute: "0/5".to_string(),
         hour: "*".to_string(),
@@ -130,18 +125,40 @@ fn method_job_std() {
     }
 }
 
+
+#[derive(Debug, Clone)]
+#[cron_obj]
+struct MethodTimeout {
+    second: String,
+    minute: String,
+    hour: String,
+    day_month: String,
+    month: String,
+    day_week: String,
+    year: String,
+    timeout: u64,
+}
+
+#[cron_impl]
+impl MethodTimeout {
+    #[job]
+    fn my_method_job_timeout(self) {
+        println!("call from method_job_timeout");
+    }
+}
+
 // this test runs for 15 minutes
 // a job is run every 5 minutes on the minute
 // the job timeouts after 12 minutes
 #[test]
 fn method_job_timeout() {
-    init_logger();
-    let file_path = "log/latest.log";
+    let file_path = "log/method_job_timeout.log";
+
+    init_logger(file_path);
 
     let cronframe = CronFrame::init(Some(CronFilter::Method), false);
-    cronframe.set_logger_config();
 
-    let testsruct = TestStruct {
+    let testsruct = MethodTimeout {
         second: "0".to_string(),
         minute: "0/5".to_string(),
         hour: "*".to_string(),

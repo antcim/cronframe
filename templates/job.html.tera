@@ -75,9 +75,9 @@
         <td>Fail History</td>
         <td colspan="2">
             {% if job_info.fail %}
-                <div class="line_status_orange">Failed instances recorded</div>
+            <div class="line_status_orange">Failed instances recorded</div>
             {% else %}
-                No failed instances recorded
+            No failed instances recorded
             {% endif %}
         </td>
     </tr>
@@ -104,8 +104,13 @@
     <tr>
         <td>Upcoming</td>
         <td colspan="2">
-            <p>{{job_info.upcoming_utc}}</p>
-            <p>{{job_info.upcoming_local}} (Local)</p>
+
+            {% if job_info.upcoming_utc == "None due to timeout." %}
+                <p>{{job_info.upcoming_utc}}</p>
+            {% else %}
+                <p>{{job_info.upcoming_utc}}</p>
+                <p>{{job_info.upcoming_local}} (Local)</p>
+            {% endif %}
         </td>
     </tr>
 </table>
