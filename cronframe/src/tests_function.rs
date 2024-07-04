@@ -1,28 +1,19 @@
-use crate::CronFilter;
+use crate::{CronFilter, CronFrameExpr};
 use crate::tests::init_logger;
 use crate::{distributed_slice, logger};
 use crate::{Any, Arc, CronFrame, JobBuilder};
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
-use cronframe_macro::{cron, cron_impl, cron_obj, job};
+use cronframe_macro::{cron, cron_impl, cron_obj, fn_job};
 use std::fs;
 
 #[derive(Debug, Clone)]
 #[cron_obj]
-struct FunctionStd {
-    second: String,
-    minute: String,
-    hour: String,
-    day_month: String,
-    month: String,
-    day_week: String,
-    year: String,
-    timeout: u64,
-}
+struct FunctionStd;
 
 #[cron_impl]
 impl FunctionStd {
     // this job executes every minute
-    #[job(expr = "0 * * * * *", timeout = "0")]
+    #[fn_job(expr = "0 * * * * *", timeout = "0")]
     fn my_function_job_std() {
         println!("call from function job");
     }
@@ -30,21 +21,12 @@ impl FunctionStd {
 
 #[derive(Debug, Clone)]
 #[cron_obj]
-struct FunctionTimeout {
-    second: String,
-    minute: String,
-    hour: String,
-    day_month: String,
-    month: String,
-    day_week: String,
-    year: String,
-    timeout: u64,
-}
+struct FunctionTimeout;
 
 #[cron_impl]
 impl FunctionTimeout {
     // this job executes every minute but quits after 3 minutes
-    #[job(expr = "0 * * * * *", timeout = "180000")]
+    #[fn_job(expr = "0 * * * * *", timeout = "180000")]
     fn my_function_job_timeout() {
         println!("call from function job with timeout");
     }
@@ -58,16 +40,7 @@ fn function_job_std() {
 
     let cronframe = CronFrame::init(Some(CronFilter::Function), false);
 
-    let user1 = FunctionStd {
-        second: String::default(),
-        minute: String::default(),
-        hour: String::default(),
-        day_month: String::default(),
-        month: String::default(),
-        day_week: String::default(),
-        year: String::default(),
-        timeout: 0,
-    };
+    let user1 = FunctionStd;
     user1.helper_gatherer(cronframe.clone());
 
     // execute for a given time
@@ -154,16 +127,8 @@ fn function_job_timeout() {
 
     let cronframe = CronFrame::init(Some(CronFilter::Function), false);
 
-    let user1 = FunctionTimeout {
-        second: String::default(),
-        minute: String::default(),
-        hour: String::default(),
-        day_month: String::default(),
-        month: String::default(),
-        day_week: String::default(),
-        year: String::default(),
-        timeout: 0,
-    };
+    let user1 = FunctionTimeout;
+    
     user1.helper_gatherer(cronframe.clone());
 
     // execute for a given time

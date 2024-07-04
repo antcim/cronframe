@@ -1,26 +1,19 @@
 use crate::tests::init_logger;
-use crate::{distributed_slice, logger};
-use crate::{Any, Arc, CronFrame, JobBuilder, CronFilter};
+use crate::{distributed_slice, logger, CronFrameExpr};
+use crate::{Any, Arc, CronFilter, CronFrame, JobBuilder};
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
-use cronframe_macro::{cron, cron_impl, cron_obj, job};
+use cronframe_macro::{cron, cron_impl, cron_obj, mt_job};
 use std::fs;
 
 #[derive(Debug, Clone)]
 #[cron_obj]
 struct MethodStd {
-    second: String,
-    minute: String,
-    hour: String,
-    day_month: String,
-    month: String,
-    day_week: String,
-    year: String,
-    timeout: u64,
+    expr: CronFrameExpr,
 }
 
 #[cron_impl]
 impl MethodStd {
-    #[job]
+    #[mt_job(expr = "expr")]
     fn my_method_job_std(self) {
         println!("call from method_job");
     }
@@ -36,16 +29,10 @@ fn method_job_std() {
 
     let cronframe = CronFrame::init(Some(CronFilter::Method), false);
 
-    let testsruct = MethodStd {
-        second: "0".to_string(),
-        minute: "0/5".to_string(),
-        hour: "*".to_string(),
-        day_month: "*".to_string(),
-        month: "*".to_string(),
-        day_week: "*".to_string(),
-        year: "*".to_string(),
-        timeout: 0,
-    };
+    let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
+
+    let testsruct = MethodStd { expr };
+
     testsruct.helper_gatherer(cronframe.clone());
 
     // execute for a given time
@@ -99,7 +86,7 @@ fn method_job_std() {
     let lines = file_content.lines();
     let mut exec_times = Vec::new();
     for line in lines {
-        if line.contains("my_method_job_std "){
+        if line.contains("my_method_job_std ") {
             if line.contains("Execution") {
                 let time = (&line[..26]).to_owned();
                 println!("{time} : str");
@@ -124,23 +111,15 @@ fn method_job_std() {
     }
 }
 
-
 #[derive(Debug, Clone)]
 #[cron_obj]
 struct MethodTimeout {
-    second: String,
-    minute: String,
-    hour: String,
-    day_month: String,
-    month: String,
-    day_week: String,
-    year: String,
-    timeout: u64,
+    expr: CronFrameExpr,
 }
 
 #[cron_impl]
 impl MethodTimeout {
-    #[job]
+    #[mt_job(expr = "expr")]
     fn my_method_job_timeout(self) {
         println!("call from method_job_timeout");
     }
@@ -157,16 +136,10 @@ fn method_job_timeout() {
 
     let cronframe = CronFrame::init(Some(CronFilter::Method), false);
 
-    let testsruct = MethodTimeout {
-        second: "0".to_string(),
-        minute: "0/5".to_string(),
-        hour: "*".to_string(),
-        day_month: "*".to_string(),
-        month: "*".to_string(),
-        day_week: "*".to_string(),
-        year: "*".to_string(),
-        timeout: 720000,
-    };
+    let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 720000);
+
+    let testsruct = MethodStd { expr };
+
     testsruct.helper_gatherer(cronframe.clone());
 
     // execute for a given time

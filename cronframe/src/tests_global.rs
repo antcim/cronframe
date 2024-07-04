@@ -2,7 +2,7 @@ use crate::tests::init_logger;
 use crate::{distributed_slice, logger};
 use crate::{Any, Arc, CronFrame, JobBuilder, CronFilter};
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
-use cronframe_macro::{cron, cron_impl, cron_obj, job};
+use cronframe_macro::cron;
 use std::fs;
 
 #[cron(expr = "0/5 * * * * * *", timeout = "0")]
