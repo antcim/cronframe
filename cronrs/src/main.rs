@@ -42,7 +42,7 @@ fn failing_job() {
     panic!()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 #[cron_obj]
 struct Users {
     expr: CronFrameExpr,

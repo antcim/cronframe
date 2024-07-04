@@ -1,7 +1,7 @@
 # CronFrame
 
 ## Defining a Cronjob
-To define a cronjob only an annotation is necessary.
+To define a cronjob on a function only an annotation is necessary.
 Timeout is expressed in ms. (implementation is wip...)
 ```rust
 #[cron(expr = "* * * * * *", timeout = "0")]
@@ -10,19 +10,18 @@ fn mycronjob(){
 }
 ```
 
-All cronjobs are gathered into a vector of jobs before the main function does anything.
-
-To actually schedule the jobs, an init of the lib is required.
+To run the jobs, an init is required and the scheduler must be started.
 
 ```rust
 fn main(){
-    CronFrame::init().schedule();
+    CronFrame::default().schedule();
 }
 ```
 
-Here, `init()` collects all the references to our jobs and `schedule()` actually provides their scheduling for execution.
+Here, `default()` collects all the references to our global jobs and `schedule()` actually provides their scheduling for execution.
 
-Therefore all function names are gathered automatically.
+Refer to cronsrs/main.rs for the scheduling of jobs inside struct types.
+
 
 ## How to to run the example
 Simply cd to the folder cronrs and run the following:
