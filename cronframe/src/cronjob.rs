@@ -131,6 +131,23 @@ impl CronJob {
             .to_string()
     }
 
+    pub fn timeout_to_string(&self) -> String{
+        if self.timeout.is_some() {
+            let timeout = self.timeout.unwrap();
+            format!("{} s<br>{} ms", timeout.num_seconds(), timeout.num_milliseconds())
+        } else {
+            "None".into()
+        }
+    }
+
+    pub fn type_to_string(&self) -> String{
+        match self.job {
+            CronJobType::Global(_) => "Global".to_string(),
+            CronJobType::Function(_) => "Function".to_string(),
+            CronJobType::Method(_) => "Method".to_string(),
+        }
+    }
+
     pub fn upcoming_utc(&self) -> String {
         if self.check_timeout() {
             return "None due to timeout.".to_string();

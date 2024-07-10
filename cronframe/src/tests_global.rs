@@ -1,6 +1,6 @@
 use crate::tests::init_logger;
 use crate::{distributed_slice, logger};
-use crate::{Any, Arc, CronFrame, JobBuilder, CronFilter};
+use crate::{Any, Arc, CronFilter, CronFrame, JobBuilder};
 use chrono::{DateTime, Duration, Local, Timelike, Utc};
 use cronframe_macro::cron;
 use std::fs;
@@ -11,9 +11,9 @@ fn my_global_job_std() {
 }
 
 #[cron(expr = "0/5 * * * * * *", timeout = "15000")]
-    fn my_global_job_timeout() {
-        println!("call from global job with timeout");
-    }
+fn my_global_job_timeout() {
+    println!("call from global job with timeout");
+}
 
 #[test]
 fn global_job_std() {
@@ -56,6 +56,8 @@ fn global_job_std() {
     // make the lib execute for given time
     while end_time > Utc::now() {}
     cronframe.quit();
+
+    //std::thread::sleep(Duration::seconds(1).to_std().unwrap());
 
     // we need to get the current log file
     // if we don't have it, test fails
@@ -104,7 +106,7 @@ fn global_job_timeout() {
     let file_path = "log/global_job_timeout.log";
 
     init_logger(file_path);
-    
+
     let cronframe = CronFrame::init(Some(CronFilter::Global), false);
 
     // execute for a given time
@@ -140,6 +142,8 @@ fn global_job_timeout() {
     // make the lib execute for given time
     while end_time > Utc::now() {}
     cronframe.quit();
+
+    //std::thread::sleep(Duration::seconds(1).to_std().unwrap());
 
     // we need to get the current log file
     // if we don't have it, test fails

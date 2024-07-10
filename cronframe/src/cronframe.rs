@@ -18,11 +18,10 @@ pub struct CronFrame {
     pub web_server_channels: (Sender<Shutdown>, Receiver<Shutdown>),
     pub filter: Option<CronFilter>,
     server_handle: Mutex<Option<Shutdown>>,
+    pub quit: Mutex<bool>,
 }
 
 impl CronFrame {
-    const QUIT: std::sync::Mutex<bool> = Mutex::new(false);
-
     pub fn default() -> Arc<CronFrame> {
         CronFrame::init(None, true)
     }
@@ -41,6 +40,7 @@ impl CronFrame {
             web_server_channels: crossbeam_channel::bounded(1),
             filter,
             server_handle: Mutex::new(None),
+            quit: Mutex::new(false),
         };
 
         info!("CronFrame Init Start");
@@ -87,7 +87,7 @@ impl CronFrame {
             // sleep some otherwise the cpu consumption goes to the moon
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
 
-            if *CronFrame::QUIT.lock().unwrap() {
+            if *instance.quit.lock().unwrap(){
                 println!("QUITTING CRONFRAME!!!");
                 break;
             }
@@ -185,10 +185,18 @@ impl CronFrame {
     }
 
     pub fn quit(self: &Arc<Self>) {
-        *CronFrame::QUIT.lock().unwrap() = true;
         info!("CronFrame Scheduler Shutdown");
 
         let instance = self.clone();
+        *instance.quit.lock().unwrap() = true;
+
+        let handles = instance.handlers.lock().unwrap();
+
+        for handle in handles.iter(){
+            while !handle.1.is_finished() {
+                // do some waiting until all job threads have terminated.
+            }
+        }
 
         let tmp = instance
             .server_handle

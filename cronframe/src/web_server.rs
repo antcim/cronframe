@@ -125,18 +125,10 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
             job_info = JobInfo {
                 name: job.name.clone(),
                 id: job.id.to_string(),
-                r#type: match job.job {
-                    CronJobType::Global(_) => "Global".to_string(),
-                    CronJobType::Function(_) => "Function".to_string(),
-                    CronJobType::Method(_) => "Method".to_string(),
-                },
+                r#type: job.type_to_string(),
                 run_id: job.get_run_id(),
                 status: job.status(),
-                timeout: if job.timeout.is_some() {
-                    job.timeout.unwrap().to_string()
-                } else {
-                    "None".into()
-                },
+                timeout: job.timeout_to_string(),
                 schedule: job.schedule(),
                 upcoming_utc: job.upcoming_utc(),
                 upcoming_local: job.upcoming_local(),

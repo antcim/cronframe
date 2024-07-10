@@ -136,9 +136,9 @@ fn method_job_timeout() {
 
     let cronframe = CronFrame::init(Some(CronFilter::Method), false);
 
-    let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 720000);
+    let expr = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
 
-    let testsruct = MethodStd { expr };
+    let testsruct = MethodTimeout { expr };
 
     testsruct.helper_gatherer(cronframe.clone());
 
@@ -159,7 +159,7 @@ fn method_job_timeout() {
     println!("First Run = {first_run}");
 
     let start_time = Utc::now();
-    let duration = Duration::minutes(15);
+    let duration = Duration::minutes(20);
     let end_time = start_time + duration;
 
     println!("difference = {}", first_run - start_time);
