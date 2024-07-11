@@ -19,11 +19,7 @@ mod job_builder;
 mod cronframe;
 mod cronjob;
 mod web_server;
-
 mod tests;
-mod tests_function;
-mod tests_global;
-mod tests_method;
 
 pub use cronframe::CronFrame;
 pub use job_builder::JobBuilder;
@@ -38,7 +34,7 @@ pub enum CronJobType {
     Function(fn()),
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Copy)]
 pub enum CronFilter {
     Global,
     Function,
