@@ -57,8 +57,21 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{}", item_struct.ident);
     let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{}", item_struct.ident);
 
+    let mut tmp = r#struct.to_string();
+
+    if tmp.contains("{"){
+        tmp.insert_str(
+            tmp.chars().count()-1,
+            "tx: Option<crate::Sender<String>>",
+        );
+    }
+
+    println!("tmp: {tmp}");
+
+    let struct_edited: proc_macro2::TokenStream = tmp.parse().unwrap();
+
     let new_code = quote! {
-        #r#struct
+        #struct_edited
 
         #[distributed_slice]
         static #method_jobs: [fn(Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static>];
@@ -114,22 +127,23 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let gather_fn = quote! {
         impl #impl_type{
-            pub fn helper_gatherer(&self, frame: Arc<CronFrame>){
+            pub fn helper_gatherer(&mut self, frame: Arc<CronFrame>){
                 info!("Collecting Method Jobs from {}", #type_name);
                 for method_job in #method_jobs {
                     let job_builder = (method_job)(Arc::new(Box::new(self.clone())));
                     let cron_job = job_builder.build();
                     info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
-                    frame.cron_jobs.lock().unwrap().push(cron_job)
+                    self.tx = Some(cron_job.status_channels.as_ref().clone().unwrap().0.clone());
+                    frame.cron_jobs.lock().unwrap().push(cron_job);
                 }
                 info!("Method Jobs from {} Collected.", #type_name);
 
                 info!("Collecting Function Jobs from {}", #type_name);
-                for method_job in #function_jobs {
-                    let job_builder = (method_job)();
+                for function_job in #function_jobs {
+                    let job_builder = (function_job)();
                     let cron_job = job_builder.build();
                     info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
-                    frame.cron_jobs.lock().unwrap().push(cron_job)
+                    frame.cron_jobs.lock().unwrap().push(cron_job);
                 }
                 info!("Method Function from {} Collected.", #type_name);
             }

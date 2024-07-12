@@ -4,6 +4,7 @@
 extern crate cronframe;
 use core::panic;
 
+use chrono::Duration;
 use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender};
 
 //  Cron Expression
@@ -42,11 +43,21 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender};
 //     panic!()
 // }
 
-#[derive(Clone)]
 #[cron_obj]
+#[derive(Clone, Default)] // these traits are required
 struct Users {
+    name: String,
     expr: CronFrameExpr,
     expr1: CronFrameExpr,
+}
+
+impl Drop for Users {
+    fn drop(&mut self) {
+        if self.tx.is_some(){
+            println!("{} DROPPED!", self.name);
+            let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
+        }
+    }
 }
 
 #[cron_impl]
@@ -68,30 +79,35 @@ impl Users {
 }
 
 fn main() {
-    let cronframe = CronFrame::default();
+    let cronframe = CronFrame::default().scheduler();
+    std::thread::sleep(Duration::seconds(5).to_std().unwrap());
 
     let expr1 = CronFrameExpr::new("0/5", "*", "*", "*", "*", "*", "*", 0);
     let expr2 = CronFrameExpr::new("0/10", "*", "*", "*", "*", "*", "*", 20000);
     let expr3 = CronFrameExpr::new("0/7", "*", "*", "*", "*", "*", "*", 10000);
 
-    let user1 = Users {
+    let mut user1 = Users {
+        name: "user1".to_string(),
         expr: expr1,
-        expr1: expr3.clone()
+        expr1: expr3.clone(),
+        tx: None,
     };
 
     user1.helper_gatherer(cronframe.clone());
 
     // inner scope to test the drop of cron_objects
     {
-        let user2 = Users {
+        let mut user2 = Users {
+            name: "user2".to_string(),
             expr: expr2,
-            expr1: expr3
+            expr1: expr3,
+            tx: None,
         };
 
         user2.helper_gatherer(cronframe.clone());
-    }
 
-    cronframe.scheduler();
+        std::thread::sleep(Duration::seconds(15).to_std().unwrap());
+    }
 
     loop {
         println!("Enter x to quit...");

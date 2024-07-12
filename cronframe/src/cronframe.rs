@@ -82,8 +82,9 @@ impl CronFrame {
         self.cron_jobs.lock().unwrap().push(job)
     }
 
-    pub fn scheduler(self: &Arc<Self>) {
+    pub fn scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
         let cronframe = self.clone();
+        let ret = cronframe.clone();
 
         let scheduler = move || loop {
             // sleep some otherwise the cpu consumption goes to the moon
@@ -94,8 +95,9 @@ impl CronFrame {
             }
 
             let mut cron_jobs = cronframe.cron_jobs.lock().unwrap();
+            let mut jobs_to_remove = Vec::new();
 
-            for cron_job in &mut (*cron_jobs) {
+            for (i, cron_job) in &mut (*cron_jobs).iter_mut().enumerate() {
                 if let Some(filter) = &cronframe.filter {
                     let job_type = match cron_job.job {
                         CronJobType::Global(_) => CronFilter::Global,
@@ -107,8 +109,29 @@ impl CronFrame {
                         continue;
                     }
                 }
-
+                
+                // if the job dropped remove it, for method jobs
                 let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
+
+                let rx = cron_job
+                    .status_channels
+                    .clone()
+                    .expect("error: unwrapping rx channel")
+                    .1;
+
+                match rx.try_recv() {
+                    Ok(message) => {
+                        if message == "JOB_DROP" {
+                            info!(
+                                "job @{} - Dropped",
+                                job_id
+                            );
+                            jobs_to_remove.push(i);
+                            continue;
+                        }
+                    }
+                    Err(_error) => {}
+                }
 
                 // if the job_id key is not in the hashmap then attempt to schedule it
                 // if scheduling is a success then add the key to the hashmap
@@ -141,10 +164,6 @@ impl CronFrame {
                 // the job is in the hashmap and running
                 // check to see if it sent a message that says it finished or aborted
                 else {
-                    if let Some(instance) = &cron_job.instance{
-                        
-                    }
-
                     let tx = cron_job
                         .status_channels
                         .clone()
@@ -155,7 +174,7 @@ impl CronFrame {
                         .clone()
                         .expect("error: unwrapping rx channel")
                         .1;
-                    
+
                     match rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_COMPLETE" {
@@ -165,7 +184,7 @@ impl CronFrame {
                                     cron_job.run_id.as_ref().unwrap()
                                 );
                                 cronframe.handlers.lock().unwrap().remove(job_id.as_str());
-                                cron_job.status_channels = None;
+                                //cron_job.status_channels = None;
                                 cron_job.run_id = None;
                             } else if message == "JOB_ABORT" {
                                 info!(
@@ -174,7 +193,7 @@ impl CronFrame {
                                     cron_job.run_id.as_ref().unwrap()
                                 );
                                 cronframe.handlers.lock().unwrap().remove(job_id.as_str());
-                                cron_job.status_channels = None;
+                                //cron_job.status_channels = None;
                                 cron_job.run_id = None;
                                 cron_job.failed = true;
                             }
@@ -183,9 +202,22 @@ impl CronFrame {
                     }
                 }
             }
+
+            // cleanup of dropped method jobs
+            if !jobs_to_remove.is_empty() {
+                let num_jobs = jobs_to_remove.len();
+                for i in 0..num_jobs {
+                    cron_jobs.remove(jobs_to_remove[i]);
+                    for j in i + 1..num_jobs {
+                        jobs_to_remove[j] -= 1;
+                    }
+                }
+            }
         };
+
         std::thread::spawn(scheduler);
         info!("CronFrame Scheduler Running");
+        ret
     }
 
     pub fn quit(self: &Arc<Self>) {

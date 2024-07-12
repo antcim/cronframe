@@ -27,7 +27,7 @@ impl CronJob {
     pub fn try_schedule(&mut self) -> Option<JoinHandle<()>> {
         if self.check_schedule() {
             self.run_id = Some(Uuid::new_v4());
-            self.status_channels = Some(crossbeam_channel::bounded(1));
+            //self.status_channels = Some(crossbeam_channel::bounded(1));
 
             if self.start_time.is_none() {
                 self.start_time = Some(Utc::now());

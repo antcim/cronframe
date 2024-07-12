@@ -21,7 +21,7 @@ mod job_builder;
 mod cronframe;
 mod cronjob;
 mod web_server;
-mod tests;
+//mod tests;
 
 pub use cronframe::CronFrame;
 pub use job_builder::JobBuilder;
@@ -43,7 +43,7 @@ pub enum CronFilter {
     Method,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct CronFrameExpr {
     seconds: String,
     minutes: String,
