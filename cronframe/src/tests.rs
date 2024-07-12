@@ -20,6 +20,12 @@ fn my_global_job_timeout() {
     println!("call from global job with timeout");
 }
 
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn my_global_job_fail() {
+    println!("call from global job with failure");
+    panic!();
+}
+
 #[derive(Debug, Clone)]
 #[cron_obj]
 struct FunctionStd;
@@ -43,6 +49,20 @@ impl FunctionTimeout {
     #[fn_job(expr = "0 * * * * *", timeout = "180000")]
     fn my_function_job_timeout() {
         println!("call from function job with timeout");
+    }
+}
+
+#[derive(Debug, Clone)]
+#[cron_obj]
+struct FunctionFail;
+
+#[cron_impl]
+impl FunctionFail {
+    // this job executes every minute
+    #[fn_job(expr = "0 * * * * *", timeout = "0")]
+    fn my_function_job_fail() {
+        println!("call from function job with fail");
+        panic!();
     }
 }
 
@@ -74,6 +94,21 @@ impl MethodTimeout {
     }
 }
 
+#[derive(Debug, Clone)]
+#[cron_obj]
+struct MethodFail {
+    expr: CronFrameExpr,
+}
+
+#[cron_impl]
+impl MethodFail {
+    #[mt_job(expr = "expr")]
+    fn my_method_job_fail(self) {
+        println!("call from method_job with fail");
+        panic!();
+    }
+}
+
 pub fn init_logger(path: &str) {
     LOGGER_INIT.call_once(|| {
         unsafe { LOGGER = Some(logger::appender_logger("log/latest.log")) };
@@ -94,6 +129,7 @@ pub fn test_job(
     duration: Duration,
     interval: Duration,
     timeout: Duration,
+    shoud_fail: bool,
 ) {
     init_logger(file_path);
 
@@ -101,7 +137,11 @@ pub fn test_job(
 
     match job_filter {
         CronFilter::Function => {
-            if timeout > Duration::seconds(0) {
+            if shoud_fail{
+                let testsruct = FunctionFail;
+                testsruct.helper_gatherer(cronframe.clone());
+            }
+            else if timeout > Duration::seconds(0) {
                 let testsruct = FunctionTimeout;
                 testsruct.helper_gatherer(cronframe.clone());
             } else {
@@ -110,7 +150,12 @@ pub fn test_job(
             }
         }
         CronFilter::Method => {
-            if timeout > Duration::seconds(0) {
+            if shoud_fail{
+                let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
+                let testsruct = MethodFail { expr };
+                testsruct.helper_gatherer(cronframe.clone());
+            }
+            else if timeout > Duration::seconds(0) {
                 let expr = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
                 let testsruct = MethodTimeout { expr };
                 testsruct.helper_gatherer(cronframe.clone());
@@ -208,6 +253,13 @@ pub fn test_job(
         let timeout = timeout - Duration::seconds(1);
         assert!(first_run + timeout == timeouts[0], "timeout error");
     }
+
+    if shoud_fail {
+        assert!(
+            file_content.contains("Aborted"),
+            "No abortion in the log file."
+        );
+    }
 }
 
 mod global {
@@ -226,8 +278,11 @@ mod global {
         let duration = Duration::seconds(15);
         let interval = Duration::seconds(5);
         let timeout = Duration::seconds(0);
+        let should_fail = false;
 
-        test_job(file_path, job_filter, job_name, duration, interval, timeout);
+        test_job(
+            file_path, job_filter, job_name, duration, interval, timeout, false,
+        );
     }
 
     #[test]
@@ -238,8 +293,38 @@ mod global {
         let duration = Duration::seconds(30);
         let interval = Duration::seconds(5);
         let timeout = Duration::seconds(15);
+        let should_fail = false;
 
-        test_job(file_path, job_filter, job_name, duration, interval, timeout);
+        test_job(
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
+        );
+    }
+
+    #[test]
+    fn global_job_fail() {
+        let file_path = "log/global_job_fail.log";
+        let job_filter = CronFilter::Global;
+        let job_name = "my_global_job_fail";
+        let duration = Duration::seconds(15);
+        let interval = Duration::seconds(5);
+        let timeout = Duration::seconds(0);
+        let should_fail = true;
+
+        test_job(
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
+        );
     }
 }
 
@@ -259,8 +344,17 @@ mod function {
         let duration = Duration::minutes(5);
         let interval = Duration::minutes(1);
         let timeout = Duration::seconds(0);
+        let should_fail = false;
 
-        test_job(file_path, job_filter, job_name, duration, interval, timeout);
+        test_job(
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
+        );
     }
 
     #[test]
@@ -271,8 +365,38 @@ mod function {
         let duration = Duration::minutes(5);
         let interval = Duration::minutes(1);
         let timeout = Duration::minutes(3);
+        let should_fail = false;
 
-        test_job(file_path, job_filter, job_name, duration, interval, timeout);
+        test_job(
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
+        );
+    }
+
+    #[test]
+    fn function_job_fail() {
+        let file_path = "log/function_job_fail.log";
+        let job_filter = CronFilter::Function;
+        let job_name = "my_function_job_fail";
+        let duration = Duration::minutes(5);
+        let interval = Duration::minutes(1);
+        let timeout = Duration::seconds(0);
+        let should_fail = true;
+
+        test_job(
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
+        );
     }
 }
 
@@ -292,8 +416,17 @@ mod method {
         let duration = Duration::minutes(15);
         let interval = Duration::minutes(5);
         let timeout = Duration::minutes(0);
+        let should_fail = false;
 
-        test_job(file_path, job_filter, job_name, duration, interval, timeout);
+        test_job(
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
+        );
     }
 
     #[test]
@@ -304,7 +437,37 @@ mod method {
         let duration = Duration::minutes(20);
         let interval = Duration::minutes(5);
         let timeout = Duration::minutes(12);
+        let should_fail = false;
 
-        test_job(file_path, job_filter, job_name, duration, interval, timeout);
+        test_job(
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
+        );
+    }
+
+    #[test]
+    fn method_job_fail() {
+        let file_path = "log/method_job_fail.log";
+        let job_filter = CronFilter::Method;
+        let job_name = "my_method_job_fail";
+        let duration = Duration::minutes(15);
+        let interval = Duration::minutes(5);
+        let timeout = Duration::seconds(0);
+        let should_fail = true;
+
+        test_job(
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
+        );
     }
 }

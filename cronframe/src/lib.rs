@@ -10,6 +10,8 @@ pub use std::{
     sync::{Arc, Mutex},
 };
 
+pub use crossbeam_channel::Sender;
+
 pub use log::info;
 
 mod utils;

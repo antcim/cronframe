@@ -4,7 +4,7 @@
 extern crate cronframe;
 use core::panic;
 
-use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder};
+use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender};
 
 //  Cron Expression
 //  * * * * * * *
@@ -18,29 +18,29 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder};
 //  └───────────── seconds (0 to 59)
 // "*" works as a jolly for any value will do
 
-#[cron(expr = "0/5 * * * * * *", timeout = "0")]
-fn testfn() {
-    println!("call from testfn");
-}
+// #[cron(expr = "0/5 * * * * * *", timeout = "0")]
+// fn testfn() {
+//     println!("call from testfn");
+// }
 
-#[cron(expr = "0/30 * * * * * *", timeout = "60000")]
-fn another_test() {
-    println!("call from another_test");
-}
+// #[cron(expr = "0/30 * * * * * *", timeout = "60000")]
+// fn another_test() {
+//     println!("call from another_test");
+// }
 
-#[cron(expr = "0/30 * * * * * *", timeout = "0")]
-fn heavy_job() {
-    let mut _count: i128 = 0;
+// #[cron(expr = "0/30 * * * * * *", timeout = "0")]
+// fn heavy_job() {
+//     let mut _count: i128 = 0;
 
-    for i in 0..5000000000 {
-        _count += i;
-    }
-}
+//     for i in 0..5000000000 {
+//         _count += i;
+//     }
+// }
 
-#[cron(expr = "0/5 * * * * * *", timeout = "0")]
-fn failing_job() {
-    panic!()
-}
+// #[cron(expr = "0/5 * * * * * *", timeout = "0")]
+// fn failing_job() {
+//     panic!()
+// }
 
 #[derive(Clone)]
 #[cron_obj]
@@ -51,10 +51,10 @@ struct Users {
 
 #[cron_impl]
 impl Users {
-    #[fn_job(expr = "0 0 * * * * *", timeout = "10000")]
-    fn my_function_job() {
-        println!("call from my_obj_job");
-    }
+    // #[fn_job(expr = "0 0 * * * * *", timeout = "10000")]
+    // fn my_function_job() {
+    //     println!("call from my_obj_job");
+    // }
     
     #[mt_job(expr = "expr")]
     fn my_method_job_1(self) {
@@ -79,13 +79,17 @@ fn main() {
         expr1: expr3.clone()
     };
 
-    let user2 = Users {
-        expr: expr2,
-        expr1: expr3
-    };
-
     user1.helper_gatherer(cronframe.clone());
-    user2.helper_gatherer(cronframe.clone());
+
+    // inner scope to test the drop of cron_objects
+    {
+        let user2 = Users {
+            expr: expr2,
+            expr1: expr3
+        };
+
+        user2.helper_gatherer(cronframe.clone());
+    }
 
     cronframe.scheduler();
 

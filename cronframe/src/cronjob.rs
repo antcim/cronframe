@@ -16,7 +16,7 @@ pub struct CronJob {
     pub schedule: Schedule,
     pub timeout: Option<Duration>,
     pub timeout_notified: bool,
-    pub channels: Option<(Sender<String>, Receiver<String>)>,
+    pub status_channels: Option<(Sender<String>, Receiver<String>)>,
     pub start_time: Option<DateTime<Utc>>,
     pub run_id: Option<Uuid>,
     pub instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
@@ -27,7 +27,7 @@ impl CronJob {
     pub fn try_schedule(&mut self) -> Option<JoinHandle<()>> {
         if self.check_schedule() {
             self.run_id = Some(Uuid::new_v4());
-            self.channels = Some(crossbeam_channel::bounded(1));
+            self.status_channels = Some(crossbeam_channel::bounded(1));
 
             if self.start_time.is_none() {
                 self.start_time = Some(Utc::now());
@@ -134,7 +134,7 @@ impl CronJob {
     pub fn timeout_to_string(&self) -> String{
         if self.timeout.is_some() {
             let timeout = self.timeout.unwrap();
-            format!("{} s<br>{} ms", timeout.num_seconds(), timeout.num_milliseconds())
+            format!("{} s \n {} ms", timeout.num_seconds(), timeout.num_milliseconds())
         } else {
             "None".into()
         }
@@ -169,8 +169,8 @@ impl CronJob {
 
     pub fn run(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
-        let tx = self.channels.as_ref().unwrap().0.clone();
-        let _rx = self.channels.as_ref().unwrap().1.clone();
+        let tx = self.status_channels.as_ref().unwrap().0.clone();
+        let _rx = self.status_channels.as_ref().unwrap().1.clone();
         let schedule = self.schedule.clone();
         let job_id = format!("{} ID#{}", self.name, self.id);
         let run_id = self.run_id.as_ref().unwrap().clone();
@@ -215,8 +215,8 @@ impl CronJob {
 
     pub fn run_graceful(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
-        let tx = self.channels.as_ref().unwrap().0.clone();
-        let _rx = self.channels.as_ref().unwrap().1.clone();
+        let tx = self.status_channels.as_ref().unwrap().0.clone();
+        let _rx = self.status_channels.as_ref().unwrap().1.clone();
         let schedule = self.schedule.clone();
         let job_id = format!("{} ID#{}", self.name, self.id);
         let run_id = self.run_id.as_ref().unwrap().clone();

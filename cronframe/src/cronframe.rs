@@ -9,7 +9,9 @@ use chrono::{Duration, Utc};
 use crossbeam_channel::{Receiver, Sender};
 use rocket::Shutdown;
 
-use crate::{cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronFilter, CronJobType};
+use crate::{
+    cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronFilter, CronJobType,
+};
 
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
@@ -81,21 +83,20 @@ impl CronFrame {
     }
 
     pub fn scheduler(self: &Arc<Self>) {
-        let instance = self.clone();
+        let cronframe = self.clone();
 
         let scheduler = move || loop {
             // sleep some otherwise the cpu consumption goes to the moon
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
 
-            if *instance.quit.lock().unwrap(){
-                println!("QUITTING CRONFRAME!!!");
+            if *cronframe.quit.lock().unwrap() {
                 break;
             }
 
-            let mut cron_jobs = instance.cron_jobs.lock().unwrap();
+            let mut cron_jobs = cronframe.cron_jobs.lock().unwrap();
 
             for cron_job in &mut (*cron_jobs) {
-                if let Some(filter) = &instance.filter {
+                if let Some(filter) = &cronframe.filter {
                     let job_type = match cron_job.job {
                         CronJobType::Global(_) => CronFilter::Global,
                         CronJobType::Function(_) => CronFilter::Function,
@@ -111,7 +112,7 @@ impl CronFrame {
 
                 // if the job_id key is not in the hashmap then attempt to schedule it
                 // if scheduling is a success then add the key to the hashmap
-                if !instance.handlers.lock().unwrap().contains_key(&job_id) {
+                if !cronframe.handlers.lock().unwrap().contains_key(&job_id) {
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
                         // TODO make a timed-out job resume on the following day
@@ -125,7 +126,7 @@ impl CronFrame {
                     let handle = (*cron_job).try_schedule();
 
                     if handle.is_some() {
-                        instance
+                        cronframe
                             .handlers
                             .lock()
                             .unwrap()
@@ -140,17 +141,21 @@ impl CronFrame {
                 // the job is in the hashmap and running
                 // check to see if it sent a message that says it finished or aborted
                 else {
+                    if let Some(instance) = &cron_job.instance{
+                        
+                    }
+
                     let tx = cron_job
-                        .channels
+                        .status_channels
                         .clone()
                         .expect("error: unwrapping tx channel")
                         .0;
                     let rx = cron_job
-                        .channels
+                        .status_channels
                         .clone()
                         .expect("error: unwrapping rx channel")
                         .1;
-
+                    
                     match rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_COMPLETE" {
@@ -159,8 +164,8 @@ impl CronFrame {
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                instance.handlers.lock().unwrap().remove(job_id.as_str());
-                                cron_job.channels = None;
+                                cronframe.handlers.lock().unwrap().remove(job_id.as_str());
+                                cron_job.status_channels = None;
                                 cron_job.run_id = None;
                             } else if message == "JOB_ABORT" {
                                 info!(
@@ -168,15 +173,14 @@ impl CronFrame {
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                instance.handlers.lock().unwrap().remove(job_id.as_str());
-                                cron_job.channels = None;
+                                cronframe.handlers.lock().unwrap().remove(job_id.as_str());
+                                cron_job.status_channels = None;
                                 cron_job.run_id = None;
                                 cron_job.failed = true;
                             }
                         }
                         Err(_error) => {}
                     }
-                    cron_job.check_timeout();
                 }
             }
         };
@@ -187,18 +191,19 @@ impl CronFrame {
     pub fn quit(self: &Arc<Self>) {
         info!("CronFrame Scheduler Shutdown");
 
-        let instance = self.clone();
-        *instance.quit.lock().unwrap() = true;
+        let cronframe = self.clone();
+        *cronframe.quit.lock().unwrap() = true;
 
-        let handles = instance.handlers.lock().unwrap();
+        let handles = cronframe.handlers.lock().unwrap();
 
-        for handle in handles.iter(){
+        for handle in handles.iter() {
             while !handle.1.is_finished() {
                 // do some waiting until all job threads have terminated.
             }
         }
 
-        let tmp = instance
+        // quit the web server
+        cronframe
             .server_handle
             .lock()
             .unwrap()
