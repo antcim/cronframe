@@ -17,6 +17,7 @@ pub struct CronJob {
     pub timeout: Option<Duration>,
     pub timeout_notified: bool,
     pub status_channels: Option<(Sender<String>, Receiver<String>)>,
+    pub life_channels: Option<(Sender<String>, Receiver<String>)>,
     pub start_time: Option<DateTime<Utc>>,
     pub run_id: Option<Uuid>,
     pub instance: Option<Arc<Box<dyn Any + Send + Sync>>>,

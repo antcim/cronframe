@@ -95,7 +95,7 @@ impl CronFrame {
             }
 
             let mut cron_jobs = cronframe.cron_jobs.lock().unwrap();
-            let mut jobs_to_remove = Vec::new();
+            let mut jobs_to_remove: Vec<usize> = Vec::new();
 
             for (i, cron_job) in &mut (*cron_jobs).iter_mut().enumerate() {
                 if let Some(filter) = &cronframe.filter {
@@ -109,33 +109,29 @@ impl CronFrame {
                         continue;
                     }
                 }
-                
+
                 // if the job dropped remove it, for method jobs
                 let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
 
-                let rx = cron_job
-                    .status_channels
-                    .clone()
-                    .expect("error: unwrapping rx channel")
-                    .1;
-
-                match rx.try_recv() {
-                    Ok(message) => {
-                        if message == "JOB_DROP" {
-                            info!(
-                                "job @{} - Dropped",
-                                job_id
-                            );
-                            jobs_to_remove.push(i);
-                            continue;
+                if let Some((_, life_rx)) = cron_job.life_channels.clone() {
+                    match life_rx.try_recv() {
+                        Ok(message) => {
+                            if message == "JOB_DROP" {
+                                info!("job @{} - Dropped", job_id);
+                                jobs_to_remove.push(i);
+                                continue;
+                            }
                         }
+                        Err(_error) => {}
                     }
-                    Err(_error) => {}
                 }
 
                 // if the job_id key is not in the hashmap then attempt to schedule it
                 // if scheduling is a success then add the key to the hashmap
-                if !cronframe.handlers.lock().unwrap().contains_key(&job_id) {
+
+                let mut job_handlers = cronframe.handlers.lock().unwrap();
+
+                if !job_handlers.contains_key(&job_id) {
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
                         // TODO make a timed-out job resume on the following day
@@ -149,11 +145,7 @@ impl CronFrame {
                     let handle = (*cron_job).try_schedule();
 
                     if handle.is_some() {
-                        cronframe
-                            .handlers
-                            .lock()
-                            .unwrap()
-                            .insert(job_id.clone(), handle.unwrap());
+                        job_handlers.insert(job_id.clone(), handle.unwrap());
                         info!(
                             "job @{} RUN_ID#{} - Scheduled",
                             job_id,
@@ -163,19 +155,8 @@ impl CronFrame {
                 }
                 // the job is in the hashmap and running
                 // check to see if it sent a message that says it finished or aborted
-                else {
-                    let tx = cron_job
-                        .status_channels
-                        .clone()
-                        .expect("error: unwrapping tx channel")
-                        .0;
-                    let rx = cron_job
-                        .status_channels
-                        .clone()
-                        .expect("error: unwrapping rx channel")
-                        .1;
-
-                    match rx.try_recv() {
+                else if let Some((_, status_rx)) = cron_job.status_channels.clone() {
+                    match status_rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_COMPLETE" {
                                 info!(
@@ -183,8 +164,7 @@ impl CronFrame {
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                cronframe.handlers.lock().unwrap().remove(job_id.as_str());
-                                //cron_job.status_channels = None;
+                                job_handlers.remove(job_id.as_str());
                                 cron_job.run_id = None;
                             } else if message == "JOB_ABORT" {
                                 info!(
@@ -192,8 +172,7 @@ impl CronFrame {
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                cronframe.handlers.lock().unwrap().remove(job_id.as_str());
-                                //cron_job.status_channels = None;
+                                job_handlers.remove(job_id.as_str());
                                 cron_job.run_id = None;
                                 cron_job.failed = true;
                             }

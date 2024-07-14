@@ -26,8 +26,8 @@ fn my_global_job_fail() {
     panic!();
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct FunctionStd;
 
 #[cron_impl]
@@ -39,8 +39,8 @@ impl FunctionStd {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct FunctionTimeout;
 
 #[cron_impl]
@@ -52,8 +52,8 @@ impl FunctionTimeout {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct FunctionFail;
 
 #[cron_impl]
@@ -66,8 +66,8 @@ impl FunctionFail {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct MethodStd {
     expr: CronFrameExpr,
 }
@@ -80,8 +80,8 @@ impl MethodStd {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct MethodTimeout {
     expr: CronFrameExpr,
 }
@@ -94,8 +94,8 @@ impl MethodTimeout {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct MethodFail {
     expr: CronFrameExpr,
 }
@@ -137,31 +137,29 @@ pub fn test_job(
 
     match job_filter {
         CronFilter::Function => {
-            if shoud_fail{
-                let testsruct = FunctionFail;
+            if shoud_fail {
+                let mut testsruct = FunctionFail { tx: None };
                 testsruct.helper_gatherer(cronframe.clone());
-            }
-            else if timeout > Duration::seconds(0) {
-                let testsruct = FunctionTimeout;
+            } else if timeout > Duration::seconds(0) {
+                let mut testsruct = FunctionTimeout { tx: None };
                 testsruct.helper_gatherer(cronframe.clone());
             } else {
-                let testsruct = FunctionStd;
+                let mut testsruct = FunctionStd { tx: None };
                 testsruct.helper_gatherer(cronframe.clone());
             }
         }
         CronFilter::Method => {
-            if shoud_fail{
+            if shoud_fail {
                 let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
-                let testsruct = MethodFail { expr };
+                let mut testsruct = MethodFail { expr, tx: None };
                 testsruct.helper_gatherer(cronframe.clone());
-            }
-            else if timeout > Duration::seconds(0) {
+            } else if timeout > Duration::seconds(0) {
                 let expr = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
-                let testsruct = MethodTimeout { expr };
+                let mut testsruct = MethodTimeout { expr, tx: None };
                 testsruct.helper_gatherer(cronframe.clone());
             } else {
                 let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
-                let testsruct = MethodStd { expr };
+                let mut testsruct = MethodStd { expr, tx: None };
                 testsruct.helper_gatherer(cronframe.clone());
             }
         }

@@ -14,14 +14,14 @@ pub use crossbeam_channel::Sender;
 
 pub use log::info;
 
-mod utils;
 mod config;
-mod logger;
-mod job_builder;
 mod cronframe;
 mod cronjob;
-mod web_server;
+mod job_builder;
+mod logger;
 //mod tests;
+mod utils;
+mod web_server;
 
 pub use cronframe::CronFrame;
 pub use job_builder::JobBuilder;
@@ -56,11 +56,11 @@ pub struct CronFrameExpr {
 }
 
 impl CronFrameExpr {
-    pub fn new(s: &str, m: &str, h:&str, dm: &str, mth: &str, dw: &str, y: &str, t: u64) -> Self{
-        CronFrameExpr{
+    pub fn new(s: &str, m: &str, h: &str, dm: &str, mth: &str, dw: &str, y: &str, t: u64) -> Self {
+        CronFrameExpr {
             seconds: s.to_string(),
             minutes: m.to_string(),
-            hour : h.to_string(),
+            hour: h.to_string(),
             day_month: dm.to_string(),
             month: mth.to_string(),
             day_week: dw.to_string(),

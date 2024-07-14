@@ -59,11 +59,19 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let mut tmp = r#struct.to_string();
 
+    let struct_name = item_struct.ident;
+
     if tmp.contains("{"){
         tmp.insert_str(
             tmp.chars().count()-1,
             "tx: Option<crate::Sender<String>>",
         );
+    }else{
+        tmp.insert_str(
+            tmp.chars().count()-1,
+            "{tx: Option<crate::Sender<String>>}",
+        );
+        tmp = (&tmp[0..tmp.len()-1].to_string()).clone();
     }
 
     println!("tmp: {tmp}");
@@ -72,6 +80,15 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let new_code = quote! {
         #struct_edited
+
+        impl Drop for #struct_name {
+            fn drop(&mut self) {
+                if self.tx.is_some(){
+                    println!("DROPPED!");
+                    let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
+                }
+            }
+        }
 
         #[distributed_slice]
         static #method_jobs: [fn(Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static>];
@@ -133,7 +150,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                     let job_builder = (method_job)(Arc::new(Box::new(self.clone())));
                     let cron_job = job_builder.build();
                     info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
-                    self.tx = Some(cron_job.status_channels.as_ref().clone().unwrap().0.clone());
+                    self.tx = Some(cron_job.life_channels.as_ref().clone().unwrap().0.clone());
                     frame.cron_jobs.lock().unwrap().push(cron_job);
                 }
                 info!("Method Jobs from {} Collected.", #type_name);

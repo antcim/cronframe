@@ -43,21 +43,13 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender};
 //     panic!()
 // }
 
+
 #[cron_obj]
 #[derive(Clone, Default)] // these traits are required
 struct Users {
     name: String,
     expr: CronFrameExpr,
     expr1: CronFrameExpr,
-}
-
-impl Drop for Users {
-    fn drop(&mut self) {
-        if self.tx.is_some(){
-            println!("{} DROPPED!", self.name);
-            let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
-        }
-    }
 }
 
 #[cron_impl]
@@ -74,7 +66,7 @@ impl Users {
 
     #[mt_job(expr = "expr1")]
     fn my_method_job_2(self) {
-        println!("call from get_jobs for expr {}", self.expr1.expr());
+        println!("call from my_method_job_2 for expr {}", self.expr1.expr());
     }
 }
 
