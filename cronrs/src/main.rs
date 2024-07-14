@@ -54,10 +54,10 @@ struct Users {
 
 #[cron_impl]
 impl Users {
-    // #[fn_job(expr = "0 0 * * * * *", timeout = "10000")]
-    // fn my_function_job() {
-    //     println!("call from my_obj_job");
-    // }
+    #[fn_job(expr = "0 0 * * * * *", timeout = "10000")]
+    fn my_function_job() {
+        println!("call from my_function_job");
+    }
     
     #[mt_job(expr = "expr")]
     fn my_method_job_1(self) {

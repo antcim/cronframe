@@ -11,6 +11,7 @@ pub use std::{
 };
 
 pub use crossbeam_channel::Sender;
+pub use crossbeam_channel::bounded;
 
 pub use log::info;
 
