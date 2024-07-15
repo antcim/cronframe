@@ -1,4 +1,4 @@
-use std::{any::Any, borrow::Borrow, str::FromStr, sync::Arc, thread::JoinHandle};
+use std::{any::Any, borrow::Borrow, str::FromStr, sync::{Arc, Mutex}, thread::JoinHandle};
 
 use chrono::{DateTime, Duration, Local, Utc};
 use cron::Schedule;
@@ -20,8 +20,9 @@ pub struct CronJob {
     pub life_channels: Option<(Sender<String>, Receiver<String>)>,
     pub start_time: Option<DateTime<Utc>>,
     pub run_id: Option<Uuid>,
-    pub instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
+    pub method_instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
     pub failed: bool,
+    pub type_instance_count: Option<&'static Mutex<u16>>,
 }
 
 impl CronJob {
@@ -187,7 +188,7 @@ impl CronJob {
                 info!("job @{job_id} RUN_ID#{run_id} - Execution");
                 match cron_job.job {
                     CronJobType::Global(job) | CronJobType::Function(job) => job(),
-                    CronJobType::Method(job) => job(cron_job.instance.unwrap()),
+                    CronJobType::Method(job) => job(cron_job.method_instance.unwrap()),
                 }
             }
         };
@@ -239,7 +240,7 @@ impl CronJob {
                 info!("job @{job_id} RUN_ID#{run_id} - Execution");
                 match cron_job.job {
                     CronJobType::Global(job) | CronJobType::Function(job) => job(),
-                    CronJobType::Method(job) => job(cron_job.instance.unwrap()),
+                    CronJobType::Method(job) => job(cron_job.method_instance.unwrap()),
                 }
             }
         };

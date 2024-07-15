@@ -15,7 +15,7 @@ use crate::{
 
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
-    handlers: Mutex<HashMap<String, JoinHandle<()>>>,
+    job_handles: Mutex<HashMap<String, JoinHandle<()>>>,
     logger: Option<log4rs::Handle>,
     pub web_server_channels: (Sender<Shutdown>, Receiver<Shutdown>),
     pub filter: Option<CronFilter>,
@@ -37,7 +37,7 @@ impl CronFrame {
 
         let mut frame = CronFrame {
             cron_jobs: Mutex::new(vec![]),
-            handlers: Mutex::new(HashMap::new()),
+            job_handles: Mutex::new(HashMap::new()),
             logger,
             web_server_channels: crossbeam_channel::bounded(1),
             filter,
@@ -129,7 +129,7 @@ impl CronFrame {
                 // if the job_id key is not in the hashmap then attempt to schedule it
                 // if scheduling is a success then add the key to the hashmap
 
-                let mut job_handlers = cronframe.handlers.lock().unwrap();
+                let mut job_handlers = cronframe.job_handles.lock().unwrap();
 
                 if !job_handlers.contains_key(&job_id) {
                     // if the job timed-out than skip to the next job
@@ -205,7 +205,7 @@ impl CronFrame {
         let cronframe = self.clone();
         *cronframe.quit.lock().unwrap() = true;
 
-        let handles = cronframe.handlers.lock().unwrap();
+        let handles = cronframe.job_handles.lock().unwrap();
 
         for handle in handles.iter() {
             while !handle.1.is_finished() {

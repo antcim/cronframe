@@ -5,7 +5,7 @@ extern crate cronframe;
 use core::panic;
 
 use chrono::Duration;
-use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender};
+use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender, Once, Mutex};
 
 //  Cron Expression
 //  * * * * * * *
@@ -72,34 +72,47 @@ impl Users {
 
 fn main() {
     let cronframe = CronFrame::default().scheduler();
-    std::thread::sleep(Duration::seconds(5).to_std().unwrap());
 
     let expr1 = CronFrameExpr::new("0/5", "*", "*", "*", "*", "*", "*", 0);
     let expr2 = CronFrameExpr::new("0/10", "*", "*", "*", "*", "*", "*", 20000);
     let expr3 = CronFrameExpr::new("0/7", "*", "*", "*", "*", "*", "*", 10000);
 
+    // inner scope to test the drop of cron_objects
+    {
+        let mut user1 = Users {
+            name: "user1".to_string(),
+            expr: expr1.clone(),
+            expr1: expr3.clone(),
+            tx: None,
+        };
+    
+        user1.helper_gatherer(cronframe.clone());
+        std::thread::sleep(Duration::seconds(10).to_std().unwrap());
+
+        {
+            let mut user2 = Users {
+                name: "user2".to_string(),
+                expr: expr2,
+                expr1: expr3.clone(),
+                tx: None,
+            };
+    
+            user2.helper_gatherer(cronframe.clone());
+    
+            std::thread::sleep(Duration::seconds(15).to_std().unwrap());
+        }
+
+        std::thread::sleep(Duration::seconds(10).to_std().unwrap());
+    }
+
     let mut user1 = Users {
         name: "user1".to_string(),
         expr: expr1,
-        expr1: expr3.clone(),
+        expr1: expr3,
         tx: None,
     };
 
     user1.helper_gatherer(cronframe.clone());
-
-    // inner scope to test the drop of cron_objects
-    {
-        let mut user2 = Users {
-            name: "user2".to_string(),
-            expr: expr2,
-            expr1: expr3,
-            tx: None,
-        };
-
-        user2.helper_gatherer(cronframe.clone());
-
-        std::thread::sleep(Duration::seconds(15).to_std().unwrap());
-    }
 
     loop {
         println!("Enter x to quit...");
