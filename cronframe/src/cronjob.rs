@@ -22,7 +22,7 @@ pub struct CronJob {
     pub run_id: Option<Uuid>,
     pub method_instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
     pub failed: bool,
-    pub type_instance_count: Option<&'static Mutex<u16>>,
+    pub type_instance_count: Option<&'static Mutex<f32>>,
 }
 
 impl CronJob {

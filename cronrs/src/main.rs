@@ -19,29 +19,29 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender, Once, Mu
 //  └───────────── seconds (0 to 59)
 // "*" works as a jolly for any value will do
 
-// #[cron(expr = "0/5 * * * * * *", timeout = "0")]
-// fn testfn() {
-//     println!("call from testfn");
-// }
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn testfn() {
+    println!("call from testfn");
+}
 
-// #[cron(expr = "0/30 * * * * * *", timeout = "60000")]
-// fn another_test() {
-//     println!("call from another_test");
-// }
+#[cron(expr = "0/30 * * * * * *", timeout = "60000")]
+fn another_test() {
+    println!("call from another_test");
+}
 
-// #[cron(expr = "0/30 * * * * * *", timeout = "0")]
-// fn heavy_job() {
-//     let mut _count: i128 = 0;
+#[cron(expr = "0/30 * * * * * *", timeout = "0")]
+fn heavy_job() {
+    let mut _count: i128 = 0;
 
-//     for i in 0..5000000000 {
-//         _count += i;
-//     }
-// }
+    for i in 0..5_000_000_000 {
+        _count += i;
+    }
+}
 
-// #[cron(expr = "0/5 * * * * * *", timeout = "0")]
-// fn failing_job() {
-//     panic!()
-// }
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn failing_job() {
+    panic!()
+}
 
 
 #[cron_obj]
@@ -54,9 +54,19 @@ struct Users {
 
 #[cron_impl]
 impl Users {
-    #[fn_job(expr = "0 0 * * * * *", timeout = "10000")]
-    fn my_function_job() {
-        println!("call from my_function_job");
+    #[fn_job(expr = "0/5 * * * * * *", timeout = "10000")]
+    fn my_function_job_1() {
+        println!("call from my_function_job_1");
+    }
+
+    #[fn_job(expr = "0/5 * * * * * *", timeout = "0")]
+    fn my_function_job_2() {
+        println!("call from my_function_job_2");
+    }
+
+    #[fn_job(expr = "0/8 * * * * * *", timeout = "20000")]
+    fn my_function_job_3() {
+        println!("call from my_function_job_3");
     }
     
     #[mt_job(expr = "expr")]
@@ -99,11 +109,11 @@ fn main() {
     
             user2.helper_gatherer(cronframe.clone());
     
-            std::thread::sleep(Duration::seconds(15).to_std().unwrap());
+            std::thread::sleep(Duration::seconds(10).to_std().unwrap());
         }
-
-        std::thread::sleep(Duration::seconds(10).to_std().unwrap());
     }
+
+    std::thread::sleep(Duration::seconds(10).to_std().unwrap());
 
     let mut user1 = Users {
         name: "user1".to_string(),

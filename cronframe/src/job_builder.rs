@@ -29,7 +29,7 @@ pub enum JobBuilder<'a> {
         job: fn(),
         cron_expr: &'a str,
         timeout: &'a str,
-        type_instance_count: &'static Mutex<u16>,
+        type_instance_count: &'static Mutex<f32>,
     },
 }
 
@@ -69,7 +69,7 @@ impl<'a> JobBuilder<'a> {
         job: fn(),
         cron_expr: &'a str,
         timeout: &'a str,
-        type_instance_count: &'static Mutex<u16>,
+        type_instance_count: &'static Mutex<f32>,
     ) -> Self {
         JobBuilder::Function {
             name,

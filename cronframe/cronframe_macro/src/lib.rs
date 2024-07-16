@@ -80,15 +80,26 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let new_code = quote! {
         #struct_edited
 
-        static #cf_fn_jobs_flag: Mutex<u16> = Mutex::new(0);
-        static #cf_fn_jobs_channels: cronframe::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::bounded(1));
+        static #cf_fn_jobs_flag: Mutex<f32> = Mutex::new(0f32);
+        static #cf_fn_jobs_channels: cronframe::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::unbounded());
 
         impl Drop for #struct_name {
             fn drop(&mut self) {
                 println!("DROPPED!");
+
+                let count = *#cf_fn_jobs_flag.lock().unwrap();
+                *#cf_fn_jobs_flag.lock().unwrap() -= 1f32;
+
+                println!("count is {count}");
+                
                 // check to see if associated function jobs need to be dropped
-                if *#cf_fn_jobs_flag.lock().unwrap() == 1 {
-                    let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
+                if count == 1f32 {
+                    let count_ext = count as i32;
+                    for i in 0..count_ext{
+                        let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
+                    }
+                }else if count <= 0f32 {
+                    *#cf_fn_jobs_flag.lock().unwrap() = 0f32;
                 }
                 // check to see if associated methods jobs need to be dropped
                 if self.tx.is_some(){
@@ -172,7 +183,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                 // instance of this cron object to call the helper_gatherer function
                 let num_instances = *#cf_fn_jobs_flag.lock().unwrap();
 
-                if num_instances == 0 {
+                if num_instances == 0f32 {
                     info!("Collecting Function Jobs from {}", #type_name);
                     for function_job in #function_jobs {
                         let job_builder = (function_job)();
@@ -182,8 +193,11 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                         frame.cron_jobs.lock().unwrap().push(cron_job);
                     }
                     info!("Function Jobs from {} Collected.", #type_name);
+                    *#cf_fn_jobs_flag.lock().unwrap() = 1f32;
+                }else{
+                    *#cf_fn_jobs_flag.lock().unwrap() += 1f32;
                 }
-                *#cf_fn_jobs_flag.lock().unwrap() += 1;
+                
             }
         }
     };
