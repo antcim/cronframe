@@ -85,25 +85,26 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
 
         impl Drop for #struct_name {
             fn drop(&mut self) {
-                println!("DROPPED!");
-
-                let count = *#cf_fn_jobs_flag.lock().unwrap();
-                *#cf_fn_jobs_flag.lock().unwrap() -= 1f32;
-
-                println!("count is {count}");
+                println!("DROPPED (trait)");
                 
-                // check to see if associated function jobs need to be dropped
-                if count == 1f32 {
-                    let count_ext = count as i32;
-                    for i in 0..count_ext{
-                        let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
-                    }
-                }else if count <= 0f32 {
-                    *#cf_fn_jobs_flag.lock().unwrap() = 0f32;
-                }
-                // check to see if associated methods jobs need to be dropped
                 if self.tx.is_some(){
                     let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
+
+                    let count = *#cf_fn_jobs_flag.lock().unwrap();
+
+                    println!("count before -1 : {count}");
+                    *#cf_fn_jobs_flag.lock().unwrap() -= 1f32;
+
+                    println!("count after -1 : {}", count -1f32);
+                    
+                    // check to see if associated function jobs need to be dropped
+                    // if count == 1f32
+                    {
+                        let count_ext = count as i32;
+                        for i in 0..count_ext{
+                            let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
+                        }
+                    }
                 }
             }
         }
@@ -183,21 +184,22 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                 // instance of this cron object to call the helper_gatherer function
                 let num_instances = *#cf_fn_jobs_flag.lock().unwrap();
 
-                if num_instances == 0f32 {
-                    info!("Collecting Function Jobs from {}", #type_name);
-                    for function_job in #function_jobs {
-                        let job_builder = (function_job)();
-                        let mut cron_job = job_builder.build();
-                        cron_job.life_channels = Some(#cf_fn_jobs_channels.clone());
-                        info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
-                        frame.cron_jobs.lock().unwrap().push(cron_job);
+                if num_instances <= 0f32 {
+                    if !#function_jobs.is_empty(){
+                        info!("Collecting Function Jobs from {}", #type_name);
+                        for function_job in #function_jobs {
+                            let job_builder = (function_job)();
+                            let mut cron_job = job_builder.build();
+                            cron_job.life_channels = Some(#cf_fn_jobs_channels.clone());
+                            info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
+                            frame.cron_jobs.lock().unwrap().push(cron_job);
+                        }
+                        info!("Function Jobs from {} Collected.", #type_name);
+                        *#cf_fn_jobs_flag.lock().unwrap() = 1f32;
                     }
-                    info!("Function Jobs from {} Collected.", #type_name);
-                    *#cf_fn_jobs_flag.lock().unwrap() = 1f32;
-                }else{
+                }else if !#function_jobs.is_empty(){
                     *#cf_fn_jobs_flag.lock().unwrap() += 1f32;
                 }
-                
             }
         }
     };

@@ -113,10 +113,11 @@ impl CronFrame {
                 // if cron_obj instance related to the job is dropped delete the job
                 let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
 
-                if let Some((_, life_rx)) = cron_job.life_channels.clone() {
+                if let Some((life_tx, life_rx)) = cron_job.life_channels.clone() {
                     match life_rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_DROP" {
+                                println!("job @{} - Dropped", job_id);
                                 info!("job @{} - Dropped", job_id);
                                 jobs_to_remove.push(i);
                                 continue;
