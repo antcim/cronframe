@@ -10,7 +10,9 @@ use crossbeam_channel::{Receiver, Sender};
 use rocket::Shutdown;
 
 use crate::{
-    cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronFilter, CronJobType,
+    cronjob::{self, CronJob},
+    job_builder::JobBuilder,
+    logger, web_server, CronFilter, CronJobType,
 };
 
 pub struct CronFrame {
@@ -51,7 +53,11 @@ impl CronFrame {
         for job_builder in inventory::iter::<JobBuilder> {
             let cron_job = job_builder.clone().build();
             info!("Found Global Job \"{}\"", cron_job.name);
-            frame.cron_jobs.lock().unwrap().push(cron_job)
+            frame
+                .cron_jobs
+                .lock()
+                .expect("global job gathering error during init")
+                .push(cron_job)
         }
 
         info!("Global Jobs Collected");
@@ -63,7 +69,10 @@ impl CronFrame {
 
         std::thread::spawn(move || web_server::web_server(server_frame));
 
-        *frame.server_handle.lock().unwrap() = match frame.web_server_channels.1.recv() {
+        *frame
+            .server_handle
+            .lock()
+            .expect("web server handle unwrap error") = match frame.web_server_channels.1.recv() {
             Ok(handle) => {
                 println!("Handle Received");
                 Some(handle)
@@ -79,7 +88,10 @@ impl CronFrame {
     }
 
     pub fn add_job(&mut self, job: CronJob) {
-        self.cron_jobs.lock().unwrap().push(job)
+        self.cron_jobs
+            .lock()
+            .expect("add jobs unwrap error")
+            .push(job)
     }
 
     pub fn scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
@@ -90,11 +102,18 @@ impl CronFrame {
             // sleep some otherwise the cpu consumption goes to the moon
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
 
-            if *cronframe.quit.lock().unwrap() {
+            if *cronframe
+                .quit
+                .lock()
+                .expect("quit unwrap error in scheduler")
+            {
                 break;
             }
 
-            let mut cron_jobs = cronframe.cron_jobs.lock().unwrap();
+            let mut cron_jobs = cronframe
+                .cron_jobs
+                .lock()
+                .expect("cron jobs unwrap error in scheduler");
             let mut jobs_to_remove: Vec<usize> = Vec::new();
 
             for (i, cron_job) in &mut (*cron_jobs).iter_mut().enumerate() {
@@ -110,29 +129,36 @@ impl CronFrame {
                     }
                 }
 
-                // if cron_obj instance related to the job is dropped delete the job
                 let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
 
-                if let Some((life_tx, life_rx)) = cron_job.life_channels.clone() {
+                // if cron_obj instance related to the job is dropped delete the job
+                let to_be_deleted = if let Some((_, life_rx)) = cron_job.life_channels.clone() {
                     match life_rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_DROP" {
                                 println!("job @{} - Dropped", job_id);
                                 info!("job @{} - Dropped", job_id);
                                 jobs_to_remove.push(i);
-                                continue;
+                                true
+                            } else {
+                                false
                             }
                         }
-                        Err(_error) => {}
+                        Err(_error) => false,
                     }
-                }
+                } else {
+                    false
+                };
 
                 // if the job_id key is not in the hashmap then attempt to schedule it
                 // if scheduling is a success then add the key to the hashmap
 
-                let mut job_handlers = cronframe.job_handles.lock().unwrap();
+                let mut job_handlers = cronframe
+                    .job_handles
+                    .lock()
+                    .expect("job handles unwrap error in scheduler");
 
-                if !job_handlers.contains_key(&job_id) {
+                if !job_handlers.contains_key(&job_id) && !to_be_deleted {
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
                         // TODO make a timed-out job resume on the following day
@@ -146,11 +172,14 @@ impl CronFrame {
                     let handle = (*cron_job).try_schedule();
 
                     if handle.is_some() {
-                        job_handlers.insert(job_id.clone(), handle.unwrap());
+                        job_handlers.insert(
+                            job_id.clone(),
+                            handle.expect("job handle unwrap error after try_schedule"),
+                        );
                         info!(
                             "job @{} RUN_ID#{} - Scheduled",
                             job_id,
-                            cron_job.run_id.as_ref().unwrap()
+                            cron_job.run_id.as_ref().expect("run_id unwrap error")
                         );
                     }
                 }
@@ -204,9 +233,16 @@ impl CronFrame {
         info!("CronFrame Scheduler Shutdown");
 
         let cronframe = self.clone();
-        *cronframe.quit.lock().unwrap() = true;
+        
+        *cronframe
+            .quit
+            .lock()
+            .expect("quit unwrap error in quit method") = true;
 
-        let handles = cronframe.job_handles.lock().unwrap();
+        let handles = cronframe
+            .job_handles
+            .lock()
+            .expect("job handles unwrap error in quit method");
 
         for handle in handles.iter() {
             while !handle.1.is_finished() {
@@ -218,9 +254,9 @@ impl CronFrame {
         cronframe
             .server_handle
             .lock()
-            .unwrap()
+            .expect("web server unwrap error in quit method")
             .clone()
-            .unwrap()
+            .expect("web server unwrap error after clone in quit method")
             .notify();
     }
 }

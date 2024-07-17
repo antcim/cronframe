@@ -64,7 +64,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let struct_name = item_struct.ident;
 
     if tmp.contains("{") {
-        tmp.insert_str(tmp.chars().count() - 1, "tx: Option<crate::Sender<String>>");
+        tmp.insert_str(tmp.chars().count() - 1, "tx: Option<crossbeam_channel::Sender<String>>");
     } else {
         tmp.insert_str(
             tmp.chars().count() - 1,
@@ -81,12 +81,12 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
         #struct_edited
 
         static #cf_fn_jobs_flag: Mutex<f32> = Mutex::new(0f32);
-        static #cf_fn_jobs_channels: cronframe::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::unbounded());
+        static #cf_fn_jobs_channels: once_cell::sync::Lazy<(crossbeam_channel::Sender<String>, crossbeam_channel::Receiver<String>)> = once_cell::sync::Lazy::new(|| crossbeam_channel::bounded(1));
 
         impl Drop for #struct_name {
             fn drop(&mut self) {
                 println!("DROPPED (trait)");
-                
+
                 if self.tx.is_some(){
                     let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
 
@@ -96,14 +96,11 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
                     *#cf_fn_jobs_flag.lock().unwrap() -= 1f32;
 
                     println!("count after -1 : {}", count -1f32);
-                    
+
                     // check to see if associated function jobs need to be dropped
-                    // if count == 1f32
-                    {
-                        let count_ext = count as i32;
-                        for i in 0..count_ext{
-                            let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
-                        }
+                    let count_ext = count as i32;
+                    for i in 0..(count_ext){
+                        let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
                     }
                 }
             }
@@ -167,7 +164,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let gather_fn = quote! {
         impl #impl_type{
             pub fn helper_gatherer(&mut self, frame: Arc<CronFrame>){
-                let life_channels = cronframe::bounded(1);
+                let life_channels = crossbeam_channel::bounded(1);
                 self.tx = Some(life_channels.0.clone());
 
                 info!("Collecting Method Jobs from {}", #type_name);
@@ -180,12 +177,13 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                 }
                 info!("Method Jobs from {} Collected.", #type_name);
 
-                // collect jobs from associated functions only if this is the first
-                // instance of this cron object to call the helper_gatherer function
-                let num_instances = *#cf_fn_jobs_flag.lock().unwrap();
 
-                if num_instances <= 0f32 {
-                    if !#function_jobs.is_empty(){
+                if !#function_jobs.is_empty(){
+                    // collect jobs from associated functions only if this is the first
+                    // instance of this cron object to call the helper_gatherer function
+                    let num_instances = *#cf_fn_jobs_flag.lock().unwrap();
+
+                    if num_instances <= 0f32 {
                         info!("Collecting Function Jobs from {}", #type_name);
                         for function_job in #function_jobs {
                             let job_builder = (function_job)();
@@ -196,9 +194,9 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                         }
                         info!("Function Jobs from {} Collected.", #type_name);
                         *#cf_fn_jobs_flag.lock().unwrap() = 1f32;
+                    } else {
+                        *#cf_fn_jobs_flag.lock().unwrap() += 1f32;
                     }
-                }else if !#function_jobs.is_empty(){
-                    *#cf_fn_jobs_flag.lock().unwrap() += 1f32;
                 }
             }
         }
@@ -245,14 +243,12 @@ pub fn fn_job(att: TokenStream, code: TokenStream) -> TokenStream {
     let job_name = ident.to_string();
     let helper = format_ident!("cron_helper_{}", ident);
 
-    let cf_fn_jobs_flag = format_ident!("CF_FN_JOBS_FLAG_{}", "Users");
-
     let new_code = quote! {
         // original function
         #origin_function
 
         fn #helper() -> JobBuilder<'static> {
-            JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout, &#cf_fn_jobs_flag)
+            JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout)
         }
     };
     new_code.into()

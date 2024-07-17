@@ -29,7 +29,6 @@ pub enum JobBuilder<'a> {
         job: fn(),
         cron_expr: &'a str,
         timeout: &'a str,
-        type_instance_count: &'static Mutex<f32>,
     },
 }
 
@@ -69,14 +68,12 @@ impl<'a> JobBuilder<'a> {
         job: fn(),
         cron_expr: &'a str,
         timeout: &'a str,
-        type_instance_count: &'static Mutex<f32>,
     ) -> Self {
         JobBuilder::Function {
             name,
             job,
             cron_expr,
             timeout,
-            type_instance_count,
         }
     }
 
@@ -110,7 +107,6 @@ impl<'a> JobBuilder<'a> {
                     run_id: None,
                     method_instance: None,
                     failed: false,
-                    type_instance_count: None,
                 }
             }
             Self::Method {
@@ -142,7 +138,6 @@ impl<'a> JobBuilder<'a> {
                     run_id: None,
                     method_instance: Some(instance),
                     failed: false,
-                    type_instance_count: None,
                 }
             }
             Self::Function {
@@ -150,7 +145,6 @@ impl<'a> JobBuilder<'a> {
                 job,
                 cron_expr,
                 timeout,
-                type_instance_count
             } => {
                 let schedule =
                     Schedule::from_str(cron_expr).expect("Failed to parse cron expression!");
@@ -174,7 +168,6 @@ impl<'a> JobBuilder<'a> {
                     run_id: None,
                     method_instance: None,
                     failed: false,
-                    type_instance_count: Some(type_instance_count),
                 }
             }
         }

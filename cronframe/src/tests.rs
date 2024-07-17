@@ -1,8 +1,10 @@
 use std::{fs, sync::Once};
 
 use crate::{
-    distributed_slice, logger, Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder,
+    distributed_slice, logger, Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder, Lazy,
+    Mutex, Sender,
 };
+
 use chrono::{DateTime, Duration, Utc};
 use cronframe_macro::{cron, cron_impl, cron_obj, fn_job, mt_job};
 
@@ -135,32 +137,44 @@ pub fn test_job(
 
     let cronframe = CronFrame::init(Some(job_filter), false);
 
+    let mut fn_fail = FunctionFail { tx: None };
+    let mut fn_timeout = FunctionTimeout { tx: None };
+    let mut fn_std = FunctionStd { tx: None };
+
+    let expr_fail = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
+    let expr_timeout = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
+    let expr_std = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
+
+    let mut mt_fail = MethodFail {
+        expr: expr_fail,
+        tx: None,
+    };
+    let mut mt_timeout = MethodTimeout {
+        expr: expr_timeout,
+        tx: None,
+    };
+    let mut mt_std = MethodStd {
+        expr: expr_std,
+        tx: None,
+    };
+
     match job_filter {
         CronFilter::Function => {
             if shoud_fail {
-                let mut testsruct = FunctionFail { tx: None };
-                testsruct.helper_gatherer(cronframe.clone());
+                fn_fail.helper_gatherer(cronframe.clone());
             } else if timeout > Duration::seconds(0) {
-                let mut testsruct = FunctionTimeout { tx: None };
-                testsruct.helper_gatherer(cronframe.clone());
+                fn_timeout.helper_gatherer(cronframe.clone());
             } else {
-                let mut testsruct = FunctionStd { tx: None };
-                testsruct.helper_gatherer(cronframe.clone());
+                fn_std.helper_gatherer(cronframe.clone());
             }
         }
         CronFilter::Method => {
             if shoud_fail {
-                let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
-                let mut testsruct = MethodFail { expr, tx: None };
-                testsruct.helper_gatherer(cronframe.clone());
+                mt_fail.helper_gatherer(cronframe.clone());
             } else if timeout > Duration::seconds(0) {
-                let expr = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
-                let mut testsruct = MethodTimeout { expr, tx: None };
-                testsruct.helper_gatherer(cronframe.clone());
+                mt_timeout.helper_gatherer(cronframe.clone());
             } else {
-                let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
-                let mut testsruct = MethodStd { expr, tx: None };
-                testsruct.helper_gatherer(cronframe.clone());
+                mt_std.helper_gatherer(cronframe.clone());
             }
         }
         _ => (), // no additional stuff to do if global job

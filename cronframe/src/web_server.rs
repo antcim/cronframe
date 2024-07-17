@@ -1,8 +1,7 @@
 use crate::{
     config::read_config,
     cronframe::{self, CronFrame},
-    CronJobType,
-    CronFilter
+    CronFilter, CronJobType,
 };
 use log::info;
 use rocket::{config::Shutdown, futures::FutureExt, serde::Serialize};
@@ -52,18 +51,25 @@ pub fn web_server(frame: Arc<CronFrame>) {
 
     let (tx, rx) = cronframe.web_server_channels.clone();
 
-    println!("HERE 0");
-
     tokio_runtime.block_on(async move {
         let rocket = rocket.ignite().await;
-        let shutdown_handle = rocket.as_ref().unwrap().shutdown();
-        println!("SENDING STUFF NOW!!!");
+
+        let shutdown_handle = rocket
+            .as_ref()
+            .expect("rocket unwrap error in web server init")
+            .shutdown();
+
         let _ = tx.send(shutdown_handle);
+
         println!(
             "CronFrame running at http://{}:{}",
             config.address, config.port
         );
-        let _ = rocket.unwrap().launch().await;
+
+        let _ = rocket
+            .expect("rocket unwrap error in web server launch")
+            .launch()
+            .await;
     });
 }
 
@@ -83,7 +89,12 @@ struct JobList {
 fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     let mut cron_jobs = vec![];
 
-    for job in cronframe.cron_jobs.lock().unwrap().iter() {
+    for job in cronframe
+        .cron_jobs
+        .lock()
+        .expect("cron jobs unrwap error in web server")
+        .iter()
+    {
         let job_type = match job.job {
             CronJobType::Global(_) => CronFilter::Global,
             CronJobType::Function(_) => CronFilter::Function,

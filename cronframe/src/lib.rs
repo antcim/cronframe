@@ -21,7 +21,7 @@ mod cronframe;
 mod cronjob;
 mod job_builder;
 mod logger;
-//mod tests;
+mod tests;
 mod utils;
 mod web_server;
 

@@ -19,7 +19,7 @@ pub fn appender_logger(log_file: &str) -> log4rs::Handle {
         .encoder(Box::new(PatternEncoder::new(pattern)))
         .append(false)
         .build(log_file)
-        .unwrap();
+        .expect("appender_logger log file unwrap error");
 
     let config = Config::builder()
         .appender(Appender::builder().build("log_file", Box::new(log_file)))
@@ -28,9 +28,9 @@ pub fn appender_logger(log_file: &str) -> log4rs::Handle {
                 .appender("log_file")
                 .build(log::LevelFilter::Info),
         )
-        .unwrap();
+        .expect("appender_logger config unwrap error");
 
-    log4rs::init_config(config).unwrap()
+    log4rs::init_config(config).expect("appender_logger init error")
 }
 
 pub fn appender_config(log_file: &str) -> log4rs::Config  {
@@ -40,7 +40,7 @@ pub fn appender_config(log_file: &str) -> log4rs::Config  {
         .encoder(Box::new(PatternEncoder::new(pattern)))
         .append(false)
         .build(log_file)
-        .unwrap();
+        .expect("appender_config log file unwrap error");
 
     Config::builder()
         .appender(Appender::builder().build("log_file", Box::new(log_file)))
@@ -49,7 +49,7 @@ pub fn appender_config(log_file: &str) -> log4rs::Config  {
                 .appender("log_file")
                 .build(log::LevelFilter::Info),
         )
-        .unwrap()
+        .expect("appender_logger config unwrap error")
 }
 
 pub fn rolling_logger() -> log4rs::Handle {
@@ -70,7 +70,7 @@ pub fn rolling_logger() -> log4rs::Handle {
         .encoder(Box::new(PatternEncoder::new(pattern)))
         .append(false)
         .build("log/latest.log", Box::new(policy))
-        .unwrap();
+        .expect("rolling_logger log file unwrap error");
 
     let config = Config::builder()
         .appender(Appender::builder().build("log_file", Box::new(log_file)))
@@ -79,7 +79,7 @@ pub fn rolling_logger() -> log4rs::Handle {
                 .appender("log_file")
                 .build(log::LevelFilter::Info),
         )
-        .unwrap();
+        .expect("rolling_logger config unwrap error");
 
-    log4rs::init_config(config).unwrap()
+    log4rs::init_config(config).expect("rolling_logger init error")
 }
