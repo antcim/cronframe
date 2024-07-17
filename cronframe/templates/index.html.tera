@@ -21,6 +21,7 @@
     {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
     <tr>
         <td><a href="{{link}}">{{cron_job.name}}</a></td>
+        <td>{{cron_job.id}}</td>
     </tr>
     {% endfor %}
 </table>

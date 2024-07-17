@@ -111,7 +111,9 @@ fn main() {
             user2.helper_gatherer(cronframe.clone());
     
             std::thread::sleep(Duration::seconds(10).to_std().unwrap());
+            user2.cf_drop();
         }
+        user1.cf_drop();
     }
 
     println!("PHASE 3");
