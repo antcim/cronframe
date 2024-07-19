@@ -70,7 +70,6 @@ impl CronJob {
                 }
             }
         }
-
         None
     }
 

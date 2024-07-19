@@ -15,7 +15,7 @@ pub fn web_server(frame: Arc<CronFrame>) {
 
     let config = match read_config() {
         Some(config_data) => rocket::Config {
-            port: config_data.server.port,
+            port: config_data.webserver.port.unwrap_or_else(|| 8098),
             address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
             temp_dir: "templates".into(),
             shutdown: Shutdown {
@@ -28,7 +28,7 @@ pub fn web_server(frame: Arc<CronFrame>) {
         None => {
             // default config
             rocket::Config {
-                port: 8002,
+                port: 8098,
                 address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
                 temp_dir: "templates".into(),
                 shutdown: Shutdown {

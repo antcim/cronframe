@@ -161,20 +161,20 @@ pub fn test_job(
     match job_filter {
         CronFilter::Function => {
             if shoud_fail {
-                fn_fail.helper_gatherer(cronframe.clone());
+                fn_fail.cf_gather(cronframe.clone());
             } else if timeout > Duration::seconds(0) {
-                fn_timeout.helper_gatherer(cronframe.clone());
+                fn_timeout.cf_gather(cronframe.clone());
             } else {
-                fn_std.helper_gatherer(cronframe.clone());
+                fn_std.cf_gather(cronframe.clone());
             }
         }
         CronFilter::Method => {
             if shoud_fail {
-                mt_fail.helper_gatherer(cronframe.clone());
+                mt_fail.cf_gather(cronframe.clone());
             } else if timeout > Duration::seconds(0) {
-                mt_timeout.helper_gatherer(cronframe.clone());
+                mt_timeout.cf_gather(cronframe.clone());
             } else {
-                mt_std.helper_gatherer(cronframe.clone());
+                mt_std.cf_gather(cronframe.clone());
             }
         }
         _ => (), // no additional stuff to do if global job

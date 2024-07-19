@@ -43,8 +43,6 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
             return new_code.into();
         } else if let Some(error) = parsed.err() {
             println!("parse Error: {}", error);
-        } else {
-            unreachable!()
         }
     }
     code
@@ -54,6 +52,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
 pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_struct = syn::parse::<ItemStruct>(code.clone()).unwrap();
     let r#struct = item_struct.to_token_stream();
+
     let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{}", item_struct.ident);
     let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{}", item_struct.ident);
     let cf_fn_jobs_flag = format_ident!("CF_FN_JOBS_FLAG_{}", item_struct.ident);
@@ -64,18 +63,17 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let struct_name = item_struct.ident;
 
     if tmp.contains("{") {
-        tmp.insert_str(tmp.chars().count() - 1, "tx: Option<crossbeam_channel::Sender<String>>");
+        tmp.insert_str(
+            tmp.chars().count() - 1,
+            "tx: Option<crossbeam_channel::Sender<String>>",
+        );
     } else {
         tmp.insert_str(
             tmp.chars().count() - 1,
-            "{tx: Option<crate::Sender<String>>}",
+            "{tx: Option<crossbeam_channel::Sender<String>>}",
         );
         tmp = (&tmp[0..tmp.len() - 1].to_string()).clone();
     }
-
-    println!("tmp: {tmp}");
-
-    let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{struct_name}");
 
     let struct_edited: proc_macro2::TokenStream = tmp.parse().unwrap();
 
@@ -165,7 +163,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let gather_fn = quote! {
         impl #impl_type{
-            pub fn helper_gatherer(&mut self, frame: Arc<CronFrame>){
+            pub fn cf_gather(&mut self, frame: Arc<CronFrame>){
                 let life_channels = crossbeam_channel::bounded(1);
                 self.tx = Some(life_channels.0.clone());
 
@@ -178,7 +176,6 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                     frame.cron_jobs.lock().unwrap().push(cron_job);
                 }
                 info!("Method Jobs from {} Collected.", #type_name);
-
 
                 if !#function_jobs.is_empty(){
                     // collect jobs from associated functions only if this is the first
@@ -280,7 +277,6 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
 
     if arg_1_name != "expr" {
         // wrong argument name -> compilation error
-        return code;
     }
 
     // generate code for a method job
@@ -288,6 +284,7 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
     let ident = parsed.clone().unwrap().sig.ident;
     let job_name = ident.to_string();
     let block = parsed.clone().unwrap().block;
+
     let cronframe_method = format_ident!("cron_method_{}", ident);
     let helper = format_ident!("cron_helper_{}", ident);
     let expr = format_ident!("expr");
@@ -299,7 +296,7 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
     block_string_edited.insert_str(
         1,
         "let cron_frame_instance = arg.clone();
-                let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();",
+        let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();",
     );
 
     let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();

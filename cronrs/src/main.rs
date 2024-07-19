@@ -96,7 +96,7 @@ fn main() {
             tx: None,
         };
     
-        user1.helper_gatherer(cronframe.clone());
+        user1.cf_gather(cronframe.clone());
         std::thread::sleep(Duration::seconds(10).to_std().unwrap());
 
         println!("PHASE 2");
@@ -108,7 +108,7 @@ fn main() {
                 tx: None,
             };
     
-            user2.helper_gatherer(cronframe.clone());
+            user2.cf_gather(cronframe.clone());
     
             std::thread::sleep(Duration::seconds(10).to_std().unwrap());
             user2.cf_drop();
@@ -129,7 +129,7 @@ fn main() {
         tx: None,
     };
 
-    user1.helper_gatherer(cronframe.clone());
+    user1.cf_gather(cronframe.clone());
 
     loop {
         println!("Enter x to quit...");

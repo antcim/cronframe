@@ -31,11 +31,11 @@ impl CronFrame {
     }
 
     pub fn init(filter: Option<CronFilter>, use_logger: bool) -> Arc<CronFrame> {
-        let mut logger = None;
-
-        if use_logger {
-            logger = Some(logger::rolling_logger());
-        }
+        let logger = if use_logger {
+            Some(logger::rolling_logger())
+        } else {
+            None
+        };
 
         let mut frame = CronFrame {
             cron_jobs: Mutex::new(vec![]),
@@ -233,7 +233,7 @@ impl CronFrame {
         info!("CronFrame Scheduler Shutdown");
 
         let cronframe = self.clone();
-        
+
         *cronframe
             .quit
             .lock()

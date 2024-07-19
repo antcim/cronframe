@@ -5,13 +5,26 @@ use toml;
 #[derive(Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct ConfigData {
-    pub server: ServerConfig,
+    pub webserver: ServerConfig,
+    pub logger: LoggerConfig,
 }
 
 #[derive(Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct ServerConfig {
-    pub port: u16,
+    pub port: Option<u16>,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct LoggerConfig {
+    pub dir: Option<String>,
+    pub file_size: Option<u64>,
+    pub archive_files: Option<u32>,
+    pub latest_file_name: Option<String>,
+    pub archive_file_name: Option<String>,
+    pub msg_pattern: Option<String>,
+    pub level_filter: Option<String>,
 }
 
 pub fn read_config() -> Option<ConfigData>{
