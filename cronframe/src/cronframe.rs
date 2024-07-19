@@ -158,10 +158,12 @@ impl CronFrame {
                     .lock()
                     .expect("job handles unwrap error in scheduler");
 
-                if !job_handlers.contains_key(&job_id) && !to_be_deleted {
+                // check if the daily timeout expired and reset it if need be
+                cron_job.timeout_reset();
+
+                if !job_handlers.contains_key(&job_id) && !to_be_deleted {                    
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
-                        // TODO make a timed-out job resume on the following day
                         if !cron_job.timeout_notified {
                             info!("job @{} - Reached Timeout", job_id);
                             cron_job.timeout_notified = true;

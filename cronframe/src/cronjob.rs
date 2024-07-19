@@ -6,7 +6,7 @@ use std::{
     thread::JoinHandle,
 };
 
-use chrono::{DateTime, Duration, Local, Utc};
+use chrono::{DateTime, Datelike, Duration, Local, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
 use log4rs::Handle;
@@ -118,13 +118,28 @@ impl CronJob {
                     .start_time
                     .expect("start time unwrap error in check_timeout")
                     + timeout;
-                let now = Utc::now();
-                if now >= timeout {
+
+                if Utc::now() >= timeout {
                     return true;
                 }
             }
         }
         false
+    }
+
+    pub fn timeout_reset(&mut self) {
+        if let Some(timeout) = self.timeout {
+            if self.start_time.is_some() {
+                let timeout = self
+                    .start_time
+                    .expect("start time unwrap error in timeout_reset")
+                    + timeout;
+
+                if Utc::now() >= timeout + Duration::hours(24){
+                    self.start_time = None;
+                }
+            }
+        }
     }
 
     pub fn schedule(&self) -> String {
