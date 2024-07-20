@@ -137,26 +137,17 @@ pub fn test_job(
 
     let cronframe = CronFrame::init(Some(job_filter), false);
 
-    let mut fn_fail = FunctionFail { tx: None };
-    let mut fn_timeout = FunctionTimeout { tx: None };
-    let mut fn_std = FunctionStd { tx: None };
+    let mut fn_fail = FunctionFail::new_cron_obj();
+    let mut fn_timeout = FunctionTimeout::new_cron_obj();
+    let mut fn_std = FunctionStd::new_cron_obj();
 
     let expr_fail = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
     let expr_timeout = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
     let expr_std = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
 
-    let mut mt_fail = MethodFail {
-        expr: expr_fail,
-        tx: None,
-    };
-    let mut mt_timeout = MethodTimeout {
-        expr: expr_timeout,
-        tx: None,
-    };
-    let mut mt_std = MethodStd {
-        expr: expr_std,
-        tx: None,
-    };
+    let mut mt_fail = MethodFail::new_cron_obj(expr_fail);
+    let mut mt_timeout = MethodTimeout::new_cron_obj(expr_timeout);
+    let mut mt_std = MethodStd::new_cron_obj(expr_std);
 
     match job_filter {
         CronFilter::Function => {

@@ -115,9 +115,6 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     cron_obj_fn.push_str("}");
     cron_obj_fn.push_str("}");
 
-
-    println!("default_impl:\n{}", cron_obj_fn);
-
     let cron_job_fn_tokens: proc_macro2::TokenStream = cron_obj_fn.parse().unwrap();
 
     let new_code = quote! {
@@ -206,27 +203,33 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let gather_fn = quote! {
         impl #impl_type{
-            pub fn cf_gather(&mut self, frame: Arc<CronFrame>){
-                let life_channels = crossbeam_channel::bounded(1);
-                self.tx = Some(life_channels.0.clone());
-
+            pub fn cf_gather_mt(&mut self, frame: Arc<CronFrame>){
                 info!("Collecting Method Jobs from {}", #type_name);
-                for method_job in #method_jobs {
-                    let job_builder = (method_job)(Arc::new(Box::new(self.clone())));
-                    let mut cron_job = job_builder.build();
-                    cron_job.life_channels = Some(life_channels.clone());
-                    info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
-                    frame.cron_jobs.lock().unwrap().push(cron_job);
-                }
-                info!("Method Jobs from {} Collected.", #type_name);
+                if !#method_jobs.is_empty(){
+                    let life_channels = crossbeam_channel::bounded(1);
+                    self.tx = Some(life_channels.0.clone());
 
+                    for method_job in #method_jobs {
+                        let job_builder = (method_job)(Arc::new(Box::new(self.clone())));
+                        let mut cron_job = job_builder.build();
+                        cron_job.life_channels = Some(life_channels.clone());
+                        info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
+                        frame.cron_jobs.lock().unwrap().push(cron_job);
+                    }
+                    info!("Method Jobs from {} Collected.", #type_name);
+                } else {
+                    info!("Not Method Jobs from {} has been found.", #type_name);
+                }
+            }
+        
+            pub fn cf_gather_fn(frame: Arc<CronFrame>){
+                info!("Collecting Function Jobs from {}", #type_name);
                 if !#function_jobs.is_empty(){
                     // collect jobs from associated functions only if this is the first
                     // instance of this cron object to call the helper_gatherer function
                     let fn_flag = *#cf_fn_jobs_flag.lock().unwrap();
 
                     if !fn_flag {
-                        info!("Collecting Function Jobs from {}", #type_name);
                         for function_job in #function_jobs {
                             let job_builder = (function_job)();
                             let mut cron_job = job_builder.build();
@@ -237,7 +240,14 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                         info!("Function Jobs from {} Collected.", #type_name);
                         *#cf_fn_jobs_flag.lock().unwrap() = true;
                     }
+                } else {
+                    info!("Not Function Jobs from {} has been found.", #type_name);
                 }
+            }
+
+            pub fn cf_gather(&mut self, frame: Arc<CronFrame>){
+                self.cf_gather_mt(frame.clone());
+                Self::cf_gather_fn(frame.clone());
             }
         }
     };

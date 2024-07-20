@@ -74,11 +74,10 @@ impl CronFrame {
             .lock()
             .expect("web server handle unwrap error") = match frame.web_server_channels.1.recv() {
             Ok(handle) => {
-                println!("Handle Received");
                 Some(handle)
             }
             Err(error) => {
-                println!("Handle ERROR: {error}");
+                println!("Web server shutdown handle error: {error}");
                 None
             }
         };
@@ -136,7 +135,6 @@ impl CronFrame {
                     match life_rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_DROP" {
-                                println!("job @{} - Dropped", job_id);
                                 info!("job @{} - Dropped", job_id);
                                 jobs_to_remove.push(i);
                                 true
