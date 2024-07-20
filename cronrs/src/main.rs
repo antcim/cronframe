@@ -44,7 +44,7 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender, Once, Mu
 // }
 
 #[cron_obj]
-#[derive(Clone, Default)] // these traits are required
+#[derive(Clone)] // these traits are required
 struct Users {
     name: String,
     expr: CronFrameExpr,
@@ -89,24 +89,14 @@ fn main() {
     // inner scope to test the drop of cron_objects
     {
         println!("PHASE 1");
-        let mut user1 = Users {
-            name: "user1".to_string(),
-            expr: expr1.clone(),
-            expr1: expr3.clone(),
-            tx: None,
-        };
+        let mut user1 = Users::new_cron_obj("user1".to_string(),  expr1.clone(), expr3.clone());
     
         user1.cf_gather(cronframe.clone());
         std::thread::sleep(Duration::seconds(10).to_std().unwrap());
 
         println!("PHASE 2");
         {
-            let mut user2 = Users {
-                name: "user2".to_string(),
-                expr: expr2,
-                expr1: expr3.clone(),
-                tx: None,
-            };
+            let mut user2 = Users::new_cron_obj("user2".to_string(), expr2, expr3.clone());
     
             user2.cf_gather(cronframe.clone());
     
@@ -122,14 +112,8 @@ fn main() {
 
     println!("PHASE 4");
 
-    let mut user1 = Users {
-        name: "user1".to_string(),
-        expr: expr1,
-        expr1: expr3,
-        tx: None,
-    };
-
-    user1.cf_gather(cronframe.clone());
+    let mut user3 = Users::new_cron_obj("user3".to_string(), expr1, expr3);
+    user3.cf_gather(cronframe.clone());
 
     loop {
         println!("Enter x to quit...");

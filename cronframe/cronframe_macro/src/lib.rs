@@ -1,6 +1,8 @@
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};
-use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
+use syn::{
+    self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta,
+};
 
 #[proc_macro_attribute]
 pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
@@ -77,6 +79,47 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let struct_edited: proc_macro2::TokenStream = tmp.parse().unwrap();
 
+    let type_name = struct_name.clone().into_token_stream().to_string();
+
+    let mut cron_obj_fn = String::from("fn new_cron_obj(");
+    if !item_struct.fields.is_empty() {
+        let mut tmp = item_struct.fields.iter().map(|x| {
+            let field_name = x.ident.to_token_stream().to_string();
+            let field_type = x.ty.to_token_stream().to_string();
+            format!("{field_name} : {field_type},")
+        });
+
+        for _ in 0..item_struct.fields.len() {
+            cron_obj_fn.push_str(&tmp.next().unwrap());
+        }
+    }
+
+    cron_obj_fn.push_str(") -> ");
+    cron_obj_fn.push_str(type_name.as_str());
+    cron_obj_fn.push_str("{");
+    cron_obj_fn.push_str(type_name.as_str());
+    cron_obj_fn.push_str("{");
+    
+    if !item_struct.fields.is_empty() {
+        let mut tmp = item_struct.fields.iter().map(|x| {
+            let field_name = x.ident.to_token_stream().to_string();
+            format!("{field_name},")
+        });
+
+        for _ in 0..item_struct.fields.len() {
+            cron_obj_fn.push_str(&tmp.next().unwrap());
+        }
+    }
+
+    cron_obj_fn.push_str("tx: None");
+    cron_obj_fn.push_str("}");
+    cron_obj_fn.push_str("}");
+
+
+    println!("default_impl:\n{}", cron_obj_fn);
+
+    let cron_job_fn_tokens: proc_macro2::TokenStream = cron_obj_fn.parse().unwrap();
+
     let new_code = quote! {
         #struct_edited
 
@@ -86,7 +129,6 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
         // drop for method jobs
         impl Drop for #struct_name {
             fn drop(&mut self) {
-                println!("DROPPED (method)");
                 if self.tx.is_some(){
                     let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
                 }
@@ -95,8 +137,9 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
 
         // drop for function jobs
         impl #struct_name {
+            #cron_job_fn_tokens
+
             fn cf_drop(&self) {
-                println!("DROPPED (function)");
                 if *#cf_fn_jobs_flag.lock().unwrap(){
                     for func in #function_jobs{
                         let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
