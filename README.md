@@ -18,6 +18,14 @@ Jobs of a cron object must be defined inside a standalone implementation block a
 
 The library supports a daily timeout in ms which is decativated if the value is 0.
 
+During the first run of the library a templates folder will be created in the current directory with 4 files inside it:
+- base.html.tera
+- index.html.tera
+- job.html.tera
+- styles.css
+
+By default the server runs on localhost:8098, the port can be changed in the cronframe.toml file.
+
 # Defining A Global Job
 ```rust
 #[cron(expr="* * * * * * *", timeout="0")]    
