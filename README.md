@@ -10,13 +10,13 @@ There are three types of jobs that can be defined:
 
 Each of these is defined with a macro, a standalone macro for global jobs while function a method jobs require a little bit of setup.
 
-As struct that can host jobs is known as a cron object in the context of cronframe and is defined with the cron_obj macro.
+A struct that can host jobs is known as a `cron object` in the context of cronframe and is defined with the cron_obj macro.
 
 Jobs of a cron object must be defined inside a standalone implementation block annotated with the macro cron_impl.
 
 **IMPORTANT:** a cron object must derive the Clone trait
 
-The library supports a daily timeout in ms which is decativated if the value is 0.
+The library supports a daily timeout (timed-out state resets every 24hrs) in ms which is decativated if the value is 0.
 
 During the first run of the library a templates folder will be created in the current directory with 4 files inside it:
 - base.html.tera
@@ -24,7 +24,11 @@ During the first run of the library a templates folder will be created in the cu
 - job.html.tera
 - styles.css
 
-By default the server runs on localhost:8098, the port can be changed in the cronframe.toml file.
+By default the server runs on localhost:8098, the port can be changed in the `cronframe.toml` file.
+
+A rolling logger also configurable via `cronframe.toml` provides an archive of 3 files in addition to the latest log.
+
+The default size of a log file is 1MB.
 
 # Defining A Global Job
 ```rust
