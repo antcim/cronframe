@@ -8,6 +8,10 @@ repository = "https://github.com/antcim/cronframe"
 readme = "README.md"
 keywords = ["cron", "cronjob", "cronjobmacro"]
 license = "MIT OR Apache-2.0"
+exclude = [
+    "examples",
+    "tests",
+]
 
 [dependencies]
 syn = {version = "2.0.53", features = ["full"]}
