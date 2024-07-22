@@ -2,5 +2,6 @@
 /target
 /log
 /templates
+/cronframe_macro/target
 TODO.md
 test_output.txt
