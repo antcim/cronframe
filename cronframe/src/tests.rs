@@ -225,14 +225,15 @@ pub fn test_job(
     for line in lines {
         if line.contains(format!("{job_name} ").as_str()) {
             if line.contains("Execution") {
-                line.split(" ");
-                let time = (&line[..26]).to_owned(); // this should be done in a better way, like splitting the string at whitespace
+                let time_pieces: Vec<_> = line.split(" ").collect();
+                let time = format!("{} {} {}", time_pieces[0], time_pieces[1], time_pieces[2]);
                 println!("{time} : str");
                 let time: DateTime<Utc> = time.parse().unwrap();
                 println!("{time} : datetime");
                 exec_times.push(time);
             } else if line.contains("Timeout") {
-                let time = (&line[..26]).to_owned();
+                let time_pieces: Vec<_> = line.split(" ").collect();
+                let time = format!("{} {} {}", time_pieces[0], time_pieces[1], time_pieces[2]);
                 let time: DateTime<Utc> = time.parse().unwrap();
                 timeouts.push(time);
             }
