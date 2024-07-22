@@ -1,12 +1,11 @@
 use std::{fs, sync::Once};
 
-use crate::{
-    distributed_slice, logger, Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder, Lazy,
-    Mutex, Sender,
-};
-
 use chrono::{DateTime, Duration, Utc};
+use cronframe::{
+    distributed_slice, logger, Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder, Mutex,
+};
 use cronframe_macro::{cron, cron_impl, cron_obj, fn_job, mt_job};
+use log::info;
 
 static LOGGER_INIT: Once = Once::new();
 
@@ -268,11 +267,7 @@ pub fn test_job(
 }
 
 mod global {
-    use crate::{
-        distributed_slice, logger,
-        tests::{init_logger, test_job},
-        Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder,
-    };
+    use crate::{test_job, CronFilter};
     use chrono::Duration;
 
     #[test]
@@ -286,7 +281,7 @@ mod global {
         let should_fail = false;
 
         test_job(
-            file_path, job_filter, job_name, duration, interval, timeout, false,
+            file_path, job_filter, job_name, duration, interval, timeout, should_fail,
         );
     }
 
@@ -334,11 +329,7 @@ mod global {
 }
 
 mod function {
-    use crate::{
-        distributed_slice, logger,
-        tests::{init_logger, test_job},
-        Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder,
-    };
+    use crate::{test_job, CronFilter};
     use chrono::Duration;
 
     #[test]
@@ -406,11 +397,7 @@ mod function {
 }
 
 mod method {
-    use crate::{
-        distributed_slice, logger,
-        tests::{init_logger, test_job},
-        Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder,
-    };
+    use crate::{test_job, CronFilter};
     use chrono::Duration;
 
     #[test]

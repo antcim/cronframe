@@ -126,9 +126,6 @@ pub mod logger;
 pub mod utils;
 pub mod web_server;
 
-#[cfg(test)]
-mod tests;
-
 pub use cronframe::CronFrame;
 pub use job_builder::JobBuilder;
 pub use cronjob::CronJob;
