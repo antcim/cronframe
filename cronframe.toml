@@ -1,3 +1,12 @@
-[server]
-port = 8098
-log_dir = ""
+# example file
+# [webserver]
+# port = 8098
+
+# [logger]
+# dir = "log"
+# file_size = 1 # this is in MB
+# archive_files = 3 
+# latest_file_name = "latest"
+# archive_file_name = "archive"
+# msg_pattern = "{l} {t} - {m}{n}"
+# level_filter = "info"

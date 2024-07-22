@@ -4,7 +4,8 @@
 extern crate cronframe;
 use core::panic;
 
-use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender};
+use chrono::Duration;
+use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Mutex, Once, Sender};
 
 //  Cron Expression
 //  * * * * * * *
@@ -32,7 +33,7 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender};
 // fn heavy_job() {
 //     let mut _count: i128 = 0;
 
-//     for i in 0..5000000000 {
+//     for i in 0..5_000_000_000 {
 //         _count += i;
 //     }
 // }
@@ -42,20 +43,31 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender};
 //     panic!()
 // }
 
-#[derive(Clone)]
 #[cron_obj]
+#[derive(Clone)] // these traits are required
 struct Users {
+    name: String,
     expr: CronFrameExpr,
     expr1: CronFrameExpr,
 }
 
 #[cron_impl]
 impl Users {
-    // #[fn_job(expr = "0 0 * * * * *", timeout = "10000")]
-    // fn my_function_job() {
-    //     println!("call from my_obj_job");
-    // }
-    
+    #[fn_job(expr = "0/5 * * * * * *", timeout = "10000")]
+    fn my_function_job_1() {
+        println!("call from my_function_job_1");
+    }
+
+    #[fn_job(expr = "0/5 * * * * * *", timeout = "0")]
+    fn my_function_job_2() {
+        println!("call from my_function_job_2");
+    }
+
+    #[fn_job(expr = "0/8 * * * * * *", timeout = "20000")]
+    fn my_function_job_3() {
+        println!("call from my_function_job_3");
+    }
+
     #[mt_job(expr = "expr")]
     fn my_method_job_1(self) {
         println!("call from my_method_job_1 for expr {}", self.expr.expr());
@@ -63,35 +75,45 @@ impl Users {
 
     #[mt_job(expr = "expr1")]
     fn my_method_job_2(self) {
-        println!("call from get_jobs for expr {}", self.expr1.expr());
+        println!("call from my_method_job_2 for expr {}", self.expr1.expr());
     }
 }
 
 fn main() {
-    let cronframe = CronFrame::default();
+    let cronframe = CronFrame::default().scheduler();
 
     let expr1 = CronFrameExpr::new("0/5", "*", "*", "*", "*", "*", "*", 0);
     let expr2 = CronFrameExpr::new("0/10", "*", "*", "*", "*", "*", "*", 20000);
     let expr3 = CronFrameExpr::new("0/7", "*", "*", "*", "*", "*", "*", 10000);
 
-    let user1 = Users {
-        expr: expr1,
-        expr1: expr3.clone()
-    };
-
-    user1.helper_gatherer(cronframe.clone());
-
     // inner scope to test the drop of cron_objects
     {
-        let user2 = Users {
-            expr: expr2,
-            expr1: expr3
-        };
+        println!("PHASE 1");
+        let mut user1 = Users::new_cron_obj("user1".to_string(), expr1.clone(), expr3.clone());
 
-        user2.helper_gatherer(cronframe.clone());
+        user1.cf_gather(cronframe.clone());
+        std::thread::sleep(Duration::seconds(10).to_std().unwrap());
+
+        println!("PHASE 2");
+        {
+            let mut user2 = Users::new_cron_obj("user2".to_string(), expr2, expr3.clone());
+
+            user2.cf_gather(cronframe.clone());
+
+            std::thread::sleep(Duration::seconds(10).to_std().unwrap());
+            user2.cf_drop();
+        }
+        user1.cf_drop();
     }
 
-    cronframe.scheduler();
+    println!("PHASE 3");
+
+    std::thread::sleep(Duration::seconds(10).to_std().unwrap());
+
+    println!("PHASE 4");
+
+    let mut user3 = Users::new_cron_obj("user3".to_string(), expr1, expr3);
+    user3.cf_gather(cronframe.clone());
 
     loop {
         println!("Enter x to quit...");

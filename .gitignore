@@ -1,7 +1,6 @@
 /.vscode
 /target
 /log
-/cronframe/log
-/tests
+/templates
 TODO.md
 test_output.txt

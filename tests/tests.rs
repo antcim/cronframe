@@ -1,10 +1,11 @@
 use std::{fs, sync::Once};
 
-use crate::{
-    distributed_slice, logger, Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder,
-};
 use chrono::{DateTime, Duration, Utc};
+use cronframe::{
+    distributed_slice, logger, Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder, Mutex,
+};
 use cronframe_macro::{cron, cron_impl, cron_obj, fn_job, mt_job};
+use log::info;
 
 static LOGGER_INIT: Once = Once::new();
 
@@ -26,8 +27,8 @@ fn my_global_job_fail() {
     panic!();
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct FunctionStd;
 
 #[cron_impl]
@@ -39,8 +40,8 @@ impl FunctionStd {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct FunctionTimeout;
 
 #[cron_impl]
@@ -52,8 +53,8 @@ impl FunctionTimeout {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct FunctionFail;
 
 #[cron_impl]
@@ -66,8 +67,8 @@ impl FunctionFail {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct MethodStd {
     expr: CronFrameExpr,
 }
@@ -80,8 +81,8 @@ impl MethodStd {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct MethodTimeout {
     expr: CronFrameExpr,
 }
@@ -94,8 +95,8 @@ impl MethodTimeout {
     }
 }
 
-#[derive(Debug, Clone)]
 #[cron_obj]
+#[derive(Debug, Clone)]
 struct MethodFail {
     expr: CronFrameExpr,
 }
@@ -135,34 +136,35 @@ pub fn test_job(
 
     let cronframe = CronFrame::init(Some(job_filter), false);
 
+    let mut fn_fail = FunctionFail::new_cron_obj();
+    let mut fn_timeout = FunctionTimeout::new_cron_obj();
+    let mut fn_std = FunctionStd::new_cron_obj();
+
+    let expr_fail = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
+    let expr_timeout = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
+    let expr_std = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
+
+    let mut mt_fail = MethodFail::new_cron_obj(expr_fail);
+    let mut mt_timeout = MethodTimeout::new_cron_obj(expr_timeout);
+    let mut mt_std = MethodStd::new_cron_obj(expr_std);
+
     match job_filter {
         CronFilter::Function => {
-            if shoud_fail{
-                let testsruct = FunctionFail;
-                testsruct.helper_gatherer(cronframe.clone());
-            }
-            else if timeout > Duration::seconds(0) {
-                let testsruct = FunctionTimeout;
-                testsruct.helper_gatherer(cronframe.clone());
+            if shoud_fail {
+                fn_fail.cf_gather(cronframe.clone());
+            } else if timeout > Duration::seconds(0) {
+                fn_timeout.cf_gather(cronframe.clone());
             } else {
-                let testsruct = FunctionStd;
-                testsruct.helper_gatherer(cronframe.clone());
+                fn_std.cf_gather(cronframe.clone());
             }
         }
         CronFilter::Method => {
-            if shoud_fail{
-                let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
-                let testsruct = MethodFail { expr };
-                testsruct.helper_gatherer(cronframe.clone());
-            }
-            else if timeout > Duration::seconds(0) {
-                let expr = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
-                let testsruct = MethodTimeout { expr };
-                testsruct.helper_gatherer(cronframe.clone());
+            if shoud_fail {
+                mt_fail.cf_gather(cronframe.clone());
+            } else if timeout > Duration::seconds(0) {
+                mt_timeout.cf_gather(cronframe.clone());
             } else {
-                let expr = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
-                let testsruct = MethodStd { expr };
-                testsruct.helper_gatherer(cronframe.clone());
+                mt_std.cf_gather(cronframe.clone());
             }
         }
         _ => (), // no additional stuff to do if global job
@@ -222,13 +224,15 @@ pub fn test_job(
     for line in lines {
         if line.contains(format!("{job_name} ").as_str()) {
             if line.contains("Execution") {
-                let time = (&line[..26]).to_owned(); // this should be done in a better way, like splitting the string at whitespace
+                let time_pieces: Vec<_> = line.split(" ").collect();
+                let time = format!("{} {} {}", time_pieces[0], time_pieces[1], time_pieces[2]);
                 println!("{time} : str");
                 let time: DateTime<Utc> = time.parse().unwrap();
                 println!("{time} : datetime");
                 exec_times.push(time);
             } else if line.contains("Timeout") {
-                let time = (&line[..26]).to_owned();
+                let time_pieces: Vec<_> = line.split(" ").collect();
+                let time = format!("{} {} {}", time_pieces[0], time_pieces[1], time_pieces[2]);
                 let time: DateTime<Utc> = time.parse().unwrap();
                 timeouts.push(time);
             }
@@ -263,11 +267,7 @@ pub fn test_job(
 }
 
 mod global {
-    use crate::{
-        distributed_slice, logger,
-        tests::{init_logger, test_job},
-        Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder,
-    };
+    use crate::{test_job, CronFilter};
     use chrono::Duration;
 
     #[test]
@@ -281,7 +281,7 @@ mod global {
         let should_fail = false;
 
         test_job(
-            file_path, job_filter, job_name, duration, interval, timeout, false,
+            file_path, job_filter, job_name, duration, interval, timeout, should_fail,
         );
     }
 
@@ -329,11 +329,7 @@ mod global {
 }
 
 mod function {
-    use crate::{
-        distributed_slice, logger,
-        tests::{init_logger, test_job},
-        Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder,
-    };
+    use crate::{test_job, CronFilter};
     use chrono::Duration;
 
     #[test]
@@ -401,11 +397,7 @@ mod function {
 }
 
 mod method {
-    use crate::{
-        distributed_slice, logger,
-        tests::{init_logger, test_job},
-        Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder,
-    };
+    use crate::{test_job, CronFilter};
     use chrono::Duration;
 
     #[test]

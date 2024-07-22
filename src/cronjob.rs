@@ -1,6 +1,12 @@
-use std::{any::Any, borrow::Borrow, str::FromStr, sync::Arc, thread::JoinHandle};
+use std::{
+    any::Any,
+    borrow::Borrow,
+    str::FromStr,
+    sync::{Arc, Mutex},
+    thread::JoinHandle,
+};
 
-use chrono::{DateTime, Duration, Local, Utc};
+use chrono::{DateTime, Datelike, Duration, Local, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
 use log4rs::Handle;
@@ -8,6 +14,9 @@ use uuid::Uuid;
 
 use crate::CronJobType;
 
+/// This type collects all necessary data for a cron job to be run be the scheduler.
+/// 
+/// While it could be used directly there are macros that build jobs for you.
 #[derive(Debug, Clone)]
 pub struct CronJob {
     pub name: String,
@@ -17,23 +26,25 @@ pub struct CronJob {
     pub timeout: Option<Duration>,
     pub timeout_notified: bool,
     pub status_channels: Option<(Sender<String>, Receiver<String>)>,
+    pub life_channels: Option<(Sender<String>, Receiver<String>)>,
     pub start_time: Option<DateTime<Utc>>,
     pub run_id: Option<Uuid>,
-    pub instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
+    pub method_instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
     pub failed: bool,
 }
 
 impl CronJob {
+    // this function is used in the scheduler thread to get a handle if the job has to be scheduled
     pub fn try_schedule(&mut self) -> Option<JoinHandle<()>> {
         if self.check_schedule() {
             self.run_id = Some(Uuid::new_v4());
-            self.status_channels = Some(crossbeam_channel::bounded(1));
+            //self.status_channels = Some(crossbeam_channel::bounded(1));
 
             if self.start_time.is_none() {
                 self.start_time = Some(Utc::now());
             }
 
-            // we try to schedule the job and return its handle 
+            // we try to schedule the job and return its handle
             // in case scheduling fails for any conflict
             // we try again for as long as we are in the gracefull period
 
@@ -51,7 +62,10 @@ impl CronJob {
                     Ok(handle) => {
                         if graceful_log {
                             let job_id = format!("{} ID#{}", self.name, self.id);
-                            let run_id = self.run_id.unwrap().to_string();
+                            let run_id = self
+                                .run_id
+                                .expect("run_id unwrap error in try_schedule")
+                                .to_string();
                             info!("job @{job_id} RUN_ID#{run_id} - Scheduled in Graceful Period");
                         }
                         return Some(handle);
@@ -60,10 +74,10 @@ impl CronJob {
                 }
             }
         }
-
         None
     }
 
+    // check if a job's upcoming schedule is within the next second
     pub fn check_schedule(&self) -> bool {
         let now = Utc::now();
         if let Some(next) = self.schedule.upcoming(Utc).take(1).next() {
@@ -83,6 +97,7 @@ impl CronJob {
         };
     }
 
+    // used to retrive a job'status to display in the web server
     pub fn status(&self) -> String {
         if self.check_timeout() {
             "Timed-Out".to_string()
@@ -102,17 +117,36 @@ impl CronJob {
         false
     }
 
+    // whether timeout expired or not
     pub fn check_timeout(&self) -> bool {
         if let Some(timeout) = self.timeout {
             if self.start_time.is_some() {
-                let timeout = self.start_time.unwrap() + timeout;
-                let now = Utc::now();
-                if now >= timeout {
+                let timeout = self
+                    .start_time
+                    .expect("start time unwrap error in check_timeout")
+                    + timeout;
+
+                if Utc::now() >= timeout {
                     return true;
                 }
             }
         }
         false
+    }
+
+    pub fn timeout_reset(&mut self) {
+        if let Some(timeout) = self.timeout {
+            if self.start_time.is_some() {
+                let timeout = self
+                    .start_time
+                    .expect("start time unwrap error in timeout_reset")
+                    + timeout;
+
+                if Utc::now() >= timeout + Duration::hours(24){
+                    self.start_time = None;
+                }
+            }
+        }
     }
 
     pub fn schedule(&self) -> String {
@@ -127,20 +161,26 @@ impl CronJob {
             .upcoming(Local)
             .into_iter()
             .next()
-            .unwrap()
+            .expect("schedule unwrap error in upcoming_local")
             .to_string()
     }
 
-    pub fn timeout_to_string(&self) -> String{
+    pub fn timeout_to_string(&self) -> String {
         if self.timeout.is_some() {
-            let timeout = self.timeout.unwrap();
-            format!("{} s \n {} ms", timeout.num_seconds(), timeout.num_milliseconds())
+            let timeout = self
+                .timeout
+                .expect("timeout unwrap error in timeout_to_string");
+            format!(
+                "{} s \n {} ms",
+                timeout.num_seconds(),
+                timeout.num_milliseconds()
+            )
         } else {
             "None".into()
         }
     }
 
-    pub fn type_to_string(&self) -> String{
+    pub fn type_to_string(&self) -> String {
         match self.job {
             CronJobType::Global(_) => "Global".to_string(),
             CronJobType::Function(_) => "Function".to_string(),
@@ -156,7 +196,7 @@ impl CronJob {
             .upcoming(Utc)
             .into_iter()
             .next()
-            .unwrap()
+            .expect("schedule unwrap error in upcoming_utc")
             .to_string()
     }
 
@@ -167,13 +207,29 @@ impl CronJob {
         }
     }
 
+    // this spawns a control thread for the job which spawns itself
+    // a thread with the actual job
     pub fn run(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
-        let tx = self.status_channels.as_ref().unwrap().0.clone();
-        let _rx = self.status_channels.as_ref().unwrap().1.clone();
+        let tx = self
+            .status_channels
+            .as_ref()
+            .expect("tx unwap error in job run method")
+            .0
+            .clone();
+        let _rx = self
+            .status_channels
+            .as_ref()
+            .expect("rx unwap error in job run method")
+            .1
+            .clone();
         let schedule = self.schedule.clone();
         let job_id = format!("{} ID#{}", self.name, self.id);
-        let run_id = self.run_id.as_ref().unwrap().clone();
+        let run_id = self
+            .run_id
+            .as_ref()
+            .expect("run_id unwap error in job run method")
+            .clone();
 
         // the actual job thread
         // this is spawned form the control thread
@@ -186,7 +242,9 @@ impl CronJob {
                 info!("job @{job_id} RUN_ID#{run_id} - Execution");
                 match cron_job.job {
                     CronJobType::Global(job) | CronJobType::Function(job) => job(),
-                    CronJobType::Method(job) => job(cron_job.instance.unwrap()),
+                    CronJobType::Method(job) => job(cron_job
+                        .method_instance
+                        .expect("method instance unwrap error in job thread")),
                 }
             }
         };
@@ -213,10 +271,21 @@ impl CronJob {
         std::thread::Builder::spawn(std::thread::Builder::new(), control_thread)
     }
 
+    // same as run but it accounts for a graceful period
     pub fn run_graceful(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
-        let tx = self.status_channels.as_ref().unwrap().0.clone();
-        let _rx = self.status_channels.as_ref().unwrap().1.clone();
+        let tx = self
+            .status_channels
+            .as_ref()
+            .expect("tx unwap error in job run_graceful method")
+            .0
+            .clone();
+        let _rx = self
+            .status_channels
+            .as_ref()
+            .expect("rx unwap error in job run_graceful method")
+            .1
+            .clone();
         let schedule = self.schedule.clone();
         let job_id = format!("{} ID#{}", self.name, self.id);
         let run_id = self.run_id.as_ref().unwrap().clone();
@@ -228,7 +297,7 @@ impl CronJob {
             let now = Utc::now();
             if let Some(next) = schedule.upcoming(Utc).take(1).next() {
                 let until_next = next - now;
-                
+
                 // we sleep only if we haven't yet reached the scheduled time
                 // otherwise we immediatly execute the job
                 if now < next {
@@ -238,7 +307,9 @@ impl CronJob {
                 info!("job @{job_id} RUN_ID#{run_id} - Execution");
                 match cron_job.job {
                     CronJobType::Global(job) | CronJobType::Function(job) => job(),
-                    CronJobType::Method(job) => job(cron_job.instance.unwrap()),
+                    CronJobType::Method(job) => job(cron_job
+                        .method_instance
+                        .expect("method instance unwrap error in job thread")),
                 }
             }
         };

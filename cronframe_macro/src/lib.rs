@@ -1,7 +1,12 @@
+//! Macros for CronFrame
+
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};
-use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
+use syn::{
+    self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta,
+};
 
+/// Global Job definition Macro
 #[proc_macro_attribute]
 pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
     let args = parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
@@ -43,22 +48,107 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
             return new_code.into();
         } else if let Some(error) = parsed.err() {
             println!("parse Error: {}", error);
-        } else {
-            unreachable!()
         }
     }
     code
 }
 
+/// Cron Object definition Macro
 #[proc_macro_attribute]
 pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_struct = syn::parse::<ItemStruct>(code.clone()).unwrap();
     let r#struct = item_struct.to_token_stream();
+
     let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{}", item_struct.ident);
     let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{}", item_struct.ident);
+    let cf_fn_jobs_flag = format_ident!("CF_FN_JOBS_FLAG_{}", item_struct.ident);
+    let cf_fn_jobs_channels = format_ident!("CF_FN_JOBS_CHANNELS_{}", item_struct.ident);
+
+    let mut tmp = r#struct.to_string();
+
+    let struct_name = item_struct.ident;
+
+    if tmp.contains("{") {
+        tmp.insert_str(
+            tmp.chars().count() - 1,
+            "tx: Option<crossbeam_channel::Sender<String>>",
+        );
+    } else {
+        tmp.insert_str(
+            tmp.chars().count() - 1,
+            "{tx: Option<crossbeam_channel::Sender<String>>}",
+        );
+        tmp = (&tmp[0..tmp.len() - 1].to_string()).clone();
+    }
+
+    let struct_edited: proc_macro2::TokenStream = tmp.parse().unwrap();
+
+    let type_name = struct_name.clone().into_token_stream().to_string();
+
+    let mut cron_obj_fn = String::from("fn new_cron_obj(");
+    if !item_struct.fields.is_empty() {
+        let mut tmp = item_struct.fields.iter().map(|x| {
+            let field_name = x.ident.to_token_stream().to_string();
+            let field_type = x.ty.to_token_stream().to_string();
+            format!("{field_name} : {field_type},")
+        });
+
+        for _ in 0..item_struct.fields.len() {
+            cron_obj_fn.push_str(&tmp.next().unwrap());
+        }
+    }
+
+    cron_obj_fn.push_str(") -> ");
+    cron_obj_fn.push_str(type_name.as_str());
+    cron_obj_fn.push_str("{");
+    cron_obj_fn.push_str(type_name.as_str());
+    cron_obj_fn.push_str("{");
+    
+    if !item_struct.fields.is_empty() {
+        let mut tmp = item_struct.fields.iter().map(|x| {
+            let field_name = x.ident.to_token_stream().to_string();
+            format!("{field_name},")
+        });
+
+        for _ in 0..item_struct.fields.len() {
+            cron_obj_fn.push_str(&tmp.next().unwrap());
+        }
+    }
+
+    cron_obj_fn.push_str("tx: None");
+    cron_obj_fn.push_str("}");
+    cron_obj_fn.push_str("}");
+
+    let cron_job_fn_tokens: proc_macro2::TokenStream = cron_obj_fn.parse().unwrap();
 
     let new_code = quote! {
-        #r#struct
+        #struct_edited
+
+        static #cf_fn_jobs_flag: Mutex<bool> = Mutex::new(false);
+        static #cf_fn_jobs_channels: once_cell::sync::Lazy<(crossbeam_channel::Sender<String>, crossbeam_channel::Receiver<String>)> = once_cell::sync::Lazy::new(|| crossbeam_channel::bounded(1));
+
+        // drop for method jobs
+        impl Drop for #struct_name {
+            fn drop(&mut self) {
+                if self.tx.is_some(){
+                    let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
+                }
+            }
+        }
+
+        // drop for function jobs
+        impl #struct_name {
+            #cron_job_fn_tokens
+
+            fn cf_drop(&self) {
+                if *#cf_fn_jobs_flag.lock().unwrap(){
+                    for func in #function_jobs{
+                        let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
+                    }
+                    *#cf_fn_jobs_flag.lock().unwrap() = false;
+                }
+            }
+        }
 
         #[distributed_slice]
         static #method_jobs: [fn(Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static>];
@@ -70,6 +160,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     new_code.into()
 }
 
+/// Cron Implementation Block Macro
 #[proc_macro_attribute]
 pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_impl = syn::parse::<ItemImpl>(code.clone()).unwrap();
@@ -112,26 +203,56 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let type_name = impl_type.to_string();
 
+    let cf_fn_jobs_flag = format_ident!("CF_FN_JOBS_FLAG_{}", type_name);
+    let cf_fn_jobs_channels = format_ident!("CF_FN_JOBS_CHANNELS_{}", type_name);
+
     let gather_fn = quote! {
         impl #impl_type{
-            pub fn helper_gatherer(&self, frame: Arc<CronFrame>){
+            pub fn cf_gather_mt(&mut self, frame: Arc<CronFrame>){
                 info!("Collecting Method Jobs from {}", #type_name);
-                for method_job in #method_jobs {
-                    let job_builder = (method_job)(Arc::new(Box::new(self.clone())));
-                    let cron_job = job_builder.build();
-                    info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
-                    frame.cron_jobs.lock().unwrap().push(cron_job)
-                }
-                info!("Method Jobs from {} Collected.", #type_name);
+                if !#method_jobs.is_empty(){
+                    let life_channels = crossbeam_channel::bounded(1);
+                    self.tx = Some(life_channels.0.clone());
 
-                info!("Collecting Function Jobs from {}", #type_name);
-                for method_job in #function_jobs {
-                    let job_builder = (method_job)();
-                    let cron_job = job_builder.build();
-                    info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
-                    frame.cron_jobs.lock().unwrap().push(cron_job)
+                    for method_job in #method_jobs {
+                        let job_builder = (method_job)(Arc::new(Box::new(self.clone())));
+                        let mut cron_job = job_builder.build();
+                        cron_job.life_channels = Some(life_channels.clone());
+                        info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
+                        frame.cron_jobs.lock().unwrap().push(cron_job);
+                    }
+                    info!("Method Jobs from {} Collected.", #type_name);
+                } else {
+                    info!("Not Method Jobs from {} has been found.", #type_name);
                 }
-                info!("Method Function from {} Collected.", #type_name);
+            }
+        
+            pub fn cf_gather_fn(frame: Arc<CronFrame>){
+                info!("Collecting Function Jobs from {}", #type_name);
+                if !#function_jobs.is_empty(){
+                    // collect jobs from associated functions only if this is the first
+                    // instance of this cron object to call the helper_gatherer function
+                    let fn_flag = *#cf_fn_jobs_flag.lock().unwrap();
+
+                    if !fn_flag {
+                        for function_job in #function_jobs {
+                            let job_builder = (function_job)();
+                            let mut cron_job = job_builder.build();
+                            cron_job.life_channels = Some(#cf_fn_jobs_channels.clone());
+                            info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
+                            frame.cron_jobs.lock().unwrap().push(cron_job);
+                        }
+                        info!("Function Jobs from {} Collected.", #type_name);
+                        *#cf_fn_jobs_flag.lock().unwrap() = true;
+                    }
+                } else {
+                    info!("Not Function Jobs from {} has been found.", #type_name);
+                }
+            }
+
+            pub fn cf_gather(&mut self, frame: Arc<CronFrame>){
+                self.cf_gather_mt(frame.clone());
+                Self::cf_gather_fn(frame.clone());
             }
         }
     };
@@ -140,6 +261,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     new_code.into()
 }
 
+/// Function Job definition Macro for a Cron Object
 #[proc_macro_attribute]
 pub fn fn_job(att: TokenStream, code: TokenStream) -> TokenStream {
     let parsed = syn::parse::<ItemFn>(code.clone());
@@ -188,6 +310,7 @@ pub fn fn_job(att: TokenStream, code: TokenStream) -> TokenStream {
     new_code.into()
 }
 
+/// Method Job definition Macro for a Cron Object
 #[proc_macro_attribute]
 pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
     let parsed = syn::parse::<ItemFn>(code.clone());
@@ -214,7 +337,6 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
 
     if arg_1_name != "expr" {
         // wrong argument name -> compilation error
-        return code;
     }
 
     // generate code for a method job
@@ -222,6 +344,7 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
     let ident = parsed.clone().unwrap().sig.ident;
     let job_name = ident.to_string();
     let block = parsed.clone().unwrap().block;
+
     let cronframe_method = format_ident!("cron_method_{}", ident);
     let helper = format_ident!("cron_helper_{}", ident);
     let expr = format_ident!("expr");
@@ -233,7 +356,7 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
     block_string_edited.insert_str(
         1,
         "let cron_frame_instance = arg.clone();
-                let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();",
+        let cronframe_self = (*cron_frame_instance).downcast_ref::<Self>().unwrap();",
     );
 
     let block_edited: proc_macro2::TokenStream = block_string_edited.parse().unwrap();
@@ -265,7 +388,11 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
     };
 
     // replace the placeholder cron_expr with the name of the field
-    let helper_code_edited = helper_code.clone().into_token_stream().to_string().replace("cron_expr", &cron_expr);
+    let helper_code_edited = helper_code
+        .clone()
+        .into_token_stream()
+        .to_string()
+        .replace("cron_expr", &cron_expr);
     let block_edited: proc_macro2::TokenStream = helper_code_edited.parse().unwrap();
 
     new_code.extend(block_edited.into_iter());
