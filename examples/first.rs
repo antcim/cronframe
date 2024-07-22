@@ -19,29 +19,29 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Mutex, Once, Sen
 //  └───────────── seconds (0 to 59)
 // "*" works as a jolly for any value will do
 
-// #[cron(expr = "0/5 * * * * * *", timeout = "0")]
-// fn testfn() {
-//     println!("call from testfn");
-// }
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn testfn() {
+    println!("call from testfn");
+}
 
-// #[cron(expr = "0/30 * * * * * *", timeout = "60000")]
-// fn another_test() {
-//     println!("call from another_test");
-// }
+#[cron(expr = "0/30 * * * * * *", timeout = "60000")]
+fn another_test() {
+    println!("call from another_test");
+}
 
-// #[cron(expr = "0/30 * * * * * *", timeout = "0")]
-// fn heavy_job() {
-//     let mut _count: i128 = 0;
+#[cron(expr = "0/30 * * * * * *", timeout = "0")]
+fn heavy_job() {
+    let mut _count: i128 = 0;
 
-//     for i in 0..5_000_000_000 {
-//         _count += i;
-//     }
-// }
+    for i in 0..5_000_000_000 {
+        _count += i;
+    }
+}
 
-// #[cron(expr = "0/5 * * * * * *", timeout = "0")]
-// fn failing_job() {
-//     panic!()
-// }
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn failing_job() {
+    panic!()
+}
 
 #[cron_obj]
 #[derive(Clone)] // these traits are required
