@@ -1,9 +1,12 @@
+//! Macros for CronFrame
+
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta,
 };
 
+/// Global Job definition Macro
 #[proc_macro_attribute]
 pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
     let args = parse_macro_input!(att with Punctuated::<Meta, syn::Token![,]>::parse_terminated);
@@ -50,6 +53,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
     code
 }
 
+/// Cron Object definition Macro
 #[proc_macro_attribute]
 pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_struct = syn::parse::<ItemStruct>(code.clone()).unwrap();
@@ -156,6 +160,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     new_code.into()
 }
 
+/// Cron Implementation Block Macro
 #[proc_macro_attribute]
 pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_impl = syn::parse::<ItemImpl>(code.clone()).unwrap();
@@ -256,6 +261,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     new_code.into()
 }
 
+/// Function Job definition Macro for a Cron Object
 #[proc_macro_attribute]
 pub fn fn_job(att: TokenStream, code: TokenStream) -> TokenStream {
     let parsed = syn::parse::<ItemFn>(code.clone());
@@ -304,6 +310,7 @@ pub fn fn_job(att: TokenStream, code: TokenStream) -> TokenStream {
     new_code.into()
 }
 
+/// Method Job definition Macro for a Cron Object
 #[proc_macro_attribute]
 pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
     let parsed = syn::parse::<ItemFn>(code.clone());

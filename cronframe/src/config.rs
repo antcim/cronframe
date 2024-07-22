@@ -27,6 +27,26 @@ pub struct LoggerConfig {
     pub level_filter: Option<String>,
 }
 
+/// This function reads cronframe configuration data from the `cronframe.toml` file.
+/// 
+/// There are two sections to the configuraiton:
+/// - webserver
+/// - logger
+/// 
+/// ```toml
+/// [webserver]
+/// port = 8098
+///
+/// [logger]
+/// dir = "log"
+/// file_size = 1 # this is in MB
+/// archive_files = 3 
+/// latest_file_name = "latest"
+/// archive_file_name = "archive"
+/// msg_pattern = "{l} {t} - {m}{n}"
+/// level_filter = "info"
+/// ```
+///
 pub fn read_config() -> Option<ConfigData>{
     let filename = "cronframe.toml";
 

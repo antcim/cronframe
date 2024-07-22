@@ -15,6 +15,17 @@ use crate::{
     logger, web_server, CronFilter, CronJobType,
 };
 
+/// This is the type that provides the scheduling a management of jobs.
+///
+/// It needs to be initialised once to setup the web server and gather global jobs.
+///
+/// The scheduler method must be invoked for it to actually start.
+/// ```rust
+/// fn main(){
+///     let cronframe = Cronframe::default(); // this a shorthand for Cronframe::init(None, true);
+///     cronframe.scheduler();
+/// }
+
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
     job_handles: Mutex<HashMap<String, JoinHandle<()>>>,
@@ -26,10 +37,28 @@ pub struct CronFrame {
 }
 
 impl CronFrame {
+    /// Default init function for Cronframe, shorthand for
+    /// ```rust
+    /// CronFrame::init(None, true)
+    /// ```
+    /// It returns an `Arc<CronFrame>` which is used in the webserver and can be used to start the scheduler.
     pub fn default() -> Arc<CronFrame> {
         CronFrame::init(None, true)
     }
 
+    /// Init function of the library, it takes two agruments:
+    /// ```
+    /// filter: Option<CronFilter>
+    /// use_logger: bool
+    /// ```
+    ///
+    /// It manages:
+    /// - the logger setup if use_logger == true
+    /// - the creation of the CronFrame Instance
+    /// - the collection of global jobs
+    /// - the setup of the web server
+    ///
+    /// It returns an `Arc<CronFrame>` which is used in the webserver and to start the scheduler.
     pub fn init(filter: Option<CronFilter>, use_logger: bool) -> Arc<CronFrame> {
         let logger = if use_logger {
             Some(logger::rolling_logger())
@@ -73,9 +102,7 @@ impl CronFrame {
             .server_handle
             .lock()
             .expect("web server handle unwrap error") = match frame.web_server_channels.1.recv() {
-            Ok(handle) => {
-                Some(handle)
-            }
+            Ok(handle) => Some(handle),
             Err(error) => {
                 println!("Web server shutdown handle error: {error}");
                 None
@@ -86,6 +113,7 @@ impl CronFrame {
         frame
     }
 
+    // used to add function jobs and method jobs to the cronframe instance
     pub fn add_job(&mut self, job: CronJob) {
         self.cron_jobs
             .lock()
@@ -93,6 +121,12 @@ impl CronFrame {
             .push(job)
     }
 
+    ///  It spawns a thread which manages the scheduling of the jobs, monitors jobs status.
+    /// ```
+    /// fn main(){
+    ///     CronFrame::default().scheduler();
+    /// }
+    /// ```
     pub fn scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
         let cronframe = self.clone();
         let ret = cronframe.clone();
@@ -159,7 +193,7 @@ impl CronFrame {
                 // check if the daily timeout expired and reset it if need be
                 cron_job.timeout_reset();
 
-                if !job_handlers.contains_key(&job_id) && !to_be_deleted {                    
+                if !job_handlers.contains_key(&job_id) && !to_be_deleted {
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
                         if !cron_job.timeout_notified {
@@ -229,6 +263,16 @@ impl CronFrame {
         ret
     }
 
+    /// Function to call for a graceful shutdown of the library
+    /// ```
+    /// fn main(){
+    ///     let cronframe = CronFrame::default()
+    ///     // do somthing...
+    ///     cronframe.scheduler();
+    ///     // do other things...
+    ///     cronframe.quit();
+    /// }
+    /// ```
     pub fn quit(self: &Arc<Self>) {
         info!("CronFrame Scheduler Shutdown");
 

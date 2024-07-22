@@ -14,6 +14,9 @@ use uuid::Uuid;
 
 use crate::CronJobType;
 
+/// This type collects all necessary data for a cron job to be run be the scheduler.
+/// 
+/// While it could be used directly there are macros that build jobs for you.
 #[derive(Debug, Clone)]
 pub struct CronJob {
     pub name: String,
@@ -31,6 +34,7 @@ pub struct CronJob {
 }
 
 impl CronJob {
+    // this function is used in the scheduler thread to get a handle if the job has to be scheduled
     pub fn try_schedule(&mut self) -> Option<JoinHandle<()>> {
         if self.check_schedule() {
             self.run_id = Some(Uuid::new_v4());
@@ -73,6 +77,7 @@ impl CronJob {
         None
     }
 
+    // check if a job's upcoming schedule is within the next second
     pub fn check_schedule(&self) -> bool {
         let now = Utc::now();
         if let Some(next) = self.schedule.upcoming(Utc).take(1).next() {
@@ -92,6 +97,7 @@ impl CronJob {
         };
     }
 
+    // used to retrive a job'status to display in the web server
     pub fn status(&self) -> String {
         if self.check_timeout() {
             "Timed-Out".to_string()
@@ -111,6 +117,7 @@ impl CronJob {
         false
     }
 
+    // whether timeout expired or not
     pub fn check_timeout(&self) -> bool {
         if let Some(timeout) = self.timeout {
             if self.start_time.is_some() {
@@ -200,6 +207,8 @@ impl CronJob {
         }
     }
 
+    // this spawns a control thread for the job which spawns itself
+    // a thread with the actual job
     pub fn run(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
         let tx = self
@@ -262,6 +271,7 @@ impl CronJob {
         std::thread::Builder::spawn(std::thread::Builder::new(), control_thread)
     }
 
+    // same as run but it accounts for a graceful period
     pub fn run_graceful(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
         let tx = self

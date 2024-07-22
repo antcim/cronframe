@@ -5,7 +5,7 @@ extern crate cronframe;
 use core::panic;
 
 use chrono::Duration;
-use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Sender, Once, Mutex};
+use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Mutex, Once, Sender};
 
 //  Cron Expression
 //  * * * * * * *
@@ -67,7 +67,7 @@ impl Users {
     fn my_function_job_3() {
         println!("call from my_function_job_3");
     }
-    
+
     #[mt_job(expr = "expr")]
     fn my_method_job_1(self) {
         println!("call from my_method_job_1 for expr {}", self.expr.expr());
@@ -89,17 +89,17 @@ fn main() {
     // inner scope to test the drop of cron_objects
     {
         println!("PHASE 1");
-        let mut user1 = Users::new_cron_obj("user1".to_string(),  expr1.clone(), expr3.clone());
-    
+        let mut user1 = Users::new_cron_obj("user1".to_string(), expr1.clone(), expr3.clone());
+
         user1.cf_gather(cronframe.clone());
         std::thread::sleep(Duration::seconds(10).to_std().unwrap());
 
         println!("PHASE 2");
         {
             let mut user2 = Users::new_cron_obj("user2".to_string(), expr2, expr3.clone());
-    
+
             user2.cf_gather(cronframe.clone());
-    
+
             std::thread::sleep(Duration::seconds(10).to_std().unwrap());
             user2.cf_drop();
         }

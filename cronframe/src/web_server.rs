@@ -1,3 +1,5 @@
+//! Custom setup of rocket.rs for the cronframe web server
+
 use crate::{
     config::read_config,
     cronframe::{self, CronFrame},
@@ -8,6 +10,15 @@ use rocket::{config::Shutdown, figment::value::magic::RelativePathBuf, futures::
 use rocket_dyn_templates::{context, Engines, Template};
 use std::{fs, sync::Arc, time::Duration};
 
+/// Called by the init funciton of the Cronframe type for setting up the web server
+/// 
+/// It provides 4 routes, two of which are API only.
+/// 
+/// Upon first start of the library it will generate a templates folder inside the current director with the following files:
+/// - base.html.tera
+/// - index.htm.tera
+/// - job.html.tera
+/// - styles.css
 pub fn web_server(frame: Arc<CronFrame>) {
     if !std::path::Path::new("./templates").exists(){
         println!("Generating templates directory content...");

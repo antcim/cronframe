@@ -1,3 +1,5 @@
+//! Default logger setup for the cronframe library and the testing suite
+
 use log4rs::{
     append::{
         file::FileAppender,
@@ -15,6 +17,7 @@ use rocket::futures::io::Window;
 
 use crate::config::read_config;
 
+/// this logger configuration is used for testing
 pub fn appender_logger(log_file: &str) -> log4rs::Handle {
     let pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}";
 
@@ -36,6 +39,7 @@ pub fn appender_logger(log_file: &str) -> log4rs::Handle {
     log4rs::init_config(config).expect("appender_logger init error")
 }
 
+/// this is used to change the log file for each new test
 pub fn appender_config(log_file: &str) -> log4rs::Config {
     let pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}";
 
@@ -55,6 +59,7 @@ pub fn appender_config(log_file: &str) -> log4rs::Config {
         .expect("appender_logger config unwrap error")
 }
 
+/// this sets the logger from either the default configuration or from the toml file
 pub fn rolling_logger() -> log4rs::Handle {
     let mut window_size = 3;
     let mut size_limit = 1000 * 1024;
