@@ -21,9 +21,11 @@ mod cronframe;
 mod cronjob;
 mod job_builder;
 mod logger;
-mod tests;
 mod utils;
 mod web_server;
+
+#[cfg(test)]
+mod tests;
 
 pub use cronframe::CronFrame;
 pub use job_builder::JobBuilder;

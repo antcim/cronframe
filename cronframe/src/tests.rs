@@ -225,6 +225,7 @@ pub fn test_job(
     for line in lines {
         if line.contains(format!("{job_name} ").as_str()) {
             if line.contains("Execution") {
+                line.split(" ");
                 let time = (&line[..26]).to_owned(); // this should be done in a better way, like splitting the string at whitespace
                 println!("{time} : str");
                 let time: DateTime<Utc> = time.parse().unwrap();
