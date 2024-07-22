@@ -6,7 +6,7 @@ description = "A library for creating cron jobs with macros from functions and s
 repository = "https://github.com/antcim/cronframe"
 readme = "README.md"
 keywords = ["cron", "cronjob"]
-license = "MIT AND Apache-2.0"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 syn = {version = "2.0.53", features = ["full"]}
