@@ -1,5 +1,6 @@
 /.vscode
 /target
 /log
+/templates
 TODO.md
 test_output.txt
