@@ -14,7 +14,7 @@ syn = {version = "2.0.53", features = ["full"]}
 quote = "1.0.35"
 cron = "0.12.1"
 chrono = "0.4.38"
-cronframe_macro = { path = "./cronframe_macro" }
+cronframe_macro = { path = "./cronframe_macro", version = "0.1.0"}
 inventory = "0.3.15"
 crossbeam-channel = "0.5.12"
 rand = "0.8.5"
