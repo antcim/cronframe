@@ -6,7 +6,7 @@ edition = "2021"
 description = "A library for creating cron jobs with macros from functions and struct types, with status web server."
 repository = "https://github.com/antcim/cronframe"
 readme = "README.md"
-keywords = ["cron", "cron job", "cron job macro"]
+keywords = ["cron", "cronjob", "cronjobmacro"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
