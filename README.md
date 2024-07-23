@@ -1,4 +1,4 @@
-# CronFrame 0.1.0
+# CronFrame 0.1.1
 
 This library allows for the definition of cronjobs with macros both on functions in the "global scope" and inside struct types.
 
