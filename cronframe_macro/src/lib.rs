@@ -40,7 +40,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
                 #origin_function
 
                 // necessary for automatic job collection
-                inventory::submit! {
+                cronframe::submit! {
                     JobBuilder::global_job(#job_name, #ident, #cron_expr, #timeout)
                 }
             };
@@ -71,12 +71,12 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     if tmp.contains("{") {
         tmp.insert_str(
             tmp.chars().count() - 1,
-            "tx: Option<crossbeam_channel::Sender<String>>",
+            "tx: Option<cronframe::Sender<String>>",
         );
     } else {
         tmp.insert_str(
             tmp.chars().count() - 1,
-            "{tx: Option<crossbeam_channel::Sender<String>>}",
+            "{tx: Option<cronframe::Sender<String>>}",
         );
         tmp = (&tmp[0..tmp.len() - 1].to_string()).clone();
     }
@@ -125,7 +125,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
         #struct_edited
 
         static #cf_fn_jobs_flag: Mutex<bool> = Mutex::new(false);
-        static #cf_fn_jobs_channels: once_cell::sync::Lazy<(crossbeam_channel::Sender<String>, crossbeam_channel::Receiver<String>)> = once_cell::sync::Lazy::new(|| crossbeam_channel::bounded(1));
+        static #cf_fn_jobs_channels: once_cell::sync::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::bounded(1));
 
         // drop for method jobs
         impl Drop for #struct_name {
@@ -211,7 +211,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
             pub fn cf_gather_mt(&mut self, frame: Arc<CronFrame>){
                 info!("Collecting Method Jobs from {}", #type_name);
                 if !#method_jobs.is_empty(){
-                    let life_channels = crossbeam_channel::bounded(1);
+                    let life_channels = cronframe::bounded(1);
                     self.tx = Some(life_channels.0.clone());
 
                     for method_job in #method_jobs {

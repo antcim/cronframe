@@ -130,8 +130,10 @@ pub use cronframe::CronFrame;
 pub use job_builder::JobBuilder;
 pub use cronjob::CronJob;
 
+pub use inventory::{collect, submit};
+
 // necessary to gather all the global jobs automatically
-inventory::collect!(JobBuilder<'static>);
+collect!(JobBuilder<'static>);
 
 /// Used in the init function of the CronJob type to account for the type of job
 #[derive(Debug, Clone)]
