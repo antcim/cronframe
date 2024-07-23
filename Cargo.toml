@@ -1,6 +1,6 @@
 [package]
 name = "cronframe"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Antonio Cimino"]
 edition = "2021"
 description = "A library for creating cron jobs with macros from functions and struct types, with status web server."
