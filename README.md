@@ -40,6 +40,11 @@ fn hello_job(){
 fn main(){
     let cronframe = Cronframe::default();
     cronframe.scheduler();
+
+    // do other stuff or loop to keep it alive...
+    loop {
+        // sleep here would be nice
+    }
 }
 ```
 
@@ -64,6 +69,11 @@ fn main(){
     cronframe.scheduler();
     // this function collects all functions jobs defined on a cron object
     User::cf_gather_fn(cronframe.clone());
+
+    // do other stuff or loop to keep it alive...
+    loop {
+        // sleep here would be nice
+    }
 }
 ```
 
@@ -104,6 +114,11 @@ fn main(){
     // user1.cf_gather_mt(cronframe.clone());
 
     cronframe.scheduler();
+
+    // do other stuff or loop to keep it alive...
+    loop {
+        // sleep here would be nice
+    }
 }
 ```
 
