@@ -3,5 +3,11 @@
 /log
 /templates
 /cronframe_macro/target
+/examples/*/target
+/examples/*/log
+/examples/*/templates
+/examples/*/Cargo.lock
+
 TODO.md
 test_output.txt
+Cargo.lock

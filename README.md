@@ -106,3 +106,15 @@ fn main(){
     cronframe.scheduler();
 }
 ```
+
+# Running Examples
+If the example is in a single file like `first.rs` use the following command:
+```bash
+cargo run --example first
+```
+
+If the example is in its own crate like `weather_alert` do the following:
+```bash
+cd examples/weather_alert
+cargo run
+```
