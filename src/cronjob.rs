@@ -12,10 +12,10 @@ use crossbeam_channel::{Receiver, Sender};
 use log4rs::Handle;
 use uuid::Uuid;
 
-use crate::CronJobType;
+use crate::{utils, CronJobType};
 
 /// This type collects all necessary data for a cron job to be run be the scheduler.
-/// 
+///
 /// While it could be used directly there are macros that build jobs for you.
 #[derive(Debug, Clone)]
 pub struct CronJob {
@@ -142,7 +142,7 @@ impl CronJob {
                     .expect("start time unwrap error in timeout_reset")
                     + timeout;
 
-                if Utc::now() >= timeout + Duration::hours(24){
+                if Utc::now() >= timeout + Duration::hours(24) {
                     self.start_time = None;
                 }
             }
@@ -157,12 +157,14 @@ impl CronJob {
         if self.check_timeout() {
             return "None due to timeout.".to_string();
         }
-        self.schedule
-            .upcoming(Local)
-            .into_iter()
-            .next()
-            .expect("schedule unwrap error in upcoming_local")
-            .to_string()
+        utils::local_time(
+            self.schedule
+                .upcoming(Utc)
+                .into_iter()
+                .next()
+                .expect("schedule unwrap error in upcoming_utc"),
+        )
+        .to_string()
     }
 
     pub fn timeout_to_string(&self) -> String {

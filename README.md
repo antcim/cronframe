@@ -3,6 +3,8 @@
 This library allows for the definition of cronjobs with macros both on functions in the "global scope" and inside struct types.
 
 # General Information
+Scheduling time is in UTC.
+
 There are three types of jobs that can be defined:
 - global jobs
 - functions jobs

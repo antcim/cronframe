@@ -11,7 +11,7 @@ struct WeatherAlert {
     schedule: CronFrameExpr,
 }
 
-const API_KEY: &str = "openweather api token";
+const API_KEY: &str = "1c7ee9b699fbf8bc066d832313c208f2";
 
 #[cron_impl]
 impl WeatherAlert {
@@ -61,7 +61,7 @@ impl WeatherAlert {
 fn main() {
     let cronframe = CronFrame::default();
 
-    let alert_schedule = CronFrameExpr::new("0", "0/10", "7-9,16-18", "*", "*", "Mon-Fri", "*", 0);
+    let alert_schedule = CronFrameExpr::new("0", "0/10", "5-6,14-16", "*", "*", "Mon-Fri", "*", 0);
 
     let mut venice = WeatherAlert::new_cron_obj("Venice".into(), alert_schedule);
 
