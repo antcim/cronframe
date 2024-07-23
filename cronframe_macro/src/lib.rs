@@ -125,7 +125,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
         #struct_edited
 
         static #cf_fn_jobs_flag: Mutex<bool> = Mutex::new(false);
-        static #cf_fn_jobs_channels: once_cell::sync::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::bounded(1));
+        static #cf_fn_jobs_channels: cronframe::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::bounded(1));
 
         // drop for method jobs
         impl Drop for #struct_name {
