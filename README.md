@@ -94,7 +94,7 @@ impl User {
     }
 
     #[mt_job(expr="expr1")]    
-    fn hello_method_job(){
+    fn hello_method_job(self){
         println!("hello world!");
     }
 }
