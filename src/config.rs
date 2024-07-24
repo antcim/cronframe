@@ -5,8 +5,8 @@ use toml;
 #[derive(Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct ConfigData {
-    pub webserver: ServerConfig,
-    pub logger: LoggerConfig,
+    pub webserver: Option<ServerConfig>,
+    pub logger: Option<LoggerConfig>,
 }
 
 #[derive(Deserialize)]

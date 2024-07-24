@@ -70,31 +70,33 @@ pub fn rolling_logger() -> log4rs::Handle {
     let mut level_filter = log::LevelFilter::Info;
 
     if let Some(config_data) = read_config() {
-        if let Some(data) = config_data.logger.archive_files {
-            window_size = data;
-        }
-        if let Some(data) = config_data.logger.file_size {
-            size_limit = size_limit * data;
-        }
-        if let Some(data) = config_data.logger.dir {
-            log_dir = data;
-        }
-        if let Some(data) = config_data.logger.latest_file_name {
-            latest_file_name = data;
-        }
-        if let Some(data) = config_data.logger.archive_file_name {
-            archive_file_name = data;
-        }
-        if let Some(data) = config_data.logger.msg_pattern {
-            pattern = data;
-        }
-        if let Some(data) = config_data.logger.level_filter {
-            match data.as_str() {
-                "off" => level_filter = log::LevelFilter::Off,
-                "error" => level_filter = log::LevelFilter::Error,
-                "warn" => level_filter = log::LevelFilter::Warn,
-                "debug" => level_filter = log::LevelFilter::Debug,
-                _ => (),
+        if let Some(logger_data) = config_data.logger{
+            if let Some(data) = logger_data.archive_files {
+                window_size = data;
+            }
+            if let Some(data) = logger_data.file_size {
+                size_limit = size_limit * data;
+            }
+            if let Some(data) = logger_data.dir {
+                log_dir = data;
+            }
+            if let Some(data) = logger_data.latest_file_name {
+                latest_file_name = data;
+            }
+            if let Some(data) = logger_data.archive_file_name {
+                archive_file_name = data;
+            }
+            if let Some(data) = logger_data.msg_pattern {
+                pattern = data;
+            }
+            if let Some(data) = logger_data.level_filter {
+                match data.as_str() {
+                    "off" => level_filter = log::LevelFilter::Off,
+                    "error" => level_filter = log::LevelFilter::Error,
+                    "warn" => level_filter = log::LevelFilter::Warn,
+                    "debug" => level_filter = log::LevelFilter::Debug,
+                    _ => (),
+                }
             }
         }
     };
