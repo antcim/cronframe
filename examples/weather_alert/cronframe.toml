@@ -1,2 +1,5 @@
 [webserver]
 port = 8073
+
+[scheduler]
+grace = 500 # this is in ms

@@ -68,9 +68,5 @@ fn main() {
 
     venice.cf_gather(cronframe.clone());
 
-    cronframe.scheduler();
-
-    loop {
-        std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
-    }
+    cronframe.run();
 }

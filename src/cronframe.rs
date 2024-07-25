@@ -10,6 +10,8 @@ use crossbeam_channel::{Receiver, Sender};
 use rocket::Shutdown;
 
 use crate::{
+    config::read_config,
+    cronframe,
     cronjob::{self, CronJob},
     job_builder::JobBuilder,
     logger, web_server, CronFilter, CronJobType,
@@ -26,6 +28,8 @@ use crate::{
 ///     cronframe.scheduler();
 /// }
 
+const GRACE_DEFAULT: u32 = 250;
+
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
     job_handles: Mutex<HashMap<String, JoinHandle<()>>>,
@@ -34,6 +38,7 @@ pub struct CronFrame {
     pub filter: Option<CronFilter>,
     server_handle: Mutex<Option<Shutdown>>,
     pub quit: Mutex<bool>,
+    grace: u32,
 }
 
 impl CronFrame {
@@ -74,9 +79,21 @@ impl CronFrame {
             filter,
             server_handle: Mutex::new(None),
             quit: Mutex::new(false),
+            grace: {
+                if let Some(config_data) = read_config() {
+                    if let Some(scheduler_data) = config_data.scheduler {
+                        scheduler_data.grace.unwrap_or_else(|| 250)
+                    } else {
+                        GRACE_DEFAULT
+                    }
+                } else {
+                    GRACE_DEFAULT
+                }
+            },
         };
 
         info!("CronFrame Init Start");
+        info!("Graceful Period {} ms", frame.grace);
         info!("Colleting Global Jobs");
 
         for job_builder in inventory::iter::<JobBuilder> {
@@ -193,7 +210,13 @@ impl CronFrame {
                 // check if the daily timeout expired and reset it if need be
                 cron_job.timeout_reset();
 
+                // if there is no handle for the job see if it need to be scheduled
                 if !job_handlers.contains_key(&job_id) && !to_be_deleted {
+                    
+                    if cron_job.suspended {
+                        continue;
+                    }
+
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
                         if !cron_job.timeout_notified {
@@ -203,7 +226,7 @@ impl CronFrame {
                         continue;
                     }
 
-                    let handle = (*cron_job).try_schedule();
+                    let handle = (*cron_job).try_schedule(cronframe.grace);
 
                     if handle.is_some() {
                         job_handlers.insert(
@@ -261,6 +284,13 @@ impl CronFrame {
         std::thread::spawn(scheduler);
         info!("CronFrame Scheduler Running");
         ret
+    }
+
+    pub fn run(self: &Arc<Self>) {
+        let _cronframe = self.scheduler();
+        loop {
+            std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
+        }
     }
 
     /// Function to call for a graceful shutdown of the library

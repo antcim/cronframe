@@ -75,7 +75,7 @@ pub fn web_server(frame: Arc<CronFrame>) {
     let rocket = rocket::custom(&config)
         .mount(
             "/",
-            routes![styles, home, job_info, update_timeout, update_schedule],
+            routes![styles, home, job_info, update_timeout, update_schedule, suspension_handle],
         )
         .attach(Template::fairing())
         .manage(frame);
@@ -214,6 +214,22 @@ fn update_schedule(
     }
 }
 
+#[get("/job/<name>/<id>/suspension_toggle")]
+fn suspension_handle(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
+    for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
+        if job.name == name && job.id.to_string() == id {
+            let job_id = format!("{} ID#{}", job.name, job.id);
+            if !job.suspended{
+                job.suspended = true;
+                info!("job @{job_id} - Scheduling Suspended");
+            }else{
+                job.suspended = false;
+                info!("job @{job_id} - Scheduling Reprised");
+            }
+        }
+    }
+}
+
 const BASE_TEMPLATE: &str = r#"<!DOCTYPE html>
 <html>
 
@@ -321,7 +337,7 @@ const JOB_TEMPLATE: &str = r#"{% extends "base" %}
     </tr>
     <tr>
         <td>Type</td>
-        <td colspan="2">{{job_info.type}}</td>
+        <td colspan="2">{{job_info.type}} Job</td>
     </tr>
     {% if job_info.run_id != "None" %}
     <tr>
@@ -342,13 +358,22 @@ const JOB_TEMPLATE: &str = r#"{% extends "base" %}
     {% endif %}
     <tr>
         <td>Status</td>
-        <td colspan="2">
-            {% if job_info.status == "Timed-Out" %}
+        <td colspan="">
+            {% if job_info.status == "Timed-Out" or job_info.status == "Suspended" %}
             <div class="line_status_gray">{{job_info.status}}</div>
             {% elif job_info.status == "Running" %}
             <div class="line_status_green">{{job_info.status}}</div>
             {% else %}
             <div class="line_status_yellow">{{job_info.status}}</div>
+            {% endif %}
+
+            
+        </td>
+        <td>
+            {% if job_info.status != "Suspended" %}
+            <button onclick="suspensionHandle()">Suspend Scheduling</button>
+            {% else %}
+            <button onclick="suspensionHandle()">Reprise Scheduling</button>
             {% endif %}
         </td>
     </tr>
@@ -385,12 +410,13 @@ const JOB_TEMPLATE: &str = r#"{% extends "base" %}
     <tr>
         <td>Upcoming</td>
         <td colspan="2">
-
             {% if job_info.upcoming_utc == "None due to timeout." %}
                 <p>{{job_info.upcoming_utc}}</p>
             {% else %}
                 <p>{{job_info.upcoming_utc}}</p>
+                {% if job_info.status != "Timed-Out" and job_info.status != "Suspended" %}
                 <p>{{job_info.upcoming_local}} (Local)</p>
+                {% endif %}
             {% endif %}
         </td>
     </tr>
@@ -430,6 +456,22 @@ const JOB_TEMPLATE: &str = r#"{% extends "base" %}
         console.log("request to: " + window.location.href + "/schedset/" + schedule);
         const xhr = new XMLHttpRequest();
         xhr.open("GET", window.location.href + "/schedset/" + schedule.replace("/", "slh"));
+        xhr.send();
+        xhr.responseType = "json";
+        xhr.onload = () => {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                console.log(xhr.response);
+                location.reload();
+            } else {
+                console.log(`Error: ${xhr.status}`);
+            }
+        };
+    }
+
+    const suspensionHandle = () => {
+        console.log("request to: " + window.location.href + "/suspension_toggle");
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", window.location.href + "/suspension_toggle");
         xhr.send();
         xhr.responseType = "json";
         xhr.onload = () => {
@@ -568,6 +610,7 @@ footer{
     box-shadow: 0px 0px 3px 0px rgba(0,0,0,.1);
     border-top: 4px solid #FF3D00;
     max-width: 1200px;
+    min-width: 500px;
 }
 
 #status{
@@ -593,7 +636,7 @@ input[type=text], input[type=number] {
 }
 
 input[type=text]:focus, input[type=number]:focus {
-    border-color: rgba(229, 103, 23, 0.8);
+    border-color: rgba(229, 103, 23, 0.7);
     box-shadow: 0 1px 1px rgba(229, 103, 23, 0.075) inset, 0 0 4px rgba(229, 103, 23, 0.6);
     outline: 0 none;
 }
@@ -603,8 +646,9 @@ button {
     color: white;
     padding: 10px;
     border: none;
-    border-radius: 4px;
+    border-radius: 6px;
     cursor: pointer;
+    box-shadow: 0 0 2px 1px rgba(0,0,0,.1) inset;
 }
 
 button:hover {
@@ -612,8 +656,8 @@ button:hover {
     color: white;
     padding: 10px;
     border: none;
-    border-radius: 4px;
     cursor: pointer;
+    box-shadow: 0 0 2px 1px rgba(0,0,0,.1) inset;
 }
 
 button:active {
@@ -621,8 +665,8 @@ button:active {
     color: white;
     padding: 10px;
     border: none;
-    border-radius: 4px;
     cursor: pointer;
+    box-shadow: 0 0 2px 1px rgba(0,0,0,.2) inset;
 }
 
 .line_status_green{
@@ -648,7 +692,7 @@ button:active {
 .line_status_orange{
     font-weight: bold;
     display: inline-block;
-    background: rgba(255, 61, 0, .8);
+    background: rgba(255, 61, 0, .7);
     padding: 10px;
     border-radius: 6px;
     border: 1px solid rgba(0,0,0,.1);

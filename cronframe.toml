@@ -1,13 +1,17 @@
 # example file
+
 # [webserver]
 # port = 8098
 # ip = "127.0.0.1"
 
-#[logger]
+# [logger]
 # dir = "log"
 # file_size = 1 # this is in MB
 # archive_files = 3 
 # latest_file_name = "latest"
 # archive_file_name = "archive"
-# msg_pattern = "{l} {t} - {m}{n}"
+# msg_pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}"
 # level_filter = "info"
+
+# [scheduler]
+# grace = 250 # this is in ms

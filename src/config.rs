@@ -7,6 +7,7 @@ use toml;
 pub struct ConfigData {
     pub webserver: Option<ServerConfig>,
     pub logger: Option<LoggerConfig>,
+    pub scheduler: Option<SchedulerConfig>,
 }
 
 #[derive(Deserialize)]
@@ -26,6 +27,12 @@ pub struct LoggerConfig {
     pub archive_file_name: Option<String>,
     pub msg_pattern: Option<String>,
     pub level_filter: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct SchedulerConfig {
+    pub grace: Option<u32>
 }
 
 /// This function reads cronframe configuration data from the `cronframe.toml` file.

@@ -2,10 +2,13 @@
 working on it...
 
 ## cronframe tdb
-- using macros now doesn't require to install additional dependencies to you many project except for the linkme crate
-- ip address is now configurable in the cronframe.toml
+- using macros now doesn't require to install additional dependencies to your project except for the linkme crate
+- the web server ip address is now configurable in the cronframe.toml
+- the graceful period is now configurable in the cronframe.toml
+- added `run method` in CronFrame type to start the scheduler and keep the main thread running
+- individual job scheduling can now be suspended and reprised from the job page
 - BUGFIX: the proper local time is now displayed in upcoming schedule
-- BUGFIX: the absence of either or both the webserver and logger sections in the `cronframe.toml` no longer makes the config read fail
+- BUGFIX: the absence of a section in the cronframe.toml no longer makes the config read fail
 
 ## cronframe_macro tdb
 - macros now use dependecy types/functions/macros exported by the cronframe crate with che cronframe:: qualifier

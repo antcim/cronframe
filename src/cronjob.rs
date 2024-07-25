@@ -19,6 +19,7 @@ use crate::{utils, CronJobType};
 /// While it could be used directly there are macros that build jobs for you.
 #[derive(Debug, Clone)]
 pub struct CronJob {
+    pub suspended: bool,
     pub name: String,
     pub id: Uuid,
     pub job: CronJobType,
@@ -35,7 +36,7 @@ pub struct CronJob {
 
 impl CronJob {
     // this function is used in the scheduler thread to get a handle if the job has to be scheduled
-    pub fn try_schedule(&mut self) -> Option<JoinHandle<()>> {
+    pub fn try_schedule(&mut self, grace_period: u32) -> Option<JoinHandle<()>> {
         if self.check_schedule() {
             self.run_id = Some(Uuid::new_v4());
             //self.status_channels = Some(crossbeam_channel::bounded(1));
@@ -52,7 +53,7 @@ impl CronJob {
                 return Some(handle);
             }
 
-            let gracefull_period = 250; // ms
+            let gracefull_period = grace_period as i64;
             let first_try = Utc::now();
             let limit_time = first_try + Duration::milliseconds(gracefull_period);
             let mut graceful_log = false;
@@ -99,7 +100,9 @@ impl CronJob {
 
     // used to retrive a job'status to display in the web server
     pub fn status(&self) -> String {
-        if self.check_timeout() {
+        if self.suspended {
+            "Suspended".to_string()
+        } else if self.check_timeout() {
             "Timed-Out".to_string()
         } else if self.run_id.is_some() {
             "Running".to_string()
@@ -153,20 +156,6 @@ impl CronJob {
         self.schedule.to_string()
     }
 
-    pub fn upcoming_local(&self) -> String {
-        if self.check_timeout() {
-            return "None due to timeout.".to_string();
-        }
-        utils::local_time(
-            self.schedule
-                .upcoming(Utc)
-                .into_iter()
-                .next()
-                .expect("schedule unwrap error in upcoming_utc"),
-        )
-        .to_string()
-    }
-
     pub fn timeout_to_string(&self) -> String {
         if self.timeout.is_some() {
             let timeout = self
@@ -191,7 +180,9 @@ impl CronJob {
     }
 
     pub fn upcoming_utc(&self) -> String {
-        if self.check_timeout() {
+        if self.suspended{
+            return "None due to scheduling suspension.".to_string();
+        }else if self.check_timeout() {
             return "None due to timeout.".to_string();
         }
         self.schedule
@@ -200,6 +191,22 @@ impl CronJob {
             .next()
             .expect("schedule unwrap error in upcoming_utc")
             .to_string()
+    }
+
+    pub fn upcoming_local(&self) -> String {
+        if self.suspended{
+            return "None due to scheduling suspension.".to_string();
+        }else if self.check_timeout() {
+            return "None due to timeout.".to_string();
+        }
+        utils::local_time(
+            self.schedule
+                .upcoming(Utc)
+                .into_iter()
+                .next()
+                .expect("schedule unwrap error in upcoming_utc"),
+        )
+        .to_string()
     }
 
     pub fn get_run_id(&self) -> String {

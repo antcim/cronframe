@@ -110,6 +110,7 @@ impl<'a> JobBuilder<'a> {
                     run_id: None,
                     method_instance: None,
                     failed: false,
+                    suspended: false,
                 }
             }
             Self::Method {
@@ -141,6 +142,7 @@ impl<'a> JobBuilder<'a> {
                     run_id: None,
                     method_instance: Some(instance),
                     failed: false,
+                    suspended: false,
                 }
             }
             Self::Function {
@@ -171,6 +173,7 @@ impl<'a> JobBuilder<'a> {
                     run_id: None,
                     method_instance: None,
                     failed: false,
+                    suspended: false,
                 }
             }
         }
