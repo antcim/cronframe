@@ -130,7 +130,7 @@ pub fn test_job(
     duration: Duration,
     interval: Duration,
     timeout: Duration,
-    shoud_fail: bool,
+    should_fail: bool,
 ) {
     init_logger(file_path);
 
@@ -150,7 +150,7 @@ pub fn test_job(
 
     match job_filter {
         CronFilter::Function => {
-            if shoud_fail {
+            if should_fail {
                 fn_fail.cf_gather(cronframe.clone());
             } else if timeout > Duration::seconds(0) {
                 fn_timeout.cf_gather(cronframe.clone());
@@ -159,7 +159,7 @@ pub fn test_job(
             }
         }
         CronFilter::Method => {
-            if shoud_fail {
+            if should_fail {
                 mt_fail.cf_gather(cronframe.clone());
             } else if timeout > Duration::seconds(0) {
                 mt_timeout.cf_gather(cronframe.clone());
@@ -258,7 +258,7 @@ pub fn test_job(
         assert!(first_run + timeout == timeouts[0], "timeout error");
     }
 
-    if shoud_fail {
+    if should_fail {
         assert!(
             file_content.contains("Aborted"),
             "No abortion in the log file."

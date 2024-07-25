@@ -1,8 +1,9 @@
 # example file
 # [webserver]
 # port = 8098
+# ip = "127.0.0.1"
 
-# [logger]
+#[logger]
 # dir = "log"
 # file_size = 1 # this is in MB
 # archive_files = 3 

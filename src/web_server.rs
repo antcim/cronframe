@@ -37,13 +37,19 @@ pub fn web_server(frame: Arc<CronFrame>) {
     let config = match read_config() {
         Some(config_data) => rocket::Config {
             port: {
-                if let Some(webserver_data) = config_data.webserver{
+                if let Some(webserver_data) = &config_data.webserver{
                     webserver_data.port.unwrap_or_else(|| 8098)
                 }else{
                     8098
                 }
             },
-            address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
+            address:{
+                if let Some(webserver_data) = config_data.webserver{
+                    webserver_data.ip.unwrap_or_else(|| "127.0.0.1".to_string())
+                }else{
+                    "127.0.0.1".to_string()
+                }.parse().unwrap()
+            },
             shutdown: Shutdown {
                 ctrlc: false,
                 ..Default::default()

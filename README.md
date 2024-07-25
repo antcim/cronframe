@@ -111,6 +111,7 @@ fn main(){
 
     // this method collects all jobs defined on a cron object
     user1.cf_gather(cronframe.clone());
+    user1.cf_drop();
 
     // in alternative if we only wanted to collect method jobs
     // user1.cf_gather_mt(cronframe.clone());

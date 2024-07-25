@@ -11,7 +11,8 @@ struct WeatherAlert {
     schedule: CronFrameExpr,
 }
 
-const API_KEY: &str = "1c7ee9b699fbf8bc066d832313c208f2";
+// get it from https://openweathermap.org
+const API_KEY: &str = "";
 
 #[cron_impl]
 impl WeatherAlert {

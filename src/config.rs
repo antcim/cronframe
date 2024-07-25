@@ -13,6 +13,7 @@ pub struct ConfigData {
 #[serde(crate = "rocket::serde")]
 pub struct ServerConfig {
     pub port: Option<u16>,
+    pub ip: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -58,7 +59,7 @@ pub fn read_config() -> Option<ConfigData>{
             None
         }
     }else{
-        println!("cronframe.toml - file read error");
+        error!("cronframe.toml - file not found");
         None
     }
 }
