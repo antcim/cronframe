@@ -6,26 +6,37 @@ use crate::{
     CronFilter, CronJobType,
 };
 use log::info;
-use rocket::{config::Shutdown, figment::value::magic::RelativePathBuf, futures::FutureExt, serde::Serialize};
+use rocket::{
+    config::Shutdown, figment::value::magic::RelativePathBuf, futures::FutureExt, serde::Serialize,
+};
 use rocket_dyn_templates::{context, Engines, Template};
 use std::{fs, sync::Arc, time::Duration};
 
 /// Called by the init funciton of the Cronframe type for setting up the web server
-/// 
+///
 /// It provides 4 routes, two of which are API only.
-/// 
+///
 /// Upon first start of the library it will generate a templates folder inside the current director with the following files:
 /// - base.html.tera
 /// - index.htm.tera
 /// - job.html.tera
 /// - styles.css
 pub fn web_server(frame: Arc<CronFrame>) {
-    if !std::path::Path::new("./templates").exists(){
+    if !std::path::Path::new("./templates").exists() {
         println!("Generating templates directory content...");
         fs::create_dir("templates").expect("could not create templates directory");
-        fs::write(std::path::Path::new("./templates/base.html.tera"), BASE_TEMPLATE);
-        fs::write(std::path::Path::new("./templates/index.html.tera"), INDEX_TEMPLATE);
-        fs::write(std::path::Path::new("./templates/job.html.tera"), JOB_TEMPLATE);
+        fs::write(
+            std::path::Path::new("./templates/base.html.tera"),
+            BASE_TEMPLATE,
+        );
+        fs::write(
+            std::path::Path::new("./templates/index.html.tera"),
+            INDEX_TEMPLATE,
+        );
+        fs::write(
+            std::path::Path::new("./templates/job.html.tera"),
+            JOB_TEMPLATE,
+        );
         fs::write(std::path::Path::new("./templates/styles.css"), STYLES);
         std::thread::sleep(Duration::from_secs(5));
     }
@@ -37,18 +48,20 @@ pub fn web_server(frame: Arc<CronFrame>) {
     let config = match read_config() {
         Some(config_data) => rocket::Config {
             port: {
-                if let Some(webserver_data) = &config_data.webserver{
+                if let Some(webserver_data) = &config_data.webserver {
                     webserver_data.port.unwrap_or_else(|| 8098)
-                }else{
+                } else {
                     8098
                 }
             },
-            address:{
-                if let Some(webserver_data) = config_data.webserver{
+            address: {
+                if let Some(webserver_data) = config_data.webserver {
                     webserver_data.ip.unwrap_or_else(|| "127.0.0.1".to_string())
-                }else{
+                } else {
                     "127.0.0.1".to_string()
-                }.parse().unwrap()
+                }
+                .parse()
+                .unwrap()
             },
             shutdown: Shutdown {
                 ctrlc: false,
@@ -75,7 +88,14 @@ pub fn web_server(frame: Arc<CronFrame>) {
     let rocket = rocket::custom(&config)
         .mount(
             "/",
-            routes![styles, home, job_info, update_timeout, update_schedule, suspension_handle],
+            routes![
+                styles,
+                home,
+                job_info,
+                update_timeout,
+                update_schedule,
+                suspension_handle
+            ],
         )
         .attach(Template::fairing())
         .manage(frame);
@@ -114,6 +134,8 @@ async fn styles() -> Result<rocket::fs::NamedFile, std::io::Error> {
 struct JobList {
     name: String,
     id: String,
+    suspended: bool,
+    timedout: bool,
 }
 
 #[get("/")]
@@ -136,6 +158,12 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
             cron_jobs.push(JobList {
                 name: job.name.clone(),
                 id: job.id.to_string(),
+                suspended: if job.status() == "Suspended" {
+                    true
+                } else {
+                    false
+                },
+                timedout: job.check_timeout()
             });
         }
     }
@@ -219,10 +247,10 @@ fn suspension_handle(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFra
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
         if job.name == name && job.id.to_string() == id {
             let job_id = format!("{} ID#{}", job.name, job.id);
-            if !job.suspended{
+            if !job.suspended {
                 job.suspended = true;
                 info!("job @{job_id} - Scheduling Suspended");
-            }else{
+            } else {
                 job.suspended = false;
                 info!("job @{job_id} - Scheduling Reprised");
             }
@@ -272,7 +300,7 @@ const INDEX_TEMPLATE: &str = r#"{% extends "base" %}
 <table id="job_list">
     <tr>
         <th>
-            Current Jobs
+            Active Jobs
             <div id="refresh" onclick="reloadPage()">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 25">
                     <path
@@ -286,11 +314,67 @@ const INDEX_TEMPLATE: &str = r#"{% extends "base" %}
         </th>
     </tr>
     {% for cron_job in cron_jobs %}
-    {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
+        {% if cron_job.suspended == false and cron_job.timedout == false %}
+            {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
+            <tr>
+                <td><a href="{{link}}">{{cron_job.name}}</a></td>
+                <td>{{cron_job.id}}</td>
+            </tr>
+        {% endif %}
+    {% endfor %}
+</table>
+
+<table id="job_list">
     <tr>
-        <td><a href="{{link}}">{{cron_job.name}}</a></td>
-        <td>{{cron_job.id}}</td>
+        <th>
+            Timed-Out Jobs
+            <div id="refresh" onclick="reloadPage()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 25">
+                    <path
+                        d="M21,15v-5c0-3.866-3.134-7-7-7l-3,0c-0.552,0-1,0.448-1,1v0c0,1.657,1.343,3,3,3h1	c1.657,0,3,1.343,3,3v5h-1.294c-0.615,0-0.924,0.742-0.491,1.178l3.075,3.104c0.391,0.395,1.03,0.395,1.421,0l3.075-3.104	C23.218,15.742,22.908,15,22.294,15H21z"
+                        opacity=".35"></path>
+                    <path
+                        d="M3,9v5c0,3.866,3.134,7,7,7h3c0.552,0,1-0.448,1-1v0c0-1.657-1.343-3-3-3h-1c-1.657,0-3-1.343-3-3V9h1.294	c0.615,0,0.924-0.742,0.491-1.178L5.71,4.717c-0.391-0.395-1.03-0.395-1.421,0L1.215,7.822C0.782,8.258,1.092,9,1.706,9H3z">
+                    </path>
+                </svg>
+            </div>
+        </th>
     </tr>
+    {% for cron_job in cron_jobs %}
+        {% if cron_job.suspended == false and cron_job.timedout == true %}
+            {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
+            <tr>
+                <td><a href="{{link}}">{{cron_job.name}}</a></td>
+                <td>{{cron_job.id}}</td>
+            </tr>
+        {% endif %}
+    {% endfor %}
+</table>
+
+<table id="job_list">
+    <tr>
+        <th>
+            Suspended Jobs
+            <div id="refresh" onclick="reloadPage()">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 25">
+                    <path
+                        d="M21,15v-5c0-3.866-3.134-7-7-7l-3,0c-0.552,0-1,0.448-1,1v0c0,1.657,1.343,3,3,3h1	c1.657,0,3,1.343,3,3v5h-1.294c-0.615,0-0.924,0.742-0.491,1.178l3.075,3.104c0.391,0.395,1.03,0.395,1.421,0l3.075-3.104	C23.218,15.742,22.908,15,22.294,15H21z"
+                        opacity=".35"></path>
+                    <path
+                        d="M3,9v5c0,3.866,3.134,7,7,7h3c0.552,0,1-0.448,1-1v0c0-1.657-1.343-3-3-3h-1c-1.657,0-3-1.343-3-3V9h1.294	c0.615,0,0.924-0.742,0.491-1.178L5.71,4.717c-0.391-0.395-1.03-0.395-1.421,0L1.215,7.822C0.782,8.258,1.092,9,1.706,9H3z">
+                    </path>
+                </svg>
+            </div>
+        </th>
+    </tr>
+    {% for cron_job in cron_jobs %}
+        {% if cron_job.suspended == true %}
+            {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
+            <tr>
+                <td><a href="{{link}}">{{cron_job.name}}</a></td>
+                <td>{{cron_job.id}}</td>
+            </tr>
+        {% endif %}
     {% endfor %}
 </table>
 {% endblock content %}"#;

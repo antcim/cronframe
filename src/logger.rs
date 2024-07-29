@@ -113,7 +113,6 @@ pub fn rolling_logger() -> log4rs::Handle {
         ));
 
         for i in (1..=(window_size - 1)).rev(){
-            println!("i = {i}");
             std::fs::rename(
                 format!("./{log_dir}/{archive_file_name}_{}.log", i - 1),
                 format!("./{log_dir}/{archive_file_name}_{}.log", i),
