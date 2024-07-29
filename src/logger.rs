@@ -1,5 +1,6 @@
 //! Default logger setup for the cronframe library and the testing suite
 
+use chrono::Duration;
 use log4rs::{
     append::{
         file::FileAppender,
@@ -62,7 +63,8 @@ pub fn appender_config(log_file: &str) -> log4rs::Config {
 /// this sets the logger from either the default configuration or from the toml file
 pub fn rolling_logger() -> log4rs::Handle {
     let mut window_size = 3;
-    let mut size_limit = 1000 * 1024;
+    // let mut size_limit = 1000 * 1024;
+    let mut size_limit = 5 * 1024;
     let mut log_dir = "log".to_string();
     let mut latest_file_name = "latest".to_string();
     let mut archive_file_name = "archive".to_string();
@@ -70,7 +72,7 @@ pub fn rolling_logger() -> log4rs::Handle {
     let mut level_filter = log::LevelFilter::Info;
 
     if let Some(config_data) = read_config() {
-        if let Some(logger_data) = config_data.logger{
+        if let Some(logger_data) = config_data.logger {
             if let Some(data) = logger_data.archive_files {
                 window_size = data;
             }
@@ -103,6 +105,29 @@ pub fn rolling_logger() -> log4rs::Handle {
 
     let archive_file = format!("{log_dir}/{archive_file_name}.log").replace(".log", "_{}.log");
 
+    // retain latest and archive logfiles at restart as per rolling policy
+    if !std::path::Path::new(&format!("./{log_dir}/{latest_file_name}")).exists() {
+        std::fs::remove_file(format!(
+            "./{log_dir}/{archive_file_name}_{}.log",
+            window_size - 1
+        ));
+
+        for i in (1..=(window_size - 1)).rev(){
+            println!("i = {i}");
+            std::fs::rename(
+                format!("./{log_dir}/{archive_file_name}_{}.log", i - 1),
+                format!("./{log_dir}/{archive_file_name}_{}.log", i),
+            );
+        }
+
+        std::fs::rename(
+            format!("./{log_dir}/{latest_file_name}.log"),
+            format!("./{log_dir}/{archive_file_name}_0.log"),
+        );
+        
+        std::thread::sleep(Duration::seconds(5).to_std().unwrap());
+    }
+
     let roller = FixedWindowRoller::builder()
         .build(&archive_file, window_size)
         .unwrap();
@@ -122,11 +147,7 @@ pub fn rolling_logger() -> log4rs::Handle {
 
     let config = Config::builder()
         .appender(Appender::builder().build("log_file", Box::new(log_file)))
-        .build(
-            Root::builder()
-                .appender("log_file")
-                .build(level_filter),
-        )
+        .build(Root::builder().appender("log_file").build(level_filter))
         .expect("rolling_logger config unwrap error");
 
     log4rs::init_config(config).expect("rolling_logger init error")
