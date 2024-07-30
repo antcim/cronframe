@@ -2,6 +2,8 @@
 working on it...
 
 ## cronframe tdb
+- added dark theme switcher 
+- added 5 seconds page autoreload toggle
 - using macros now doesn't require to install additional dependencies to your project except for the linkme crate
 - the web server ip address is now configurable in the cronframe.toml
 - the graceful period is now configurable in the cronframe.toml

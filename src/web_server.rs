@@ -134,13 +134,13 @@ async fn styles() -> Result<rocket::fs::NamedFile, std::io::Error> {
 struct JobList {
     name: String,
     id: String,
-    suspended: bool,
-    timedout: bool,
 }
 
 #[get("/")]
 fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
-    let mut cron_jobs = vec![];
+    let mut active_jobs = vec![];
+    let mut timedout_jobs = vec![];
+    let mut suspended_jobs = vec![];
 
     for job in cronframe
         .cron_jobs
@@ -155,20 +155,26 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
         };
 
         if cronframe.filter.is_none() || cronframe.filter == Some(job_type) {
-            cron_jobs.push(JobList {
-                name: job.name.clone(),
-                id: job.id.to_string(),
-                suspended: if job.status() == "Suspended" {
-                    true
-                } else {
-                    false
-                },
-                timedout: job.check_timeout()
-            });
+            if job.status() == "Suspended" {
+                suspended_jobs.push(JobList {
+                    name: job.name.clone(),
+                    id: job.id.to_string(),
+                });
+            } else if job.status() == "Timed-Out" {
+                timedout_jobs.push(JobList {
+                    name: job.name.clone(),
+                    id: job.id.to_string(),
+                });
+            } else {
+                active_jobs.push(JobList {
+                    name: job.name.clone(),
+                    id: job.id.to_string(),
+                });
+            }
         }
     }
 
-    Template::render("index", context! {cron_jobs})
+    Template::render("index", context! {active_jobs, timedout_jobs, suspended_jobs})
 }
 
 #[derive(Serialize, Default)]
@@ -258,8 +264,9 @@ fn suspension_handle(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFra
     }
 }
 
-const BASE_TEMPLATE: &str = r#"<!DOCTYPE html>
-<html>
+const BASE_TEMPLATE: &str = {
+    r#"<!DOCTYPE html>
+<html class="light-mode">
 
 <head>
     <meta charset="utf-8" />
@@ -270,31 +277,115 @@ const BASE_TEMPLATE: &str = r#"<!DOCTYPE html>
 
 <body>
     <div id="wrapper">
-        <div id="container">
-            <header>
-                <div id="logo">
-                    <a href="/"><span style="color:#494949">Cron</span><span style="color:#FF3D00">Frame</span></a>
+        <div>
+            <div id="barContainer">
+                <div id="progressBar">
+                    <div id="barStatus"></div>
                 </div>
-            </header>
-            <div id="content">
-                {% block content %}
-                {% endblock content %}
             </div>
-            <footer>
-                &lt;/&gt; Antonio Cimino
-            </footer>
+            <div id="container">
+                <header>
+                    <div id="logo">
+                        <a href="/"><span class="cron">Cron</span><span style="color:#FF3D00">Frame</span></a>
+                    </div>
+                    <label class="switch" title="Toggle Color Theme">
+                        <input type="checkbox" onchange="toggleMode()" id="slider">
+                        <span class="slider"></span>
+                    </label>
+                </header>
+                <div id="content">
+                    {% block content %}
+                    {% endblock content %}
+                </div>
+                <footer>
+                    <label class="reload">
+                        <input type="checkbox" onchange="toggleReload()" id="autoreload">
+                        <span class="check"></span>
+                    </label>
+                    5s Reload
+                    <span style="float: right">&lt;/&gt; Antonio Cimino</span>
+                </footer>
+            </div>
         </div>
     </div>
     <script>
+        let barWidth = 0;
+
+        document.getElementById("barContainer").style.width = document.getElementById("container").style.width;
+
+        const advanceBar = () => {
+            if (barWidth < 100) {
+                barWidth = barWidth + 3.125;
+                document.getElementById("barStatus").style.width = barWidth + '%';
+            }
+        };
+
         const reloadPage = () => {
             location.reload();
         };
+
+        const setTheme = (value) => {
+            localStorage.setItem('mode', value);
+            document.documentElement.className = value;
+        };
+
+        const setAutoreload = (value) => {
+            localStorage.setItem('autoreload', value);
+            document.documentElement.className = value;
+            reloadPage();
+        };
+
+        const toggleMode = () => {
+            if (localStorage.getItem('mode') === 'dark-mode') {
+                setTheme('light-mode');
+            } else {
+                setTheme('dark-mode');
+            }
+        };
+
+        const toggleReload = () => {
+            if (localStorage.getItem('autoreload') === 'yes') {
+                setAutoreload('no');
+            } else {
+                setAutoreload('yes');
+            }
+        };
+
+        const init = () => {
+            setupTheme();
+            setupBar();
+        };
+
+        const setupTheme = () => {
+            if (localStorage.getItem('mode') === 'dark-mode') {
+                setTheme('dark-mode');
+                document.getElementById('slider').checked = false;
+            } else {
+                setTheme('light-mode');
+                document.getElementById('slider').checked = true;
+            }
+        };
+
+        const setupBar = () => {
+            if (localStorage.getItem('autoreload') === 'yes') {
+                setInterval(reloadPage, 5000);
+                setInterval(advanceBar, 125);
+                document.getElementById('autoreload').checked = true;
+            } else {
+                document.getElementById("barStatus").style.width = '100%';
+                document.getElementById('autoreload').checked = false;
+            }
+        };
+
+        init();
     </script>
 </body>
 
-</html>"#;
+</html>"#
+};
 
-const INDEX_TEMPLATE: &str = r#"{% extends "base" %}
+const INDEX_TEMPLATE: &str = {
+    r#"{% extends "base" %}
 
 {% block content %}
 <table id="job_list">
@@ -313,15 +404,20 @@ const INDEX_TEMPLATE: &str = r#"{% extends "base" %}
             </div>
         </th>
     </tr>
-    {% for cron_job in cron_jobs %}
-        {% if cron_job.suspended == false and cron_job.timedout == false %}
-            {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
+    {% if active_jobs %}
+        {% for cron_job in active_jobs %}
+            {% set activelink = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
             <tr>
-                <td><a href="{{link}}">{{cron_job.name}}</a></td>
+                <td><a href="{{activelink}}">{{cron_job.name}}</a></td>
                 <td>{{cron_job.id}}</td>
             </tr>
-        {% endif %}
-    {% endfor %}
+        {% endfor %}
+    {% else %} 
+        <tr>
+            <td>No active job found</td>
+        </tr>
+    {% endif %}
+    
 </table>
 
 <table id="job_list">
@@ -340,15 +436,19 @@ const INDEX_TEMPLATE: &str = r#"{% extends "base" %}
             </div>
         </th>
     </tr>
-    {% for cron_job in cron_jobs %}
-        {% if cron_job.suspended == false and cron_job.timedout == true %}
-            {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
+    {% if timedout_jobs %}
+        {% for cron_job in timedout_jobs %}
+            {% set timedoutlink = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
             <tr>
-                <td><a href="{{link}}">{{cron_job.name}}</a></td>
+                <td><a href="{{timedoutlink}}">{{cron_job.name}}</a></td>
                 <td>{{cron_job.id}}</td>
             </tr>
-        {% endif %}
-    {% endfor %}
+        {% endfor %}
+    {% else %} 
+        <tr>
+            <td>No timed-out job found</td>
+        </tr>
+    {% endif %}
 </table>
 
 <table id="job_list">
@@ -367,19 +467,25 @@ const INDEX_TEMPLATE: &str = r#"{% extends "base" %}
             </div>
         </th>
     </tr>
-    {% for cron_job in cron_jobs %}
-        {% if cron_job.suspended == true %}
-            {% set link = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
+    {% if suspended_jobs %}
+        {% for cron_job in suspended_jobs %}
+            {% set suspendedlink = "/job/" ~ cron_job.name ~ "/" ~ cron_job.id %}
             <tr>
-                <td><a href="{{link}}">{{cron_job.name}}</a></td>
+                <td><a href="{{suspendedlink}}">{{cron_job.name}}</a></td>
                 <td>{{cron_job.id}}</td>
             </tr>
-        {% endif %}
-    {% endfor %}
+        {% endfor %}
+    {% else %} 
+        <tr>
+            <td>No suspended job found</td>
+        </tr>
+    {% endif %}
 </table>
-{% endblock content %}"#;
+{% endblock content %}"#
+};
 
-const JOB_TEMPLATE: &str = r#"{% extends "base" %}
+const JOB_TEMPLATE: &str = {
+    r#"{% extends "base" %}
 
 {% block content %}
 
@@ -613,280 +719,436 @@ const JOB_TEMPLATE: &str = r#"{% extends "base" %}
     </div>
 </div>
 {% endif %}
-{% endblock content %}"#;
+{% endblock content %}"#
+};
 
-const STYLES: &str = r#"body{
-    background: #F6F6F6;
-    color: #494949;
-    font-family: "Lato"!important;
-    margin: 0;
+const STYLES: &str = {
+    r#":root {
+  --dark-orange: #ff3d00;
+  --light-orange: #ffa702;
+  --green: green;
+  --red: red;
 }
 
-a{
-    text-decoration: none;
-    text-shadow: 1px 1px 1px rgba(255,255,255,1);
+.light-mode {
+  --body-bg: #f6f6f6;
+  --container-bg: #ffffff;
+  --content-bg: #f1f1f1;
+  --font-color: #494949;
+  --gray-status-color: rgba(0, 0, 0, .3);
+  --checkbox: rgba(0, 0, 0, .1);
+}
+
+.dark-mode {
+  --body-bg: #161616;
+  --container-bg: #2c2c2c;
+  --content-bg: #212121;
+  --font-color: #9a9a9a;
+  --gray-status-color: rgba(255, 255, 255, .3);
+  --checkbox: rgba(0, 0, 0, .3);
+}
+
+body {
+  background: var(--body-bg);
+  color: var(--font-color);
+  font-family: "Lato"!important;
+  margin: 0;
+}
+
+a {
+  text-decoration: none;
 }
 
 a:link {
-    color: #FF3D00;
+  color: var(--dark-orange);
 }
 
 a:visited {
-    color: #ffa702;
+  color: var(--light-orange);
 }
 
 a:hover {
-    color: green;
+  color: var(--green);
 }
 
 a:active {
-    color: red;
+  color: var(--red);
 }
 
-header{
-    display: flex;
-    padding: 15px;
-    align-items: center;
-    justify-content: center;
+header {
+  display: flex;
+  padding: 15px;
+  align-items: center;
+  justify-content: center;
 }
 
-#logo{
-    flex: 2;
-    font-weight: bold;
-    font-size: 30pt;
+footer {
+  padding: 15px;
 }
 
-#refresh{
-    display: inline-block;
-    hight: auto;
-    width: 25px;
-    opacity: 0.5;
+#logo {
+  flex: 2;
+  font-weight: bold;
+  font-size: 30pt;
 }
 
-#refresh:hover{
-    cursor: pointer;
-    opacity: 1;
+.cron {
+  color: var(--font-color);
 }
 
-footer{
-    padding: 15px;
-    text-align: right;
+#refresh {
+  display: inline-block;
+  hight: auto;
+  width: 25px;
+  filter: invert(50%);
 }
 
-#wrapper{
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    padding: 0;
-    margin: 0;
+#refresh:hover {
+  cursor: pointer;
+  opacity: 1;
 }
 
-#container{
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    background: white;
-    padding: 10px;
-    padding-top: 5px;
-    padding-bottomn: 5px;
-    border--radius: 6px;
-    box-shadow: 0px 0px 3px 0px rgba(0,0,0,.1);
-    border-top: 4px solid #FF3D00;
-    max-width: 1200px;
-    min-width: 500px;
+#wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  marign: 0;
+  padding: 0;
 }
 
-#status{
-    font-weight: bold;
-    background: rgba(51, 255, 0, .3);
-    padding: 15px;
-    border-radius: 6px;
-    color: rgba(0,0,0,.4);
+#container {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: var(--container-bg);
+  padding: 10px;
+  padding-top: 5px;
+  padding-bottomn: 5px;
+  border--radius: 6px;
+  box-shadow: 0px 0px 3px 0px rgba(0, 0, 0, .1);
+  max-width: 1200px;
+  min-width: 500px;
 }
 
-#content{
-    background: #F1F1F1;
-    padding: 15px;
-    border-radius: 6px;
+#status {
+  font-weight: bold;
+  background: rgba(51, 255, 0, .3);
+  padding: 10px;
+  border-radius: 6px;
+  color: rgba(0, 0, 0, .4);
 }
 
-input[type=text], input[type=number] {
-    padding: 10px;
-    display: inline-block;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    box-sizing: border-box;
+#content {
+  background: var(--content-bg);
+  padding: 15px;
+  border-radius: 6px;
+  max-height: 650px;
+  overflow: auto;
 }
 
-input[type=text]:focus, input[type=number]:focus {
-    border-color: rgba(229, 103, 23, 0.7);
-    box-shadow: 0 1px 1px rgba(229, 103, 23, 0.075) inset, 0 0 4px rgba(229, 103, 23, 0.6);
-    outline: 0 none;
+input[type=text],
+input[type=number] {
+  padding: 10px;
+  display: inline-block;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+input[type=text]:focus,
+input[type=number]:focus {
+  border-color: rgba(229, 103, 23, 0.7);
+  box-shadow: 0 1px 1px rgba(229, 103, 23, 0.075) inset, 0 0 4px rgba(229, 103, 23, 0.6);
+  outline: 0 none;
 }
 
 button {
-    background-color: rgba(0,0,0,.5);
-    color: white;
-    padding: 10px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    box-shadow: 0 0 2px 1px rgba(0,0,0,.1) inset;
+  background-color: rgba(0, 0, 0, .5);
+  font-weight: bold;
+  color: white;
+  padding: 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 0 2px 1px rgba(0, 0, 0, .1) inset;
 }
 
 button:hover {
-    background-color: #4CAF50;
-    color: white;
-    padding: 10px;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 0 2px 1px rgba(0,0,0,.1) inset;
+  background-color: #4caf50;
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 2px 1px rgba(0, 0, 0, .1) inset;
 }
 
 button:active {
-    background-color: #FF3D00;
-    color: white;
-    padding: 10px;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 0 2px 1px rgba(0,0,0,.2) inset;
+  background-color: var(--dark-orange);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 2px 1px rgba(0, 0, 0, .2) inset;
 }
 
-.line_status_green{
-    font-weight: bold;
-    display: inline-block;
-    background: rgba(51, 255, 0, .5);
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid rgba(0,0,0,.1);
-    color: rgba(0,0,0,.4);
+.line_status_green {
+  font-weight: bold;
+  display: inline-block;
+  background: rgba(51, 255, 0, .5);
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, .1);
+  color: rgba(0, 0, 0, .4);
 }
 
-.line_status_yellow{
-    font-weight: bold;
-    display: inline-block;
-    background: rgba(255, 236, 102, 1);
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid rgba(0,0,0,.1);
-    color: rgba(0,0,0,.4);
+.line_status_yellow {
+  font-weight: bold;
+  display: inline-block;
+  background: rgba(255, 236, 102, 1);
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, .1);
+  color: rgba(0, 0, 0, .4);
 }
 
-.line_status_orange{
-    font-weight: bold;
-    display: inline-block;
-    background: rgba(255, 61, 0, .7);
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid rgba(0,0,0,.1);
-    color: rgba(0,0,0,.4);
+.line_status_orange {
+  font-weight: bold;
+  display: inline-block;
+  background: rgba(255, 61, 0, .7);
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, .1);
+  color: rgba(0, 0, 0, .4);
 }
 
-.line_status_gray{
-    font-weight: bold;
-    display: inline-block;
-    background: rgba(0, 0, 0, .3);
-    padding: 10px;
-    border-radius: 6px;
-    border: 1px solid rgba(0,0,0,.1);
-    color: rgba(0,0,0,.4);
+.line_status_gray {
+  font-weight: bold;
+  display: inline-block;
+  background: var(--gray-status-color);
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0, 0, 0, .1);
+  color: rgba(0, 0, 0, .4);
 }
 
-.clipboard{
-    margin: 2px;
-    opacity: 0.5;
+.clipboard {
+  margin: 2px;
+  opacity: 0.5;
+  filter: invert(50%);
 }
 
-.clipboard:hover{
-    opacity: 0.8;
-    cursor: pointer;
+.clipboard:hover {
+  opacity: 0.8;
+  cursor: pointer;
 }
 
-.id_cont{
-    display: inline;
-    padding: 8px;
-    border-radius: 6px;
-    background: rgba(0,0,0,.1);
+.id_cont {
+  display: inline;
+  padding: 8px;
+  border-radius: 6px;
+  background: var(--checkbox);
 }
 
-table{
-    border-collapse: collapse;
+table {
+  border-collapse: collapse;
 }
 
-#job_info td{
-    padding: 15px;
-    border-bottom: 1px solid rgba(0,0,0,.05)
+#job_info td {
+  padding: 15px;
+  border-bottom: 1px solid rgba(0, 0, 0, .05);
 }
 
-#job_info th, #job_info td:nth-child(1){
-    font-weight: bold;
-    font-size: 16pt;
-    border-right: 1px solid rgba(0,0,0,.05)
+#job_info th,
+#job_info td:nth-child(1) {
+  font-weight: bold;
+  font-size: 16pt;
+  border-right: 1px solid rgba(0, 0, 0, .05);
 }
 
-#job_info th{
-    text-align: left;
-    font-size: 20pt;
-    padding: 15px;
-    border: 0;
+#job_info th {
+  text-align: left;
+  font-size: 20pt;
+  padding: 15px;
+  border: 0;
 }
 
-#job_info tr:last-child td{
-    border: 0px;
-    border-right: 1px solid rgba(0,0,0,.05)
+#job_info tr:last-child td {
+  border: 0px;
+  border-right: 1px solid rgba(0, 0, 0, .05);
 }
 
-#job_info tr:last-child td:last-child{
-    border: 0px;
+#job_info tr:last-child td:last-child {
+  border: 0px;
 }
 
-#job_list td{
-    padding: 15px;
-    border-bottom: 1px solid rgba(0,0,0,.05)
+#job_list td {
+  padding: 15px;
+  border-bottom: 1px solid rgba(0, 0, 0, .05);
 }
 
-#job_list th, #job_list td:nth-child(1){
-    font-weight: bold;
+#job_list th,
+#job_list td:nth-child(1) {
+  font-weight: bold;
 }
 
-#job_list th{
-    text-align: left;
-    font-size: 20pt;
-    padding: 15px;
-    border: 0;
+#job_list th {
+  text-align: left;
+  font-size: 20pt;
+  padding: 15px;
+  border: 0;
 }
 
-#job_list tr:last-child td{
-    border: 0px;
+#job_list tr:last-child td {
+  border: 0px;
 }
 
-#job_list tr:last-child td:last-child{
-    border: 0px;
+#job_list tr:last-child td:last-child {
+  border: 0px;
 }
 
-.clipboard_toast{
-    background: rgba(255, 61, 0, .8);
-    color: rgba(0,0,0,.4);
-    border-radius: 6px;
-    top:0;
-    right: 0;
-    margin-right: 15px;
-    margin-top: 15px;
-    position:fixed;
-    display:flex;
-    flex-direction:row;
-    align-items: center;
-    padding: 15px;
-    gap: 10px;
+.clipboard_toast {
+  background: rgba(255, 61, 0, .8);
+  color: rgba(0, 0, 0, .4);
+  border-radius: 6px;
+  top: 0;
+  right: 0;
+  margin-right: 15px;
+  margin-top: 15px;
+  position: fixed;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 15px;
+  gap: 10px;
 }
 
 .close_toast {
-    font-weight: bold;
-    cursor:pointer;
-    margin-top: -2px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: -2px;
 }
 
 .close_toast:hover {
-    color: white;
-}"#;
+  color: white;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 45px;
+  height: 22px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(237, 233, 157, .1);
+  border-radius: 6px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 22px;
+  width: 22px;
+  margin: auto 0;
+  background: silver;
+  box-shadow: 0 0 3px 2px rgba(0, 0, 0, .1) inset;
+  border-radius: 6px;
+}
+
+.switch input:checked + .slider {
+  background: rgba(0, 100, 150, .1);
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(24px);
+  background: var(--light-orange);
+  box-shadow: 0 0 3px 2px rgba(255, 0, 0, .1) inset;
+}
+
+#barContainer {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+#progressBar {
+  height: 5px;
+  background-color: #ddd;
+}
+
+#barStatus {
+  width: 0%;
+  height: 100%;
+  background-color: var(--dark-orange);
+}
+
+.reload {
+  position: relative;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+}
+
+.reload input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.check {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--checkbox);
+  border-radius: 4px;
+}
+
+.check:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  margin: auto 0;
+  border-radius: 2px;
+  top: 4px;
+  left: 4px;
+}
+
+.reload input:checked + .check:before {
+  background: var(--light-orange);
+  box-shadow: 0 0 3px 2px rgba(255, 0, 0, .1) inset;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 25px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 25px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}"#
+};
