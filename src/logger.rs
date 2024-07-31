@@ -63,8 +63,7 @@ pub fn appender_config(log_file: &str) -> log4rs::Config {
 /// this sets the logger from either the default configuration or from the toml file
 pub fn rolling_logger() -> log4rs::Handle {
     let mut window_size = 3;
-    // let mut size_limit = 1000 * 1024;
-    let mut size_limit = 5 * 1024;
+    let mut size_limit = 1000 * 1024;
     let mut log_dir = "log".to_string();
     let mut latest_file_name = "latest".to_string();
     let mut archive_file_name = "archive".to_string();
