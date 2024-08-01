@@ -41,12 +41,7 @@ fn hello_job(){
 
 fn main(){
     let cronframe = Cronframe::default();
-    cronframe.scheduler();
-
-    // do other stuff or loop to keep it alive...
-    loop {
-        // sleep here would be nice
-    }
+    cronframe.run();
 }
 ```
 
@@ -68,14 +63,11 @@ impl User {
 
 fn main(){
     let cronframe = Cronframe::default();
-    cronframe.scheduler();
+
     // this function collects all functions jobs defined on a cron object
     User::cf_gather_fn(cronframe.clone());
 
-    // do other stuff or loop to keep it alive...
-    loop {
-        // sleep here would be nice
-    }
+    cronframe.run();
 }
 ```
 
@@ -116,19 +108,14 @@ fn main(){
     // in alternative if we only wanted to collect method jobs
     // user1.cf_gather_mt(cronframe.clone());
 
-    cronframe.scheduler();
-
-    // do other stuff or loop to keep it alive...
-    loop {
-        // sleep here would be nice
-    }
+    cronframe.run();
 }
 ```
 
 # Running Examples
-If the example is in a single file like `first.rs` use the following command:
+If the example is in a single file like `base_example.rs` use the following command:
 ```bash
-cargo run --example first
+cargo run --example base_example
 ```
 
 If the example is in its own crate like `weather_alert` do the following:
