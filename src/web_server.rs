@@ -1,4 +1,4 @@
-//! Custom setup of rocket.rs for the cronframe web server
+//! Custom setup of rocket.rs for the Cronframe web server
 
 use crate::{
     config::read_config,
@@ -14,7 +14,7 @@ use std::{fs, sync::Arc, time::Duration};
 
 /// Called by the init funciton of the Cronframe type for setting up the web server
 ///
-/// It provides 4 routes, two of which are API only.
+/// It provides 5 routes, three of which are API only.
 ///
 /// Upon first start of the library it will generate a templates folder inside the current director with the following files:
 /// - base.html.tera
@@ -124,6 +124,7 @@ pub fn web_server(frame: Arc<CronFrame>) {
     });
 }
 
+// necessary to have somewhat decent-looking pages
 #[get("/styles")]
 async fn styles() -> Result<rocket::fs::NamedFile, std::io::Error> {
     rocket::fs::NamedFile::open("templates/styles.css").await
@@ -136,6 +137,7 @@ struct JobList {
     id: String,
 }
 
+// homepage returning a list of al jobs in the following categories: active, timed-out, suspended
 #[get("/")]
 fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     let mut active_jobs = vec![];
@@ -192,6 +194,7 @@ struct JobInfo {
     fail: bool,
 }
 
+// job page information where it is possilbe to change, schedule, timeout and toggle scheduling suspension
 #[get("/job/<name>/<id>")]
 fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     let mut job_info = JobInfo::default();
@@ -217,6 +220,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
     Template::render("job", context! {job_info})
 }
 
+// API route to change the value of the timeout
 #[get("/job/<name>/<id>/toutset/<value>")]
 fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Arc<CronFrame>>) {
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
@@ -229,6 +233,7 @@ fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Ar
     }
 }
 
+// API route to change the value of the cron expression and therefore the schedule
 #[get("/job/<name>/<id>/schedset/<expression>")]
 fn update_schedule(
     name: &str,
@@ -248,6 +253,7 @@ fn update_schedule(
     }
 }
 
+// API route to toggle the scheduling suspension for a job
 #[get("/job/<name>/<id>/suspension_toggle")]
 fn suspension_handle(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
     for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
@@ -264,6 +270,7 @@ fn suspension_handle(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFra
     }
 }
 
+// templates folder data: tempaltes/base.tera.html
 const BASE_TEMPLATE: &str = {
     r#"<!DOCTYPE html>
 <html class="light-mode">
@@ -383,7 +390,7 @@ const BASE_TEMPLATE: &str = {
 
 </html>"#
 };
-
+// templates folder data: tempaltes/index.tera.html
 const INDEX_TEMPLATE: &str = {
     r#"{% extends "base" %}
 
@@ -483,7 +490,7 @@ const INDEX_TEMPLATE: &str = {
 </table>
 {% endblock content %}"#
 };
-
+// templates folder data: tempaltes/job.tera.html
 const JOB_TEMPLATE: &str = {
     r#"{% extends "base" %}
 
@@ -721,7 +728,7 @@ const JOB_TEMPLATE: &str = {
 {% endif %}
 {% endblock content %}"#
 };
-
+// templates folder data: tempaltes/styles.css
 const STYLES: &str = {
     r#":root {
   --dark-orange: #ff3d00;

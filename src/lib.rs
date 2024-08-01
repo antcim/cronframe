@@ -17,7 +17,7 @@
 //! The library supports a daily timeout in ms which is decativated if the value is 0.
 //! 
 //! # Defining A Global Job
-//! ```
+//! ```ignore
 //! #[cron(expr="* * * * * * *", timeout="0")]    
 //! fn hello_job(){
 //!     println!("hello world!");
@@ -25,12 +25,12 @@
 //! 
 //! fn main(){
 //!     let cronframe = Cronframe::default();
-//!     cronframe.scheduler();
+//!     cronframe.run();
 //! }
 //! ```
 //! 
 //! # Defining A Function Job
-//! ```
+//! ```ignore
 //! #[cron_obj]
 //! #[derive(Clone)] // this trait is required
 //! struct User {
@@ -47,14 +47,17 @@
 //! 
 //! fn main(){
 //!     let cronframe = Cronframe::default();
-//!     cronframe.scheduler();
-//!     // this function collects all functions jobs defined on a cron object
+//!     
+//!     // this function collects all function jobs defined on a cron object
 //!     User::cf_gather_fn(cronframe.clone());
+//! 
+//!     // start the scheduler and keep main alive
+//!     cronframe.run();
 //! }
 //! ```
 //! 
 //! # Defining A Method Job
-//! ```
+//! ```ignore
 //! #[cron_obj]
 //! #[derive(Clone)] // this trait is required
 //! struct User {
@@ -89,7 +92,7 @@
 //!     // in alternative if we only wanted to collect method jobs
 //!     // user1.cf_gather_mt(cronframe.clone());
 //! 
-//!     cronframe.scheduler();
+//!     cronframe.run();
 //! }
 //! ```
 
@@ -166,14 +169,14 @@ pub struct CronFrameExpr {
 
 impl CronFrameExpr {
     /// Creates a new CronFrameExpr instance where:
-    /// - s is seconds
-    /// - m is minutes
-    /// - h is hour
-    /// - dm is day_month
+    /// - s   is seconds
+    /// - m   is minutes
+    /// - h   is hour
+    /// - dm  is day_month
     /// - mth is month
-    /// - dw is day_week
-    /// - y is year
-    /// - t is timeout
+    /// - dw  is day_week
+    /// - y   is year
+    /// - t   is timeout
     pub fn new(s: &str, m: &str, h: &str, dm: &str, mth: &str, dw: &str, y: &str, t: u64) -> Self {
         CronFrameExpr {
             seconds: s.to_string(),
@@ -187,7 +190,6 @@ impl CronFrameExpr {
         }
     }
 
-    /// Returns the cron expression as a String.
     pub fn expr(&self) -> String {
         format!(
             "{} {} {} {} {} {} {}",

@@ -1,3 +1,5 @@
+//! The Core Type of the Library
+
 use std::{
     alloc::GlobalAlloc,
     collections::HashMap,
@@ -17,19 +19,19 @@ use crate::{
     logger, web_server, CronFilter, CronJobType,
 };
 
-/// This is the type that provides the scheduling a management of jobs.
+const GRACE_DEFAULT: u32 = 250;
+
+/// This is the type that provides the scheduling and management of jobs.
 ///
 /// It needs to be initialised once to setup the web server and gather global jobs.
 ///
-/// The scheduler method must be invoked for it to actually start.
-/// ```rust
+/// Either one of the `scheduler` or `run` method must be invoked for it to actually start.
+/// ```ignore
 /// fn main(){
 ///     let cronframe = Cronframe::default(); // this a shorthand for Cronframe::init(None, true);
-///     cronframe.scheduler();
+///     cronframe.scheduler(); //starts the scheduler, does not keep main alive
+///     cronframe.run(); //starts the scheduler, keeps main alive
 /// }
-
-const GRACE_DEFAULT: u32 = 250;
-
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
     job_handles: Mutex<HashMap<String, JoinHandle<()>>>,
@@ -38,12 +40,12 @@ pub struct CronFrame {
     pub filter: Option<CronFilter>,
     server_handle: Mutex<Option<Shutdown>>,
     pub quit: Mutex<bool>,
-    grace: u32,
+    pub grace: u32,
 }
 
 impl CronFrame {
     /// Default init function for Cronframe, shorthand for
-    /// ```rust
+    /// ```ignore
     /// CronFrame::init(None, true)
     /// ```
     /// It returns an `Arc<CronFrame>` which is used in the webserver and can be used to start the scheduler.
@@ -52,13 +54,13 @@ impl CronFrame {
     }
 
     /// Init function of the library, it takes two agruments:
-    /// ```
+    /// ```ignore
     /// filter: Option<CronFilter>
     /// use_logger: bool
     /// ```
     ///
     /// It manages:
-    /// - the logger setup if use_logger == true
+    /// - the logger setup if use_logger is true
     /// - the creation of the CronFrame Instance
     /// - the collection of global jobs
     /// - the setup of the web server
@@ -130,7 +132,7 @@ impl CronFrame {
         frame
     }
 
-    // used to add function jobs and method jobs to the cronframe instance
+    /// Used to add function jobs and method jobs to the cronframe instance
     pub fn add_job(&mut self, job: CronJob) {
         self.cron_jobs
             .lock()
@@ -138,8 +140,14 @@ impl CronFrame {
             .push(job)
     }
 
-    ///  It spawns a thread which manages the scheduling of the jobs, monitors jobs status.
-    /// ```
+    /// It spawns a thread which manages the scheduling of the jobs and termination of jobs.
+    /// 
+    /// This method returns after spawning the scheduler.
+    /// 
+    /// Keeping the main thread alive is left to the user.
+    /// 
+    /// Use the `run` method to spawn the scheduler and keep main thread alive.
+    /// ```ignore
     /// fn main(){
     ///     CronFrame::default().scheduler();
     /// }
@@ -286,6 +294,8 @@ impl CronFrame {
         ret
     }
 
+    /// Blocking method that starts the scheduler and keeps the main thread alive
+    /// Use the `scheduler` method if you only need to start the scheduler.
     pub fn run(self: &Arc<Self>) {
         let _cronframe = self.scheduler();
         loop {
@@ -294,11 +304,11 @@ impl CronFrame {
     }
 
     /// Function to call for a graceful shutdown of the library
-    /// ```
+    /// ```ignore
     /// fn main(){
     ///     let cronframe = CronFrame::default()
     ///     // do somthing...
-    ///     cronframe.scheduler();
+    ///     cronframe.run();
     ///     // do other things...
     ///     cronframe.quit();
     /// }

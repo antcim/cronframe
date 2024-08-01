@@ -1,3 +1,5 @@
+//! Builder Type for CronJob
+
 use std::any::Any;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -80,6 +82,7 @@ impl<'a> JobBuilder<'a> {
         }
     }
 
+    // it matches on the job variant to build and builds it
     pub fn build(self) -> CronJob {
         match self {
             Self::Global {

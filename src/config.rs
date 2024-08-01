@@ -1,3 +1,5 @@
+//! Configuration avaliable in `cronframe.toml``
+
 use rocket::serde::Deserialize;
 use std::fs;
 use toml;
@@ -37,9 +39,10 @@ pub struct SchedulerConfig {
 
 /// This function reads cronframe configuration data from the `cronframe.toml` file.
 /// 
-/// There are two sections to the configuraiton:
+/// There are three sections to the configuration:
 /// - webserver
 /// - logger
+/// - scheduler
 /// 
 /// ```toml
 /// [webserver]
@@ -53,6 +56,9 @@ pub struct SchedulerConfig {
 /// archive_file_name = "archive"
 /// msg_pattern = "{l} {t} - {m}{n}"
 /// level_filter = "info"
+/// 
+/// [scheduler]
+/// grace = 250 # this is in ms
 /// ```
 ///
 pub fn read_config() -> Option<ConfigData>{

@@ -1,3 +1,5 @@
+//! CronJob type, built by JobBuilder
+
 use std::{
     any::Any,
     borrow::Borrow,
@@ -14,7 +16,7 @@ use uuid::Uuid;
 
 use crate::{utils, CronJobType};
 
-/// This type collects all necessary data for a cron job to be run be the scheduler.
+/// This type collects all necessary data for a cron job to be used in the scheduler.
 ///
 /// While it could be used directly there are macros that build jobs for you.
 #[derive(Debug, Clone)]
@@ -90,6 +92,7 @@ impl CronJob {
         false
     }
 
+    // the expected value is in milliseconds
     pub fn set_timeout(&mut self, value: i64) {
         self.timeout = if value > 0 {
             Some(Duration::milliseconds(value))
@@ -111,6 +114,7 @@ impl CronJob {
         }
     }
 
+    // method used by the server the change the cron expression of job
     pub fn set_schedule(&mut self, expression: &str) -> bool {
         let expr = expression.replace("slh", "/").replace("%20", " ");
         if let Ok(schedule) = Schedule::from_str(expr.as_str()) {
@@ -120,7 +124,7 @@ impl CronJob {
         false
     }
 
-    // whether timeout expired or not
+    // returns true if timeout expired
     pub fn check_timeout(&self) -> bool {
         if let Some(timeout) = self.timeout {
             if self.start_time.is_some() {
@@ -137,6 +141,7 @@ impl CronJob {
         false
     }
 
+    // it resets the timeout if 24h have passed
     pub fn timeout_reset(&mut self) {
         if let Some(timeout) = self.timeout {
             if self.start_time.is_some() {
@@ -152,10 +157,12 @@ impl CronJob {
         }
     }
 
+    // get the schedule constructed from the cron expression
     pub fn schedule(&self) -> String {
         self.schedule.to_string()
     }
 
+    // it returns the timeout or "None" if a timeout is not set
     pub fn timeout_to_string(&self) -> String {
         if self.timeout.is_some() {
             let timeout = self
@@ -171,6 +178,7 @@ impl CronJob {
         }
     }
 
+    // spells out the type of the job
     pub fn type_to_string(&self) -> String {
         match self.job {
             CronJobType::Global(_) => "Global".to_string(),
@@ -179,6 +187,7 @@ impl CronJob {
         }
     }
 
+    // if the job is active it returns the schedule otherwise a message telling why there is no next schedule
     pub fn upcoming_utc(&self) -> String {
         if self.suspended{
             return "None due to scheduling suspension.".to_string();
@@ -193,6 +202,7 @@ impl CronJob {
             .to_string()
     }
 
+    // if the job is active it returns the schedule otherwise a message telling why there is no next schedule
     pub fn upcoming_local(&self) -> String {
         if self.suspended{
             return "None due to scheduling suspension.".to_string();
@@ -209,6 +219,7 @@ impl CronJob {
         .to_string()
     }
 
+    // it returns the id of the current execution of the job, or "None" if it is not running
     pub fn get_run_id(&self) -> String {
         match &self.run_id {
             Some(uuid) => uuid.to_string(),
@@ -216,8 +227,7 @@ impl CronJob {
         }
     }
 
-    // this spawns a control thread for the job which spawns itself
-    // a thread with the actual job
+    // this spawns a control thread for the job which spawns a thread with the actual job
     pub fn run(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
         let tx = self
@@ -280,7 +290,7 @@ impl CronJob {
         std::thread::Builder::spawn(std::thread::Builder::new(), control_thread)
     }
 
-    // same as run but it accounts for a graceful period
+    // same as run but it accounts for graceful period
     pub fn run_graceful(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
         let tx = self

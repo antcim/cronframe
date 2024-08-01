@@ -7,7 +7,7 @@
 /examples/*/log
 /examples/*/templates
 /examples/*/Cargo.lock
-
+/tests/results
 TODO.md
 test_output.txt
 Cargo.lock

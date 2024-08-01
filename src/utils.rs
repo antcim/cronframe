@@ -1,3 +1,5 @@
+//! Utilities
+
 use chrono::{DateTime, Local, Utc};
 
 /// Convertion from UTC time to local time

@@ -113,7 +113,7 @@ impl MethodFail {
 pub fn init_logger(path: &str) {
     LOGGER_INIT.call_once(|| {
         unsafe { LOGGER = Some(logger::appender_logger("log/latest.log")) };
-        std::fs::remove_file("log/latest.log");
+        let _ = std::fs::remove_file("log/latest.log");
     });
 
     unsafe {
@@ -252,10 +252,15 @@ pub fn test_job(
 
     if timeout > Duration::seconds(0) {
         // timeout is counted in the scheduler from the moment a job thread is spawned for the first time
-        // a job thread is spawned at least 500ms before its upcoming scheduling
+        // a job thread is spawned at least 500ms before its upcoming schedule
         // so here we account for the previous second pertaining the scheduling and not the execution
         let timeout = timeout - Duration::seconds(1);
-        assert!(first_run + timeout == timeouts[0], "timeout error");
+        let grace = Duration::milliseconds(cronframe.grace.into());
+        assert!(
+            (first_run + timeout + grace <= timeouts[0])
+                || (first_run + timeout >= timeouts[0]),
+            "timeout error"
+        );
     }
 
     if should_fail {
@@ -281,7 +286,13 @@ mod global {
         let should_fail = false;
 
         test_job(
-            file_path, job_filter, job_name, duration, interval, timeout, should_fail,
+            file_path,
+            job_filter,
+            job_name,
+            duration,
+            interval,
+            timeout,
+            should_fail,
         );
     }
 

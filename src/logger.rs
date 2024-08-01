@@ -15,7 +15,6 @@ use log4rs::{
     encode::pattern::PatternEncoder,
 };
 use rocket::futures::io::Window;
-
 use crate::config::read_config;
 
 /// this logger configuration is used for testing

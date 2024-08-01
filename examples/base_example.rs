@@ -44,7 +44,7 @@ fn failing_job() {
 }
 
 #[cron_obj]
-#[derive(Clone)] // these traits are required
+#[derive(Clone)] // this trait is required
 struct Users {
     name: String,
     expr: CronFrameExpr,
