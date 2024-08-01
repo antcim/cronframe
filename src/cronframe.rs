@@ -1,20 +1,18 @@
 //! The Core Type of the Library
 
 use std::{
-    alloc::GlobalAlloc,
     collections::HashMap,
     sync::{Arc, Mutex},
     thread::JoinHandle,
 };
 
-use chrono::{Duration, Utc};
+use chrono::Duration;
 use crossbeam_channel::{Receiver, Sender};
 use rocket::Shutdown;
 
 use crate::{
     config::read_config,
-    cronframe,
-    cronjob::{self, CronJob},
+    cronjob::CronJob,
     job_builder::JobBuilder,
     logger, web_server, CronFilter, CronJobType,
 };
@@ -35,7 +33,7 @@ const GRACE_DEFAULT: u32 = 250;
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
     job_handles: Mutex<HashMap<String, JoinHandle<()>>>,
-    logger: Option<log4rs::Handle>,
+    _logger: Option<log4rs::Handle>,
     pub web_server_channels: (Sender<Shutdown>, Receiver<Shutdown>),
     pub filter: Option<CronFilter>,
     server_handle: Mutex<Option<Shutdown>>,
@@ -73,10 +71,10 @@ impl CronFrame {
             None
         };
 
-        let mut frame = CronFrame {
+        let frame = CronFrame {
             cron_jobs: Mutex::new(vec![]),
             job_handles: Mutex::new(HashMap::new()),
-            logger,
+            _logger: logger,
             web_server_channels: crossbeam_channel::bounded(1),
             filter,
             server_handle: Mutex::new(None),
@@ -112,7 +110,7 @@ impl CronFrame {
         info!("CronFrame Init Complete");
 
         info!("CronFrame Server Init");
-        let mut frame = Arc::new(frame);
+        let frame = Arc::new(frame);
         let server_frame = frame.clone();
 
         std::thread::spawn(move || web_server::web_server(server_frame));

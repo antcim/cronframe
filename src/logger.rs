@@ -11,10 +11,9 @@ use log4rs::{
             RollingFileAppender,
         },
     },
-    config::{self, Appender, Config, Root},
+    config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
 };
-use rocket::futures::io::Window;
 use crate::config::read_config;
 
 /// this logger configuration is used for testing
@@ -105,19 +104,19 @@ pub fn rolling_logger() -> log4rs::Handle {
 
     // retain latest and archive logfiles at restart as per rolling policy
     if !std::path::Path::new(&format!("./{log_dir}/{latest_file_name}")).exists() {
-        std::fs::remove_file(format!(
+        let _ = std::fs::remove_file(format!(
             "./{log_dir}/{archive_file_name}_{}.log",
             window_size - 1
         ));
 
         for i in (1..=(window_size - 1)).rev(){
-            std::fs::rename(
+            let _ = std::fs::rename(
                 format!("./{log_dir}/{archive_file_name}_{}.log", i - 1),
                 format!("./{log_dir}/{archive_file_name}_{}.log", i),
             );
         }
 
-        std::fs::rename(
+        let _ = std::fs::rename(
             format!("./{log_dir}/{latest_file_name}.log"),
             format!("./{log_dir}/{archive_file_name}_0.log"),
         );

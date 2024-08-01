@@ -2,14 +2,14 @@
 
 use crate::{
     config::read_config,
-    cronframe::{self, CronFrame},
+    cronframe::CronFrame,
     CronFilter, CronJobType,
 };
 use log::info;
 use rocket::{
-    config::Shutdown, figment::value::magic::RelativePathBuf, futures::FutureExt, serde::Serialize,
+    config::Shutdown, serde::Serialize,
 };
-use rocket_dyn_templates::{context, Engines, Template};
+use rocket_dyn_templates::{context, Template};
 use std::{fs, sync::Arc, time::Duration};
 
 /// Called by the init funciton of the Cronframe type for setting up the web server
@@ -25,19 +25,19 @@ pub fn web_server(frame: Arc<CronFrame>) {
     if !std::path::Path::new("./templates").exists() {
         println!("Generating templates directory content...");
         fs::create_dir("templates").expect("could not create templates directory");
-        fs::write(
+        let _ = fs::write(
             std::path::Path::new("./templates/base.html.tera"),
             BASE_TEMPLATE,
         );
-        fs::write(
+        let _ = fs::write(
             std::path::Path::new("./templates/index.html.tera"),
             INDEX_TEMPLATE,
         );
-        fs::write(
+        let _ = fs::write(
             std::path::Path::new("./templates/job.html.tera"),
             JOB_TEMPLATE,
         );
-        fs::write(std::path::Path::new("./templates/styles.css"), STYLES);
+        let _ = fs::write(std::path::Path::new("./templates/styles.css"), STYLES);
         std::thread::sleep(Duration::from_secs(5));
     }
 
@@ -100,7 +100,7 @@ pub fn web_server(frame: Arc<CronFrame>) {
         .attach(Template::fairing())
         .manage(frame);
 
-    let (tx, rx) = cronframe.web_server_channels.clone();
+    let (tx, _) = cronframe.web_server_channels.clone();
 
     tokio_runtime.block_on(async move {
         let rocket = rocket.ignite().await;

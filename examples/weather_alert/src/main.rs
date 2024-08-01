@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate cronframe;
 
-use chrono::{Duration, Local};
-use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Lazy, Mutex, Once, Sender};
+use chrono::Local;
+use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Mutex};
 
 #[cron_obj]
 #[derive(Clone)]

@@ -2,16 +2,14 @@
 
 use std::{
     any::Any,
-    borrow::Borrow,
     str::FromStr,
-    sync::{Arc, Mutex},
+    sync::Arc,
     thread::JoinHandle,
 };
 
-use chrono::{DateTime, Datelike, Duration, Local, Utc};
+use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
-use log4rs::Handle;
 use uuid::Uuid;
 
 use crate::{utils, CronJobType};

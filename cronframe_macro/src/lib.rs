@@ -2,9 +2,7 @@
 
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};
-use syn::{
-    self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta,
-};
+use syn::{self, parse_macro_input, punctuated::Punctuated, ItemFn, ItemImpl, ItemStruct, Meta};
 
 /// Global Job definition Macro
 #[proc_macro_attribute]
@@ -59,10 +57,12 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_struct = syn::parse::<ItemStruct>(code.clone()).unwrap();
     let r#struct = item_struct.to_token_stream();
 
-    let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{}", item_struct.ident);
-    let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{}", item_struct.ident);
-    let cf_fn_jobs_flag = format_ident!("CF_FN_JOBS_FLAG_{}", item_struct.ident);
-    let cf_fn_jobs_channels = format_ident!("CF_FN_JOBS_CHANNELS_{}", item_struct.ident);
+    let ident_upper = format_ident!("{}", item_struct.ident.clone().to_string().to_uppercase());
+
+    let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{}", ident_upper);
+    let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{}", ident_upper);
+    let cf_fn_jobs_flag = format_ident!("CF_FN_JOBS_FLAG_{}", ident_upper);
+    let cf_fn_jobs_channels = format_ident!("CF_FN_JOBS_CHANNELS_{}", ident_upper);
 
     let mut tmp = r#struct.to_string();
 
@@ -103,7 +103,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     cron_obj_fn.push_str("{");
     cron_obj_fn.push_str(type_name.as_str());
     cron_obj_fn.push_str("{");
-    
+
     if !item_struct.fields.is_empty() {
         let mut tmp = item_struct.fields.iter().map(|x| {
             let field_name = x.ident.to_token_stream().to_string();
@@ -168,8 +168,17 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
     let impl_items = item_impl.items.clone();
     let impl_type = item_impl.self_ty.to_token_stream();
 
-    let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{impl_type}");
-    let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{impl_type}");
+    let impl_type_upper = format_ident!(
+        "{}",
+        item_impl
+            .self_ty
+            .to_token_stream()
+            .to_string()
+            .to_uppercase()
+    );
+
+    let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{impl_type_upper}");
+    let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{impl_type_upper}");
 
     let mut new_code = quote! {
         #r#impl
@@ -181,7 +190,14 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         let item_fn_parsed = syn::parse::<ItemFn>(item_token.into());
         let item_fn_id = item_fn_parsed.clone().unwrap().sig.ident;
         let helper = format_ident!("cron_helper_{}", item_fn_id);
-        let linkme_deserialize = format_ident!("LINKME_{}_{count}", item_fn_id);
+        let item_fn_id_upper = format_ident!(
+            "{}",
+            item_fn_id
+                .to_token_stream()
+                .to_string()
+                .to_uppercase()
+        );
+        let linkme_deserialize = format_ident!("LINKME_{}_{count}", item_fn_id_upper);
 
         let new_code_tmp = if check_self(&item_fn_parsed) {
             // method job
@@ -201,7 +217,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         count += 1;
     }
 
-    let type_name = impl_type.to_string();
+    let type_name = impl_type.to_string().to_uppercase();
 
     let cf_fn_jobs_flag = format_ident!("CF_FN_JOBS_FLAG_{}", type_name);
     let cf_fn_jobs_channels = format_ident!("CF_FN_JOBS_CHANNELS_{}", type_name);
@@ -226,7 +242,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                     info!("Not Method Jobs from {} has been found.", #type_name);
                 }
             }
-        
+
             pub fn cf_gather_fn(frame: Arc<CronFrame>){
                 info!("Collecting Function Jobs from {}", #type_name);
                 if !#function_jobs.is_empty(){

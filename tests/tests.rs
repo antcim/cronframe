@@ -1,4 +1,4 @@
-use std::{fs, sync::Once};
+use std::{fs, ptr::addr_of_mut, sync::Once};
 
 use chrono::{DateTime, Duration, Utc};
 use cronframe::{
@@ -117,7 +117,7 @@ pub fn init_logger(path: &str) {
     });
 
     unsafe {
-        if let Some(handle) = &LOGGER {
+        if let Some(handle) = addr_of_mut!(LOGGER).as_ref().unwrap() {
             handle.set_config(logger::appender_config(path))
         }
     }
@@ -136,10 +136,6 @@ pub fn test_job(
 
     let cronframe = CronFrame::init(Some(job_filter), false);
 
-    let mut fn_fail = FunctionFail::new_cron_obj();
-    let mut fn_timeout = FunctionTimeout::new_cron_obj();
-    let mut fn_std = FunctionStd::new_cron_obj();
-
     let expr_fail = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
     let expr_timeout = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
     let expr_std = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
@@ -151,11 +147,11 @@ pub fn test_job(
     match job_filter {
         CronFilter::Function => {
             if should_fail {
-                fn_fail.cf_gather(cronframe.clone());
+                FunctionFail::cf_gather_fn(cronframe.clone());
             } else if timeout > Duration::seconds(0) {
-                fn_timeout.cf_gather(cronframe.clone());
+                FunctionTimeout::cf_gather_fn(cronframe.clone());
             } else {
-                fn_std.cf_gather(cronframe.clone());
+                FunctionStd::cf_gather_fn(cronframe.clone());
             }
         }
         CronFilter::Method => {

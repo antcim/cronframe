@@ -96,8 +96,6 @@
 //! }
 //! ```
 
-#![allow(warnings)]
-
 #[doc(hidden)]
 #[macro_use]
 extern crate rocket;
