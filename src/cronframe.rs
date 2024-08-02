@@ -37,6 +37,7 @@ pub struct CronFrame {
     server_handle: Mutex<Option<Shutdown>>,
     pub quit: Mutex<bool>,
     pub grace: u32,
+    pub running: Mutex<bool>,
 }
 
 impl CronFrame {
@@ -63,6 +64,7 @@ impl CronFrame {
     ///
     /// It returns an `Arc<CronFrame>` which is used in the webserver and to start the scheduler.
     pub fn init(filter: Option<CronFilter>, use_logger: bool) -> Arc<CronFrame> {
+        println!("Starting Cronframe...");
         let logger = if use_logger {
             Some(logger::rolling_logger())
         } else {
@@ -88,6 +90,7 @@ impl CronFrame {
                     GRACE_DEFAULT
                 }
             },
+            running: Mutex::new(false),
         };
 
         info!("CronFrame Init Start");
@@ -124,7 +127,7 @@ impl CronFrame {
             }
         };
 
-        info!("CronFrame Server Running");
+        info!("CronFrame Web Server Running");
         frame
     }
 
@@ -161,9 +164,23 @@ impl CronFrame {
     ///     CronFrame::default().scheduler();
     /// }
     /// ```
-    pub fn scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
+    pub fn start_scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
         let cronframe = self.clone();
         let ret = cronframe.clone();
+
+        // if already running, return
+        if *self.running.lock().unwrap(){
+            return ret;
+        }
+
+        *cronframe
+            .running
+            .lock()
+            .expect("running unwrap error in quit start_scheduler method") = true;
+        *cronframe
+            .quit
+            .lock()
+            .expect("quit unwrap error in start_scheduler method") = false;
 
         let scheduler = move || loop {
             // sleep some otherwise the cpu consumption goes to the moon
@@ -302,12 +319,42 @@ impl CronFrame {
         ret
     }
 
+    /// This function can be used to keep the main thread alive after the scheduler has been started
+    pub fn keep_alive(self: &Arc<Self>) {
+        loop {
+            std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
+        }
+    }
+
     /// Blocking method that starts the scheduler and keeps the main thread alive
     /// Use the `scheduler` method if you only need to start the scheduler.
     pub fn run(self: &Arc<Self>) {
-        let _cronframe = self.scheduler();
-        loop {
-            std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
+        self.start_scheduler().keep_alive();
+    }
+
+    /// Stop the scheduler and wait for the jobs to finish
+    pub fn stop_scheduler(self: &Arc<Self>) {
+        if *self.running.lock().unwrap() {
+            info!("CronFrame Scheduler Shutdown");
+            *self.running.lock().unwrap() = false;
+
+            let cronframe = self.clone();
+
+            *cronframe
+                .quit
+                .lock()
+                .expect("quit unwrap error in quit method") = true;
+
+            let handles = cronframe
+                .job_handles
+                .lock()
+                .expect("job handles unwrap error in quit method");
+
+            for handle in handles.iter() {
+                while !handle.1.is_finished() {
+                    // do some waiting until all job threads have terminated.
+                }
+            }
         }
     }
 
@@ -316,35 +363,17 @@ impl CronFrame {
     /// fn main(){
     ///     let cronframe = CronFrame::default()
     ///     // do somthing...
-    ///     cronframe.run();
+    ///     cronframe.start_scheduler();
     ///     // do other things...
     ///     cronframe.quit();
     /// }
     /// ```
     pub fn quit(self: &Arc<Self>) {
-        info!("CronFrame Scheduler Shutdown");
-
-        let cronframe = self.clone();
-
-        *cronframe
-            .quit
-            .lock()
-            .expect("quit unwrap error in quit method") = true;
-
-        let handles = cronframe
-            .job_handles
-            .lock()
-            .expect("job handles unwrap error in quit method");
-
-        for handle in handles.iter() {
-            while !handle.1.is_finished() {
-                // do some waiting until all job threads have terminated.
-            }
-        }
+        self.stop_scheduler();
+        info!("CronFrame Shutdown");
 
         // quit the web server
-        cronframe
-            .server_handle
+        self.server_handle
             .lock()
             .expect("web server unwrap error in quit method")
             .clone()

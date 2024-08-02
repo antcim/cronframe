@@ -42,7 +42,7 @@ impl JobContainer {
 }
 
 fn main() {
-    let cronframe = CronFrame::default().scheduler();
+    let cronframe = CronFrame::default().start_scheduler();
 
     JobContainer::cf_gather_fn(cronframe.clone());
 

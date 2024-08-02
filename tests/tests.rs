@@ -178,7 +178,7 @@ pub fn test_job(
         .parse()
         .unwrap();
 
-    cronframe.scheduler();
+    cronframe.start_scheduler();
 
     println!("First Run = {first_run}");
 
