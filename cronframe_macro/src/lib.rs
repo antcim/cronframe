@@ -235,7 +235,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                         let mut cron_job = job_builder.build();
                         cron_job.life_channels = Some(life_channels.clone());
                         info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
-                        frame.cron_jobs.lock().unwrap().push(cron_job);
+                        frame.clone().add_job(cron_job);
                     }
                     info!("Method Jobs from {} Collected.", #type_name);
                 } else {
@@ -256,7 +256,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                             let mut cron_job = job_builder.build();
                             cron_job.life_channels = Some(#cf_fn_jobs_channels.clone());
                             info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
-                            frame.cron_jobs.lock().unwrap().push(cron_job);
+                            frame.clone().add_job(cron_job);
                         }
                         info!("Function Jobs from {} Collected.", #type_name);
                         *#cf_fn_jobs_flag.lock().unwrap() = true;

@@ -11,10 +11,8 @@ use crossbeam_channel::{Receiver, Sender};
 use rocket::Shutdown;
 
 use crate::{
-    config::read_config,
-    cronjob::CronJob,
-    job_builder::JobBuilder,
-    logger, web_server, CronFilter, CronJobType,
+    config::read_config, cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronFilter,
+    CronJobType,
 };
 
 const GRACE_DEFAULT: u32 = 250;
@@ -130,20 +128,33 @@ impl CronFrame {
         frame
     }
 
-    /// Used to add function jobs and method jobs to the cronframe instance
-    pub fn add_job(&mut self, job: CronJob) {
+    /// It adds and existing job to the cronframe instance to the job pool
+    /// Used in the cf_gather_mt and cf_gather_fn
+    pub fn add_job(self: Arc<CronFrame>, job: CronJob) -> Arc<CronFrame> {
         self.cron_jobs
             .lock()
-            .expect("add jobs unwrap error")
-            .push(job)
+            .expect("add_job unwrap error on lock")
+            .push(job);
+        self
+    }
+
+    // It crates a new job which will be classified as a global job and adds to the job pool
+    pub fn new_job(
+        self: Arc<CronFrame>,
+        name: &str,
+        job: fn(),
+        cron_expr: &str,
+        timeout: &str,
+    ) -> Arc<CronFrame> {
+        self.add_job(JobBuilder::global_job(name, job, cron_expr, timeout).build())
     }
 
     /// It spawns a thread which manages the scheduling of the jobs and termination of jobs.
-    /// 
+    ///
     /// This method returns after spawning the scheduler.
-    /// 
+    ///
     /// Keeping the main thread alive is left to the user.
-    /// 
+    ///
     /// Use the `run` method to spawn the scheduler and keep main thread alive.
     /// ```ignore
     /// fn main(){
@@ -218,7 +229,6 @@ impl CronFrame {
 
                 // if there is no handle for the job see if it need to be scheduled
                 if !job_handlers.contains_key(&job_id) && !to_be_deleted {
-                    
                     if cron_job.suspended {
                         continue;
                     }

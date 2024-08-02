@@ -1,4 +1,4 @@
-//! Configuration avaliable in `cronframe.toml``
+//! Configuration avaliable in `cronframe.toml`
 
 use rocket::serde::Deserialize;
 use std::fs;

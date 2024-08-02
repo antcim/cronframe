@@ -1,11 +1,6 @@
 //! CronJob type, built by JobBuilder
 
-use std::{
-    any::Any,
-    str::FromStr,
-    sync::Arc,
-    thread::JoinHandle,
-};
+use std::{any::Any, str::FromStr, sync::Arc, thread::JoinHandle};
 
 use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
@@ -187,9 +182,9 @@ impl CronJob {
 
     // if the job is active it returns the schedule otherwise a message telling why there is no next schedule
     pub fn upcoming_utc(&self) -> String {
-        if self.suspended{
+        if self.suspended {
             return "None due to scheduling suspension.".to_string();
-        }else if self.check_timeout() {
+        } else if self.check_timeout() {
             return "None due to timeout.".to_string();
         }
         self.schedule
@@ -202,9 +197,9 @@ impl CronJob {
 
     // if the job is active it returns the schedule otherwise a message telling why there is no next schedule
     pub fn upcoming_local(&self) -> String {
-        if self.suspended{
+        if self.suspended {
             return "None due to scheduling suspension.".to_string();
-        }else if self.check_timeout() {
+        } else if self.check_timeout() {
             return "None due to timeout.".to_string();
         }
         utils::local_time(
