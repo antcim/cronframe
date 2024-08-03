@@ -317,6 +317,7 @@ pub fn fn_job(att: TokenStream, code: TokenStream) -> TokenStream {
 
     let new_code = quote! {
         // original function
+        #[allow(dead_code)]
         #origin_function
 
         fn #helper() -> JobBuilder<'static> {
@@ -382,6 +383,7 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
 
     let mut new_code = quote! {
         // original method at the user's disposal
+        #[allow(dead_code)]
         #origin_method
 
         // cronjob method at cronframe's disposal
