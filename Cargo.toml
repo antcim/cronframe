@@ -1,6 +1,6 @@
 [package]
 name = "cronframe"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Antonio Cimino"]
 edition = "2021"
 description = "A library for creating cron jobs with macros from functions and struct types, with status web server."
@@ -18,7 +18,7 @@ syn = {version = "2.0.53", features = ["full"]}
 quote = "1.0.35"
 cron = "0.12.1"
 chrono = "0.4.38"
-cronframe_macro = { path = "./cronframe_macro", version = "0.1.1"}
+cronframe_macro = { path = "./cronframe_macro", version = "0.1.2"}
 inventory = "0.3.15"
 crossbeam-channel = "0.5.12"
 rand = "0.8.5"

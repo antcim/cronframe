@@ -1,10 +1,7 @@
-#![allow(warnings)]
+#[macro_use] extern crate cronframe;
 
-#[macro_use]
-extern crate cronframe;
 use std::time::Duration;
-
-use cronframe::{Any, Arc, CronFrame, CronFrameExpr, CronJob, JobBuilder, Mutex, Once, Sender};
+use cronframe::{JobBuilder, CronFrame};
 
 //  Cron Expression
 //  * * * * * * *
@@ -17,6 +14,11 @@ use cronframe::{Any, Arc, CronFrame, CronFrameExpr, CronJob, JobBuilder, Mutex, 
 //  | └─────────── minutes (0 to 59)
 //  └───────────── seconds (0 to 59)
 // "*" works as a jolly for any value will do
+
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
+fn not_doing_much() {
+    println!("not_doing_much");
+}
 
 fn useless_job() {
     println!("not doing much...");

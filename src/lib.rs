@@ -1,6 +1,10 @@
+//! # CronFrame 0.1.2
+//! 
 //! This library allows for the definition of cronjobs with macros both on functions in the "global scope" and inside struct types.
 //! 
 //! # General Information
+//! Scheduling time is in UTC.
+//! 
 //! There are three types of jobs that can be defined:
 //! - global jobs
 //! - functions jobs
@@ -8,29 +12,59 @@
 //! 
 //! Each of these is defined with a macro, a standalone macro for global jobs while function a method jobs require a little bit of setup.
 //! 
-//! As struct that can host jobs is known as a cron object in the context of cronframe and is defined with the cron_obj macro.
+//! A struct that can host jobs is known as a `cron object` in the context of cronframe and is defined with the `cron_obj` macro.
 //! 
-//! Jobs of a cron object must be defined inside a standalone implementation block annotated with the macro cron_impl.
+//! Jobs of a cron object must be defined inside a standalone implementation block annotated with the macro `cron_impl`.
 //! 
 //! **IMPORTANT:** a cron object must derive the Clone trait
 //! 
-//! The library supports a daily timeout in ms which is decativated if the value is 0.
+//! The library supports a daily timeout (timed-out state resets every 24hrs) in ms which is decativated if the value is 0.
+//! 
+//! During the first run of the library a templates folder will be created in the current directory with 7 files inside it:
+//! - base.html.tera
+//! - index.htm.tera
+//! - job.html.tera
+//! - tingle.js
+//! - cronframe.js
+//! - styles.css
+//! - tingle.css
+//! 
+//! By default the server runs on localhost:8098, the port can be changed in the `cronframe.toml` file.
+//! 
+//! A rolling logger also configurable via `cronframe.toml` provides an archive of 3 files in addition to the latest log.
+//! 
+//! The default size of a log file is 1MB.
 //! 
 //! # Defining A Global Job
-//! ```ignore
+//! ```
+//! #[macro_use] extern crate cronframe_macro;
+//! use cronframe::{CronFrame, JobBuilder};
+//! 
 //! #[cron(expr="* * * * * * *", timeout="0")]    
 //! fn hello_job(){
 //!     println!("hello world!");
 //! }
 //! 
 //! fn main(){
-//!     let cronframe = Cronframe::default();
-//!     cronframe.run();
+//!     // init and gather global cron jobs
+//!     let cronframe = CronFrame::default();
+//!     
+//!     // start the scheduler
+//!     cronframe.start_scheduler();
+//! 
+//!     // to keep the main thread alive 
+//!     // cronframe.keep_alive();
+//! 
+//!     // alternatively, start the scheduler and keep main alive
+//!     // cronframe.run();
 //! }
 //! ```
 //! 
 //! # Defining A Function Job
-//! ```ignore
+//! ```
+//! #[macro_use] extern crate cronframe_macro;
+//! use cronframe::{CronFrame, JobBuilder};
+//! 
 //! #[cron_obj]
 //! #[derive(Clone)] // this trait is required
 //! struct User {
@@ -46,18 +80,23 @@
 //! }
 //! 
 //! fn main(){
-//!     let cronframe = Cronframe::default();
+//!     let cronframe = CronFrame::default();
 //!     
 //!     // this function collects all function jobs defined on a cron object
 //!     User::cf_gather_fn(cronframe.clone());
 //! 
-//!     // start the scheduler and keep main alive
-//!     cronframe.run();
+//!     cronframe.start_scheduler();
+//! 
+//!     // alternatively, start the scheduler and keep main alive
+//!     // cronframe.run();
 //! }
 //! ```
 //! 
 //! # Defining A Method Job
-//! ```ignore
+//! ```
+//! #[macro_use] extern crate cronframe_macro;
+//! use cronframe::{JobBuilder, CronFrame, CronFrameExpr};
+//! 
 //! #[cron_obj]
 //! #[derive(Clone)] // this trait is required
 //! struct User {
@@ -73,13 +112,13 @@
 //!     }
 //! 
 //!     #[mt_job(expr="expr1")]    
-//!     fn hello_method_job(){
+//!     fn hello_method_job(self){
 //!         println!("hello world!");
 //!     }
 //! }
 //! 
 //! fn main(){
-//!     let cronframe = Cronframe::default();
+//!     let cronframe = CronFrame::default();
 //! 
 //!     let mut user1 = User::new_cron_obj(
 //!         "John Smith".to_string(),
@@ -92,13 +131,15 @@
 //!     // in alternative if we only wanted to collect method jobs
 //!     // user1.cf_gather_mt(cronframe.clone());
 //! 
-//!     cronframe.run();
+//!     cronframe.start_scheduler();
+//! 
+//!     // alternatively, start the scheduler and keep main alive
+//!     // cronframe.run();
 //! }
 //! ```
 
 #[doc(hidden)]
-#[macro_use]
-extern crate rocket;
+#[macro_use] extern crate rocket;
 
 pub use cronframe_macro::{cron, cron_impl, cron_obj, fn_job, mt_job};
 #[doc(hidden)]
@@ -119,6 +160,7 @@ pub use once_cell::sync::Lazy;
 #[doc(hidden)]
 pub use std::sync::Once;
 
+// lib modules
 pub mod config;
 pub mod cronframe;
 pub mod cronjob;
@@ -127,10 +169,12 @@ pub mod logger;
 pub mod utils;
 pub mod web_server;
 
+// re-export of types
 pub use cronframe::CronFrame;
 pub use job_builder::JobBuilder;
 pub use cronjob::CronJob;
 
+#[doc(hidden)]
 pub use inventory::{collect, submit};
 
 // necessary to gather all the global jobs automatically
@@ -145,6 +189,17 @@ pub enum CronJobType {
 }
 
 /// Used in the init function of the CronFrame type to filter in a single type of job for execution.
+/// ```
+/// #[macro_use] extern crate cronframe_macro;
+/// use cronframe::{JobBuilder, CronFilter, CronFrame};
+/// 
+/// fn main(){
+///     // allow execution of Global Jobs Only
+///     let cronframe = CronFrame::init(Some(CronFilter::Global), true); 
+///     // no filters for the job type
+///     //let cronframe = CronFrame::init(None, true); 
+/// }
+/// ```
 #[derive(PartialEq, Clone, Copy)]
 pub enum CronFilter {
     Global,
@@ -175,6 +230,14 @@ impl CronFrameExpr {
     /// - dw  is day_week
     /// - y   is year
     /// - t   is timeout
+    /// 
+    /// ```
+    /// use cronframe::CronFrameExpr;
+    /// fn main(){
+    ///     let my_expr = CronFrameExpr::new("0", "5", "10-14", "*", "*", "Sun", "*", 0);
+    /// }
+    /// ```
+    /// 
     pub fn new(s: &str, m: &str, h: &str, dm: &str, mth: &str, dw: &str, y: &str, t: u64) -> Self {
         CronFrameExpr {
             seconds: s.to_string(),

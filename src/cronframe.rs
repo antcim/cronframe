@@ -22,11 +22,14 @@ const GRACE_DEFAULT: u32 = 250;
 /// It needs to be initialised once to setup the web server and gather global jobs.
 ///
 /// Either one of the `scheduler` or `run` method must be invoked for it to actually start.
-/// ```ignore
+/// ```
+/// #[macro_use] extern crate cronframe_macro;
+/// use cronframe::{JobBuilder, CronFrame};
 /// fn main(){
-///     let cronframe = Cronframe::default(); // this a shorthand for Cronframe::init(None, true);
-///     cronframe.scheduler(); //starts the scheduler, does not keep main alive
-///     cronframe.run(); //starts the scheduler, keeps main alive
+///     let cronframe = CronFrame::default(); // this a shorthand for Cronframe::init(None, true);
+///     cronframe.start_scheduler(); //does not keep main alive
+///     //cronframe.keep_alive(); // keeps main thread alive
+///     //cronframe.run(); //starts the scheduler, keeps main alive
 /// }
 pub struct CronFrame {
     pub cron_jobs: Mutex<Vec<CronJob>>,
@@ -41,17 +44,24 @@ pub struct CronFrame {
 }
 
 impl CronFrame {
-    /// Default init function for Cronframe, shorthand for
-    /// ```ignore
-    /// CronFrame::init(None, true)
-    /// ```
     /// It returns an `Arc<CronFrame>` which is used in the webserver and can be used to start the scheduler.
+    /// ```
+    /// #[macro_use] extern crate cronframe_macro;
+    /// use cronframe::{JobBuilder, CronFrame};
+    /// fn main(){
+    ///     // inits the library and gathers global jobs if there are any
+    ///     // does not start the scheduler, only the web server is live
+    ///     let cronframe = CronFrame::default(); // this a shorthand for Cronframe::init(None, true);
+    ///     //cronframe.keep_alive(); // keeps main thread alive
+    ///     //cronframe.run(); //starts the scheduler, keeps main alive
+    /// }
+    /// ```
     pub fn default() -> Arc<CronFrame> {
         CronFrame::init(None, true)
     }
 
     /// Init function of the library, it takes two agruments:
-    /// ```ignore
+    /// ```text
     /// filter: Option<CronFilter>
     /// use_logger: bool
     /// ```
@@ -159,9 +169,11 @@ impl CronFrame {
     /// Keeping the main thread alive is left to the user.
     ///
     /// Use the `run` method to spawn the scheduler and keep main thread alive.
-    /// ```ignore
+    /// ```
+    /// #[macro_use] extern crate cronframe_macro;
+    /// use cronframe::{JobBuilder, CronFrame};
     /// fn main(){
-    ///     CronFrame::default().scheduler();
+    ///     let cronframe = CronFrame::default().start_scheduler();
     /// }
     /// ```
     pub fn start_scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
@@ -359,9 +371,12 @@ impl CronFrame {
     }
 
     /// Function to call for a graceful shutdown of the library
-    /// ```ignore
+    /// ```
+    /// #[macro_use] extern crate cronframe_macro;
+    /// use cronframe::{JobBuilder, CronFrame};
+    /// 
     /// fn main(){
-    ///     let cronframe = CronFrame::default()
+    ///     let cronframe = CronFrame::default();
     ///     // do somthing...
     ///     cronframe.start_scheduler();
     ///     // do other things...

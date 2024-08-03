@@ -124,7 +124,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let new_code = quote! {
         #struct_edited
 
-        static #cf_fn_jobs_flag: Mutex<bool> = Mutex::new(false);
+        static #cf_fn_jobs_flag: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
         static #cf_fn_jobs_channels: cronframe::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::bounded(1));
 
         // drop for method jobs
@@ -150,10 +150,10 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
             }
         }
 
-        #[distributed_slice]
-        static #method_jobs: [fn(Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static>];
+        #[cronframe::distributed_slice]
+        static #method_jobs: [fn(std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>) -> JobBuilder<'static>];
 
-        #[distributed_slice]
+        #[cronframe::distributed_slice]
         static #function_jobs: [fn() -> JobBuilder<'static>];
     };
 
@@ -202,13 +202,13 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         let new_code_tmp = if check_self(&item_fn_parsed) {
             // method job
             quote! {
-                #[distributed_slice(#method_jobs)]
-                static #linkme_deserialize: fn(_self: Arc<Box<dyn Any + Send + Sync>>)-> JobBuilder<'static> = #impl_type::#helper;
+                #[cronframe::distributed_slice(#method_jobs)]
+                static #linkme_deserialize: fn(_self: std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>)-> JobBuilder<'static> = #impl_type::#helper;
             }
         } else {
             // function job
             quote! {
-                #[distributed_slice(#function_jobs)]
+                #[cronframe::distributed_slice(#function_jobs)]
                 static #linkme_deserialize: fn()-> JobBuilder<'static> = #impl_type::#helper;
             }
         };
@@ -224,27 +224,27 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
 
     let gather_fn = quote! {
         impl #impl_type{
-            pub fn cf_gather_mt(&mut self, frame: Arc<CronFrame>){
-                info!("Collecting Method Jobs from {}", #type_name);
+            pub fn cf_gather_mt(&mut self, frame: std::sync::Arc<CronFrame>){
+                cronframe::info!("Collecting Method Jobs from {}", #type_name);
                 if !#method_jobs.is_empty(){
                     let life_channels = cronframe::bounded(1);
                     self.tx = Some(life_channels.0.clone());
 
                     for method_job in #method_jobs {
-                        let job_builder = (method_job)(Arc::new(Box::new(self.clone())));
+                        let job_builder = (method_job)(std::sync::Arc::new(Box::new(self.clone())));
                         let mut cron_job = job_builder.build();
                         cron_job.life_channels = Some(life_channels.clone());
-                        info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
+                        cronframe::info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
                         frame.clone().add_job(cron_job);
                     }
-                    info!("Method Jobs from {} Collected.", #type_name);
+                    cronframe::info!("Method Jobs from {} Collected.", #type_name);
                 } else {
-                    info!("Not Method Jobs from {} has been found.", #type_name);
+                    cronframe::info!("Not Method Jobs from {} has been found.", #type_name);
                 }
             }
 
-            pub fn cf_gather_fn(frame: Arc<CronFrame>){
-                info!("Collecting Function Jobs from {}", #type_name);
+            pub fn cf_gather_fn(frame: std::sync::Arc<CronFrame>){
+                cronframe::info!("Collecting Function Jobs from {}", #type_name);
                 if !#function_jobs.is_empty(){
                     // collect jobs from associated functions only if this is the first
                     // instance of this cron object to call the helper_gatherer function
@@ -255,18 +255,18 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                             let job_builder = (function_job)();
                             let mut cron_job = job_builder.build();
                             cron_job.life_channels = Some(#cf_fn_jobs_channels.clone());
-                            info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
+                            cronframe::info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
                             frame.clone().add_job(cron_job);
                         }
-                        info!("Function Jobs from {} Collected.", #type_name);
+                        cronframe::info!("Function Jobs from {} Collected.", #type_name);
                         *#cf_fn_jobs_flag.lock().unwrap() = true;
                     }
                 } else {
-                    info!("Not Function Jobs from {} has been found.", #type_name);
+                    cronframe::info!("Not Function Jobs from {} has been found.", #type_name);
                 }
             }
 
-            pub fn cf_gather(&mut self, frame: Arc<CronFrame>){
+            pub fn cf_gather(&mut self, frame: std::sync::Arc<CronFrame>){
                 self.cf_gather_mt(frame.clone());
                 Self::cf_gather_fn(frame.clone());
             }
@@ -388,12 +388,12 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
 
         // cronjob method at cronframe's disposal
         // fn cron_method_<name_of_method> ...
-        fn #cronframe_method(arg: Arc<Box<dyn Any + Send + Sync>>) #block_edited
+        fn #cronframe_method(arg: std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>) #block_edited
     };
 
     let helper_code = quote! {
         // fn cron_helper_<name_of_method> ...
-        fn #helper(arg: Arc<Box<dyn Any + Send + Sync>>) -> JobBuilder<'static> {
+        fn #helper(arg: std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>) -> JobBuilder<'static> {
             let instance = arg.clone();
             let this_obj = (*instance).downcast_ref::<Self>().unwrap();
 

@@ -1,11 +1,8 @@
-#![allow(warnings)]
-
-#[macro_use]
-extern crate cronframe;
-use core::panic;
+#[macro_use] extern crate cronframe;
 
 use chrono::Duration;
-use cronframe::{Any, Arc, CronFrame, CronFrameExpr, JobBuilder, Mutex, Once, Sender};
+use core::panic;
+use cronframe::{JobBuilder, CronFrameExpr, CronFrame};
 
 //  Cron Expression
 //  * * * * * * *
