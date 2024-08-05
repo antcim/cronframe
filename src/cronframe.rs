@@ -21,7 +21,7 @@ const GRACE_DEFAULT: u32 = 250;
 ///
 /// It needs to be initialised once to setup the web server and gather global jobs.
 ///
-/// Either one of the `scheduler` or `run` method must be invoked for it to actually start.
+/// Either one of the `start_scheduler` or `run` method must be invoked for it to actually start.
 /// ```
 /// #[macro_use] extern crate cronframe_macro;
 /// use cronframe::{JobBuilder, CronFrame};

@@ -1,4 +1,4 @@
-//! Macros for CronFrame
+//! Macros for [CronFrame](https://crates.io/crates/cronframe)
 
 use proc_macro::*;
 use quote::{format_ident, quote, ToTokens};

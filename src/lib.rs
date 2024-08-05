@@ -1,8 +1,13 @@
 //! # CronFrame 0.1.2
 //! 
-//! This library allows for the definition of cronjobs with macros both on functions in the "global scope" and inside struct types.
+//! This library allows for the definition and scheduling of cron jobs with macros both on functions in the "global scope" and inside struct types.
+//! 
+//! Job creation without macros is possible, refer to the example in `no_macros.rs` on the [repo](https://github.com/antcim/cronframe).
 //! 
 //! # General Information
+//! 
+//! The cron expression parser used is [cron](https://crates.io/crates/cron).
+//! 
 //! Scheduling time is in UTC.
 //! 
 //! There are three types of jobs that can be defined:

@@ -1,11 +1,8 @@
 use std::{fs, ptr::addr_of_mut, sync::Once};
 
 use chrono::{DateTime, Duration, Utc};
-use cronframe::{
-    distributed_slice, logger, Any, Arc, CronFilter, CronFrame, CronFrameExpr, JobBuilder, Mutex,
-};
+use cronframe::{logger, CronFilter, CronFrame, CronFrameExpr, JobBuilder};
 use cronframe_macro::{cron, cron_impl, cron_obj, fn_job, mt_job};
-use log::info;
 
 static LOGGER_INIT: Once = Once::new();
 
@@ -253,8 +250,7 @@ pub fn test_job(
         let timeout = timeout - Duration::seconds(1);
         let grace = Duration::milliseconds(cronframe.grace.into());
         assert!(
-            (first_run + timeout + grace <= timeouts[0])
-                || (first_run + timeout >= timeouts[0]),
+            (first_run + timeout + grace <= timeouts[0]) || (first_run + timeout >= timeouts[0]),
             "timeout error"
         );
     }
