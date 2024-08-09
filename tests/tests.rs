@@ -1,11 +1,10 @@
-use std::{fs, ptr::addr_of_mut, sync::Once};
+#[macro_use] extern crate cronframe_macro;
 
+use std::{fs, ptr::addr_of_mut, sync::Once};
 use chrono::{DateTime, Duration, Utc};
 use cronframe::{logger, CronFilter, CronFrame, CronFrameExpr};
-use cronframe_macro::{cron, cron_impl, cron_obj, fn_job, mt_job};
 
 static LOGGER_INIT: Once = Once::new();
-
 static mut LOGGER: Option<log4rs::Handle> = None;
 
 #[cron(expr = "0/5 * * * * * *", timeout = "0")]
