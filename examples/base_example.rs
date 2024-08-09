@@ -2,7 +2,7 @@
 
 use chrono::Duration;
 use core::panic;
-use cronframe::{JobBuilder, CronFrameExpr, CronFrame};
+use cronframe::{CronFrameExpr, CronFrame};
 
 //  Cron Expression
 //  * * * * * * *

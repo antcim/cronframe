@@ -1,7 +1,7 @@
 #[macro_use] extern crate cronframe;
 
 use std::time::Duration;
-use cronframe::{JobBuilder, CronFrame};
+use cronframe::CronFrame;
 
 //  Cron Expression
 //  * * * * * * *

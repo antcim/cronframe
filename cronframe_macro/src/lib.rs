@@ -39,7 +39,7 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
 
                 // necessary for automatic job collection
                 cronframe::submit! {
-                    JobBuilder::global_job(#job_name, #ident, #cron_expr, #timeout)
+                    cronframe::JobBuilder::global_job(#job_name, #ident, #cron_expr, #timeout)
                 }
             };
 
@@ -151,10 +151,10 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
         }
 
         #[cronframe::distributed_slice]
-        static #method_jobs: [fn(std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>) -> JobBuilder<'static>];
+        static #method_jobs: [fn(std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>) -> cronframe::JobBuilder<'static>];
 
         #[cronframe::distributed_slice]
-        static #function_jobs: [fn() -> JobBuilder<'static>];
+        static #function_jobs: [fn() -> cronframe::JobBuilder<'static>];
     };
 
     new_code.into()
@@ -203,13 +203,13 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
             // method job
             quote! {
                 #[cronframe::distributed_slice(#method_jobs)]
-                static #linkme_deserialize: fn(_self: std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>)-> JobBuilder<'static> = #impl_type::#helper;
+                static #linkme_deserialize: fn(_self: std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>)-> cronframe::JobBuilder<'static> = #impl_type::#helper;
             }
         } else {
             // function job
             quote! {
                 #[cronframe::distributed_slice(#function_jobs)]
-                static #linkme_deserialize: fn()-> JobBuilder<'static> = #impl_type::#helper;
+                static #linkme_deserialize: fn()-> cronframe::JobBuilder<'static> = #impl_type::#helper;
             }
         };
 
@@ -320,8 +320,8 @@ pub fn fn_job(att: TokenStream, code: TokenStream) -> TokenStream {
         #[allow(dead_code)]
         #origin_function
 
-        fn #helper() -> JobBuilder<'static> {
-            JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout)
+        fn #helper() -> cronframe::JobBuilder<'static> {
+            cronframe::JobBuilder::function_job(#job_name, Self::#ident, #cron_expr, #timeout)
         }
     };
     new_code.into()
@@ -393,7 +393,7 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
 
     let helper_code = quote! {
         // fn cron_helper_<name_of_method> ...
-        fn #helper(arg: std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>) -> JobBuilder<'static> {
+        fn #helper(arg: std::sync::Arc<Box<dyn std::any::Any + Send + Sync>>) -> cronframe::JobBuilder<'static> {
             let instance = arg.clone();
             let this_obj = (*instance).downcast_ref::<Self>().unwrap();
 
@@ -401,7 +401,7 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
             let #tout = format!("{}", this_obj.cron_expr.timeout());
             let instance = arg.clone();
 
-            JobBuilder::method_job(#job_name, Self::#cronframe_method, #expr.clone(), #tout, instance)
+            cronframe::JobBuilder::method_job(#job_name, Self::#cronframe_method, #expr.clone(), #tout, instance)
         }
     };
 

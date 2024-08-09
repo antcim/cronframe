@@ -1,7 +1,7 @@
 #[macro_use] extern crate cronframe;
 
 use chrono::Local;
-use cronframe::{CronFrame, CronFrameExpr, JobBuilder};
+use cronframe::{CronFrame, CronFrameExpr};
 
 #[cron_obj]
 #[derive(Clone)]

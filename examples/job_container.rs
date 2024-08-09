@@ -1,6 +1,6 @@
 #[macro_use] extern crate cronframe;
 
-use cronframe::{JobBuilder, CronFrame};
+use cronframe::CronFrame;
 
 //  Cron Expression
 //  * * * * * * *
