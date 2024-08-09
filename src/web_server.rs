@@ -243,7 +243,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
                 name: job.name.clone(),
                 id: job.id.to_string(),
                 r#type: job.type_to_string(),
-                run_id: job.get_run_id(),
+                run_id: job.run_id(),
                 status: job.status(),
                 timeout: job.timeout_to_string(),
                 schedule: job.schedule(),
@@ -481,7 +481,7 @@ const INDEX_TEMPLATE: &str = {
 
 // templates folder data: templates/job.tera.html
 const JOB_TEMPLATE: &str = {
-    r#"{% extends "base" %}
+  r#"{% extends "base" %}
 
 {% block content %}
 
@@ -574,7 +574,12 @@ const JOB_TEMPLATE: &str = {
     <tr>
         <td>Timeout</td>
         <td>
-            {{job_info.timeout}}
+            {% if job_info.timeout != "None" %}
+                {{job_info.timeout | linebreaksbr | split(pat="<br>") | nth(n=1)}} 
+                ≈ {{job_info.timeout | linebreaksbr | split(pat="<br>") | nth(n=0)}}
+            {% else %}
+                {{job_info.timeout}}
+            {% endif %}
         </td>
         <td>
             <input oninput="setTimeout(this.value)" type="number" min="0" placeholder="enter timout in ms">
@@ -692,6 +697,7 @@ footer {
   flex: 2;
   font-weight: bold;
   font-size: 30pt;
+  margin-right: 50px;
 }
 
 .cron {

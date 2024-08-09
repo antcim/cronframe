@@ -21,7 +21,7 @@
 //! 
 //! Jobs of a cron object must be defined inside a standalone implementation block annotated with the macro `cron_impl`.
 //! 
-//! **IMPORTANT:** a cron object must derive the Clone trait
+//! **NOTICE:** a cron object derives the Clone trait so its fields must too.
 //! 
 //! The library supports a daily timeout (timed-out state resets every 24hrs) in ms which is decativated if the value is 0.
 //! 
@@ -42,9 +42,8 @@
 //! 
 //! # Defining A Global Job
 //! ```
-//! #[macro_use] extern crate cronframe_macro;
-//! use cronframe::{CronFrame, JobBuilder};
-//! 
+//! # #[macro_use] extern crate cronframe_macro;
+//! # use cronframe::CronFrame;
 //! #[cron(expr="* * * * * * *", timeout="0")]    
 //! fn hello_job(){
 //!     println!("hello world!");
@@ -67,11 +66,9 @@
 //! 
 //! # Defining A Function Job
 //! ```
-//! #[macro_use] extern crate cronframe_macro;
-//! use cronframe::{CronFrame, JobBuilder};
-//! 
+//! # #[macro_use] extern crate cronframe_macro;
+//! # use cronframe::CronFrame;
 //! #[cron_obj]
-//! #[derive(Clone)] // this trait is required
 //! struct User {
 //!     name: String,
 //! }
@@ -99,11 +96,9 @@
 //! 
 //! # Defining A Method Job
 //! ```
-//! #[macro_use] extern crate cronframe_macro;
-//! use cronframe::{JobBuilder, CronFrame, CronFrameExpr};
-//! 
+//! # #[macro_use] extern crate cronframe_macro;
+//! # use cronframe::{CronFrame, CronFrameExpr};
 //! #[cron_obj]
-//! #[derive(Clone)] // this trait is required
 //! struct User {
 //!     name: String,
 //!     expr1: CronFrameExpr,
@@ -198,7 +193,7 @@ pub enum CronJobType {
 /// Used in the init function of the CronFrame type to filter in a single type of job for execution.
 /// ```
 /// #[macro_use] extern crate cronframe_macro;
-/// use cronframe::{JobBuilder, CronFilter, CronFrame};
+/// use cronframe::{CronFilter, CronFrame};
 /// 
 /// fn main(){
 ///     // allow execution of Global Jobs Only

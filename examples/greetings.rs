@@ -24,7 +24,7 @@ impl Greeting {
 fn main() {
     let cronframe = CronFrame::default();
 
-    let mut greeting_john = Greeting::new_cron_obj("John".into(), "0 0 8 * * Mon-Fri * 0".into());
+    let mut greeting_john = Greeting::new_cron_obj("John".into(), "0 0 18 * * Mon-Fri * 0".into());
     let mut greeting_jane =
         Greeting::new_cron_obj("Jane".into(), CronFrameExpr::from("0 0 16 * * Tue-Thu * 0"));
 

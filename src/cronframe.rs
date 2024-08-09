@@ -24,7 +24,7 @@ const GRACE_DEFAULT: u32 = 250;
 /// Either one of the `start_scheduler` or `run` method must be invoked for it to actually start.
 /// ```
 /// #[macro_use] extern crate cronframe_macro;
-/// use cronframe::{JobBuilder, CronFrame};
+/// use cronframe::CronFrame;
 /// fn main(){
 ///     let cronframe = CronFrame::default(); // this a shorthand for Cronframe::init(None, true);
 ///     cronframe.start_scheduler(); //does not keep main alive
@@ -47,7 +47,7 @@ impl CronFrame {
     /// It returns an `Arc<CronFrame>` which is used in the webserver and can be used to start the scheduler.
     /// ```
     /// #[macro_use] extern crate cronframe_macro;
-    /// use cronframe::{JobBuilder, CronFrame};
+    /// use cronframe::CronFrame;
     /// fn main(){
     ///     // inits the library and gathers global jobs if there are any
     ///     // does not start the scheduler, only the web server is live
@@ -171,7 +171,7 @@ impl CronFrame {
     /// Use the `run` method to spawn the scheduler and keep main thread alive.
     /// ```
     /// #[macro_use] extern crate cronframe_macro;
-    /// use cronframe::{JobBuilder, CronFrame};
+    /// use cronframe::CronFrame;
     /// fn main(){
     ///     let cronframe = CronFrame::default().start_scheduler();
     /// }
@@ -254,7 +254,7 @@ impl CronFrame {
                     .expect("job handles unwrap error in scheduler");
 
                 // check if the daily timeout expired and reset it if need be
-                cron_job.timeout_reset();
+                cron_job.reset_timeout();
 
                 // if there is no handle for the job see if it need to be scheduled
                 if !job_handlers.contains_key(&job_id) && !to_be_deleted {
@@ -373,7 +373,7 @@ impl CronFrame {
     /// Function to call for a graceful shutdown of the library
     /// ```
     /// #[macro_use] extern crate cronframe_macro;
-    /// use cronframe::{JobBuilder, CronFrame};
+    /// use cronframe::CronFrame;
     /// 
     /// fn main(){
     ///     let cronframe = CronFrame::default();

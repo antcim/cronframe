@@ -135,7 +135,7 @@ impl CronJob {
     }
 
     // it resets the timeout if 24h have passed
-    pub fn timeout_reset(&mut self) {
+    pub fn reset_timeout(&mut self) {
         if let Some(timeout) = self.timeout {
             if self.start_time.is_some() {
                 let timeout = self
@@ -213,7 +213,7 @@ impl CronJob {
     }
 
     // it returns the id of the current execution of the job, or "None" if it is not running
-    pub fn get_run_id(&self) -> String {
+    pub fn run_id(&self) -> String {
         match &self.run_id {
             Some(uuid) => uuid.to_string(),
             None => "None".into(),

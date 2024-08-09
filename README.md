@@ -30,7 +30,7 @@ A struct that can host jobs is known as a `cron object` in the context of cronfr
 
 Jobs of a cron object must be defined inside a standalone implementation block annotated with the macro `cron_impl`.
 
-**IMPORTANT:** a cron object must derive the Clone trait
+**NOTICE:** a cron object derives the Clone trait so its fields must too.
 
 The library supports a daily timeout (timed-out state resets every 24hrs) in ms which is decativated if the value is 0.
 
@@ -51,8 +51,9 @@ The default size of a log file is 1MB.
 
 ## Defining A Global Job
 ```rust
-#[macro_use] extern crate cronframe_macro;
-use cronframe::{CronFrame, JobBuilder};
+#[macro_use] 
+extern crate cronframe;
+use cronframe::CronFrame;
 
 #[cron(expr="* * * * * * *", timeout="0")]    
 fn hello_job(){
@@ -76,11 +77,10 @@ fn main(){
 
 ## Defining A Function Job
 ```rust
-#[macro_use] extern crate cronframe_macro;
-use cronframe::{CronFrame, JobBuilder};
-
+#[macro_use] 
+extern crate cronframe;
+use cronframe::CronFrame;
 #[cron_obj]
-#[derive(Clone)] // this trait is required
 struct User {
     name: String,
 }
@@ -108,11 +108,11 @@ fn main(){
 
 ## Defining A Method Job
 ```rust
-#[macro_use] extern crate cronframe_macro;
-use cronframe::{JobBuilder, CronFrame, CronFrameExpr};
+#[macro_use] 
+extern crate cronframe;
+use cronframe::{CronFrame, CronFrameExpr};
 
 #[cron_obj]
-#[derive(Clone)] // this trait is required
 struct User {
     name: String,
     expr1: CronFrameExpr,

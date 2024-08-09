@@ -193,10 +193,7 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
         let helper = format_ident!("cron_helper_{}", item_fn_id);
         let item_fn_id_upper = format_ident!(
             "{}",
-            item_fn_id
-                .to_token_stream()
-                .to_string()
-                .to_uppercase()
+            item_fn_id.to_token_stream().to_string().to_uppercase()
         );
         let linkme_deserialize = format_ident!("LINKME_{}_{count}", item_fn_id_upper);
 
@@ -419,6 +416,7 @@ pub fn mt_job(att: TokenStream, code: TokenStream) -> TokenStream {
     new_code.into()
 }
 
+// aid function for fn_job and mt_job
 fn check_self(parsed: &Result<ItemFn, syn::Error>) -> bool {
     if !parsed.clone().unwrap().sig.inputs.is_empty()
         && parsed
