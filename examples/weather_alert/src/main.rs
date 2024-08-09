@@ -4,7 +4,6 @@ use chrono::Local;
 use cronframe::{CronFrame, CronFrameExpr};
 
 #[cron_obj]
-#[derive(Clone)]
 struct WeatherAlert {
     city: String,
     schedule: CronFrameExpr,

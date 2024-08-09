@@ -122,6 +122,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let cron_job_fn_tokens: proc_macro2::TokenStream = cron_obj_fn.parse().unwrap();
 
     let new_code = quote! {
+        #[derive(Clone)]
         #struct_edited
 
         static #cf_fn_jobs_flag: std::sync::Mutex<bool> = std::sync::Mutex::new(false);

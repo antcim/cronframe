@@ -1,7 +1,7 @@
 use std::{fs, ptr::addr_of_mut, sync::Once};
 
 use chrono::{DateTime, Duration, Utc};
-use cronframe::{logger, CronFilter, CronFrame, CronFrameExpr, JobBuilder};
+use cronframe::{logger, CronFilter, CronFrame, CronFrameExpr};
 use cronframe_macro::{cron, cron_impl, cron_obj, fn_job, mt_job};
 
 static LOGGER_INIT: Once = Once::new();
@@ -25,7 +25,7 @@ fn my_global_job_fail() {
 }
 
 #[cron_obj]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct FunctionStd;
 
 #[cron_impl]
@@ -38,7 +38,7 @@ impl FunctionStd {
 }
 
 #[cron_obj]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct FunctionTimeout;
 
 #[cron_impl]
@@ -51,7 +51,7 @@ impl FunctionTimeout {
 }
 
 #[cron_obj]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct FunctionFail;
 
 #[cron_impl]
@@ -65,7 +65,7 @@ impl FunctionFail {
 }
 
 #[cron_obj]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct MethodStd {
     expr: CronFrameExpr,
 }
@@ -79,7 +79,7 @@ impl MethodStd {
 }
 
 #[cron_obj]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct MethodTimeout {
     expr: CronFrameExpr,
 }
@@ -93,7 +93,7 @@ impl MethodTimeout {
 }
 
 #[cron_obj]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct MethodFail {
     expr: CronFrameExpr,
 }

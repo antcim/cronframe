@@ -15,7 +15,6 @@ use cronframe::CronFrame;
 // "*" works as a jolly for any value will do
 
 #[cron_obj]
-#[derive(Clone)] // this trait is required
 struct JobContainer;
 
 #[cron_impl]
