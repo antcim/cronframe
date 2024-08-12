@@ -45,37 +45,41 @@ fn main() {
 
         let escaped_expr = expr.replace("/", "slh");
 
-        let job_name = if Path::new(&job).is_file() {
+        let tmp: Vec<_> = job.split("/").collect();
+        let job_name = tmp.last().unwrap().replace(".rs", "");
+
+        if Path::new(&job).is_file() {
+            // compile the "script" job
             let tmp: Vec<_> = job.split("/").collect();
             let job_name = tmp.last().unwrap().replace(".rs", "");
 
-            // compile the "script" job
             let _ = Command::new("rustc")
-                .args([&job, "-o", &format!("{home_dir}/.cronframe/jobs/{job_name}")])
+                .args([
+                    &job,
+                    "-o",
+                    &format!("{home_dir}/.cronframe/jobs/{job_name}"),
+                ])
+                .status()
+                .expect("job compilation failed");
+        } else {
+            // compile the "crate" job
+            let _ = Command::new("cargo")
+                .args(["build", "--release", "--target-dir", &format!("{home_dir}/.cronframe/cargo_targets/{job_name}")])
+                .current_dir(job)
                 .status()
                 .expect("job compilation failed");
 
-            job_name
-        } else {
-            let _ = Command::new("cargo")
-            .args(["build"])
-            .current_dir(&job)
-            .status()
-            .expect("job compilation failed");
-
-            "placeholder".into()
-        };
-
-        // // compile the "crate" job
-        // let _build = Command::new("cargo")
-        //     .current_dir(&job)
-        //     .args(["build", "--release"])
-        //     .status()
-        //     .expect("job compilation failed");
+            let _ = Command::new("cp")
+                .args([&job_name, &format!("{home_dir}/.cronframe/jobs/{job_name}")])
+                .current_dir(format!("{home_dir}/.cronframe/cargo_targets/{job_name}/release"))
+                .status()
+                .expect("job compilation failed");
+        }
 
         // send the job to the running cronframe instance
         // localhost::8098/add_cli_job/<expr>/<timeout>/<job>
-        let req_url = format!("http://localhost:8098/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
+        let req_url =
+            format!("http://localhost:8098/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
 
         match reqwest::blocking::get(req_url) {
             Ok(_) => {
@@ -90,30 +94,4 @@ fn main() {
             }
         }
     }
-
-    // let _build = Command::new("cronframe").status().expect("process failed to execute");
-
-    // let cronframe = CronFrame::init(Some(CronFilter::CLI), true).add_job(
-    //     JobBuilder::cli_job("cli_job", "0/5 * * * * * *", "0").build()
-    // );
-
-    // cronframe.run();
-
-    // let _build = Command::new("cargo")
-    //     .current_dir("examples/weather_alert")
-    //     .args(["build", "--release"])
-    //     .status()
-    //     .expect("process failed to execute");
-
-    // // run a job form crate
-    // let _run_job = Command::new("./weather_alert")
-    //     .current_dir("examples/weather_alert/target/release")
-    //     .status()
-    //     .expect("process failed to execute");
-
-    // run a job form standalone file
-    // let _run_job = Command::new("./cli_job")
-    //     .current_dir("examples/")
-    //     .status()
-    //     .expect("process failed to execute");
 }
