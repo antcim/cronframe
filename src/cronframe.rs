@@ -181,7 +181,7 @@ impl CronFrame {
         let ret = cronframe.clone();
 
         // if already running, return
-        if *self.running.lock().unwrap(){
+        if *self.running.lock().unwrap() {
             return ret;
         }
 
@@ -336,8 +336,8 @@ impl CronFrame {
     pub fn keep_alive(self: &Arc<Self>) {
         loop {
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
-            if *self.quit.lock().unwrap(){
-                break
+            if *self.quit.lock().unwrap() {
+                break;
             }
         }
     }
@@ -378,7 +378,7 @@ impl CronFrame {
     /// ```
     /// # #[macro_use] extern crate cronframe_macro;
     /// # use cronframe::CronFrame;
-    /// 
+    ///
     /// fn main(){
     ///     let cronframe = CronFrame::default();
     ///     // do somthing...

@@ -333,7 +333,16 @@ impl CronJob {
                     CronJobType::Method(job) => job(cron_job
                         .method_instance
                         .expect("method instance unwrap error in job thread")),
-                    CronJobType::CLI => {}
+                    CronJobType::CLI => {
+                        let home_dir = {
+                            let tmp = home::home_dir().unwrap();
+                            tmp.to_str().unwrap().to_owned()
+                        };
+                        let _build = Command::new(format!("./{}", cron_job.name))
+                            .current_dir(format!("{home_dir}/.cronframe/jobs"))
+                            .status()
+                            .expect("process failed to execute");
+                    }
                 }
             }
         };

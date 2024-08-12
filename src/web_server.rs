@@ -1,16 +1,12 @@
 //! Custom setup of rocket.rs for the Cronframe web server
 
 use crate::{
-    config::read_config,
-    cronframe::CronFrame,
-    CronFilter, CronJobType, JobBuilder,
+    config::read_config, cronframe::CronFrame, utils::home_dir, CronFilter, CronJobType, JobBuilder,
 };
 use log::info;
-use rocket::{
-    config::Shutdown, serde::Serialize,
-};
+use rocket::{config::Shutdown, serde::Serialize};
 use rocket_dyn_templates::{context, Template};
-use std::{fs, sync::Arc, time::Duration};
+use std::{fs, path::Path, sync::Arc, time::Duration};
 
 /// Called by the init funciton of the Cronframe type for setting up the web server
 ///
@@ -25,31 +21,22 @@ use std::{fs, sync::Arc, time::Duration};
 /// - styles.css
 /// - tingle.css
 pub fn web_server(frame: Arc<CronFrame>) {
-    if !std::path::Path::new("./templates").exists() {
-        println!("Generating templates directory content...");
-        fs::create_dir("templates").expect("could not create templates directory");
+    if !Path::new(&format!("templates")).exists() {
+        fs::create_dir(format!("templates")).expect("could not create templates directory");
+
         let _ = fs::write(
-            std::path::Path::new("./templates/base.html.tera"),
+            Path::new(&format!("templates/base.html.tera")),
             BASE_TEMPLATE,
         );
         let _ = fs::write(
-            std::path::Path::new("./templates/index.html.tera"),
+            Path::new(&format!("templates/index.html.tera")),
             INDEX_TEMPLATE,
         );
-        let _ = fs::write(
-            std::path::Path::new("./templates/job.html.tera"),
-            JOB_TEMPLATE,
-        );
-        let _ = fs::write(
-            std::path::Path::new("./templates/tingle.js"),
-            TINGLE_JS,
-        );
-        let _ = fs::write(
-            std::path::Path::new("./templates/cronframe.js"),
-            CRONFRAME_JS,
-        );
-        let _ = fs::write(std::path::Path::new("./templates/tingle.css"), TINGLE_STYLES);
-        let _ = fs::write(std::path::Path::new("./templates/styles.css"), STYLES);
+        let _ = fs::write(Path::new(&format!("templates/job.html.tera")), JOB_TEMPLATE);
+        let _ = fs::write(Path::new(&format!("templates/tingle.js")), TINGLE_JS);
+        let _ = fs::write(Path::new(&format!("templates/cronframe.js")), CRONFRAME_JS);
+        let _ = fs::write(Path::new(&format!("templates/tingle.css")), TINGLE_STYLES);
+        let _ = fs::write(Path::new(&format!("templates/styles.css")), STYLES);
         std::thread::sleep(Duration::from_secs(10));
     }
 
@@ -146,25 +133,29 @@ pub fn web_server(frame: Arc<CronFrame>) {
 // necessary to have somewhat decent-looking pages
 #[get("/styles")]
 async fn styles() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    rocket::fs::NamedFile::open("templates/styles.css").await
+    let home_dir = home_dir();
+    rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/styles.css")).await
 }
 
 // necessary to have somewhat decent-looking pages
 #[get("/tingle")]
 async fn tingle() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    rocket::fs::NamedFile::open("templates/tingle.css").await
+    let home_dir = home_dir();
+    rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/tingle.css")).await
 }
 
 // necessary to have somewhat functioning pages
 #[get("/tinglejs")]
 async fn tinglejs() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    rocket::fs::NamedFile::open("templates/tingle.js").await
+    let home_dir = home_dir();
+    rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/tingle.js")).await
 }
 
 // necessary to have somewhat functioning pages
 #[get("/cronframejs")]
 async fn cronframe() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    rocket::fs::NamedFile::open("templates/cronframe.js").await
+    let home_dir = home_dir();
+    rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/cronframe.js")).await
 }
 
 #[derive(Serialize)]
@@ -216,7 +207,10 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
         }
     }
 
-    Template::render("index", context! {running, active_jobs, timedout_jobs, suspended_jobs})
+    Template::render(
+        "index",
+        context! {running, active_jobs, timedout_jobs, suspended_jobs},
+    )
 }
 
 #[derive(Serialize, Default)]
@@ -326,11 +320,11 @@ fn stop_scheduler(cronframe: &rocket::State<Arc<CronFrame>>) {
 // API route to toggle the scheduling suspension for a job
 #[get("/add_cli_job/<expr>/<timeout>/<job>")]
 fn add_cli_job(expr: &str, timeout: &str, job: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
-  let new_job = JobBuilder::cli_job(job, expr, timeout).build();
-  info!("new_job.job = {job}");
-  info!("new_job.expr = {expr}");
-  info!("new_job.timeout = {timeout}");
-  cronframe.add_job(new_job);
+    let new_job = JobBuilder::cli_job(job, expr, timeout).build();
+    info!("new_job.job = {job}");
+    info!("new_job.expr = {expr}");
+    info!("new_job.timeout = {timeout}");
+    cronframe.add_job(new_job);
 }
 
 // API route to stop the scheduler
@@ -341,7 +335,7 @@ fn shutdown(cronframe: &rocket::State<Arc<CronFrame>>) {
 
 // templates folder data: templates/base.tera.html
 const BASE_TEMPLATE: &str = {
-  r#"<!DOCTYPE html>
+    r#"<!DOCTYPE html>
 <html class="light-mode">
 
 <head>
@@ -500,7 +494,7 @@ const INDEX_TEMPLATE: &str = {
 
 // templates folder data: templates/job.tera.html
 const JOB_TEMPLATE: &str = {
-  r#"{% extends "base" %}
+    r#"{% extends "base" %}
 
 {% block content %}
 
@@ -636,7 +630,7 @@ const JOB_TEMPLATE: &str = {
 
 // templates folder data: templates/styles.css
 const STYLES: &str = {
-  r#":root {
+    r#":root {
   --dark-orange: #ff3d00;
   --light-orange: #ffa702;
   --dark-green: #0fa702;
