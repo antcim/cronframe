@@ -143,12 +143,12 @@ impl CronFrame {
 
     /// It adds and existing job to the cronframe instance to the job pool
     /// Used in the cf_gather_mt and cf_gather_fn
-    pub fn add_job(self: Arc<CronFrame>, job: CronJob) -> Arc<CronFrame> {
+    pub fn add_job(self: &Arc<CronFrame>, job: CronJob) -> Arc<CronFrame> {
         self.cron_jobs
             .lock()
             .expect("add_job unwrap error on lock")
             .push(job);
-        self
+        self.clone()
     }
 
     // It crates a new job which will be classified as a global job and adds to the job pool
@@ -218,6 +218,7 @@ impl CronFrame {
                         CronJobType::Global(_) => CronFilter::Global,
                         CronJobType::Function(_) => CronFilter::Function,
                         CronJobType::Method(_) => CronFilter::Method,
+                        CronJobType::CLI => CronFilter::CLI,
                     };
 
                     if job_type != *filter {

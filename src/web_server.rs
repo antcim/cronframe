@@ -3,7 +3,7 @@
 use crate::{
     config::read_config,
     cronframe::CronFrame,
-    CronFilter, CronJobType,
+    CronFilter, CronJobType, JobBuilder,
 };
 use log::info;
 use rocket::{
@@ -112,6 +112,8 @@ pub fn web_server(frame: Arc<CronFrame>) {
                 suspension_handle,
                 start_scheduler,
                 stop_scheduler,
+                add_cli_job,
+                shutdown,
             ],
         )
         .attach(Template::fairing())
@@ -191,6 +193,7 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
             CronJobType::Global(_) => CronFilter::Global,
             CronJobType::Function(_) => CronFilter::Function,
             CronJobType::Method(_) => CronFilter::Method,
+            CronJobType::CLI => CronFilter::CLI,
         };
 
         if cronframe.filter.is_none() || cronframe.filter == Some(job_type) {
@@ -318,6 +321,22 @@ fn start_scheduler(cronframe: &rocket::State<Arc<CronFrame>>) {
 #[get("/stop_scheduler")]
 fn stop_scheduler(cronframe: &rocket::State<Arc<CronFrame>>) {
     cronframe.stop_scheduler();
+}
+
+// API route to toggle the scheduling suspension for a job
+#[get("/add_cli_job/<expr>/<timeout>/<job>")]
+fn add_cli_job(expr: &str, timeout: &str, job: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
+  let new_job = JobBuilder::cli_job(job, expr, timeout).build();
+  info!("new_job.job = {job}");
+  info!("new_job.expr = {expr}");
+  info!("new_job.timeout = {timeout}");
+  cronframe.add_job(new_job);
+}
+
+// API route to stop the scheduler
+#[get("/shutdown")]
+fn shutdown(cronframe: &rocket::State<Arc<CronFrame>>) {
+    cronframe.quit();
 }
 
 // templates folder data: templates/base.tera.html

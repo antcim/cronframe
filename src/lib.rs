@@ -188,6 +188,7 @@ pub enum CronJobType {
     Global(fn()),
     Method(fn(arg: Arc<Box<dyn Any + Send + Sync>>)),
     Function(fn()),
+    CLI
 }
 
 /// Used in the init function of the CronFrame type to filter in a single type of job for execution.
@@ -207,6 +208,7 @@ pub enum CronFilter {
     Global,
     Function,
     Method,
+    CLI
 }
 
 

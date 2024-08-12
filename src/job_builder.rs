@@ -35,6 +35,12 @@ pub enum JobBuilder<'a> {
         cron_expr: &'a str,
         timeout: &'a str,
     },
+
+    CLI {
+        name: &'a str,
+        cron_expr: &'a str,
+        timeout: &'a str,
+    },
 }
 
 impl<'a> JobBuilder<'a> {
@@ -77,6 +83,18 @@ impl<'a> JobBuilder<'a> {
         JobBuilder::Function {
             name,
             job,
+            cron_expr,
+            timeout,
+        }
+    }
+
+    pub const fn cli_job(
+        name: &'a str,
+        cron_expr: &'a str,
+        timeout: &'a str,
+    ) -> Self {
+        JobBuilder::CLI {
+            name,
             cron_expr,
             timeout,
         }
@@ -167,6 +185,33 @@ impl<'a> JobBuilder<'a> {
                     name: name.to_string(),
                     id: Uuid::new_v4(),
                     job: CronJobType::Function(job),
+                    schedule,
+                    timeout,
+                    timeout_notified: false,
+                    status_channels: Some(crossbeam_channel::bounded(1)),
+                    life_channels: None,
+                    start_time: None,
+                    run_id: None,
+                    method_instance: None,
+                    failed: false,
+                    suspended: false,
+                }
+            }
+            Self::CLI { name, cron_expr, timeout } =>  {
+                let cron_expr = cron_expr.replace("slh", "/").replace("%20", " ");
+                let schedule =
+                    Schedule::from_str(&cron_expr).expect("Failed to parse cron expression!");
+                let timeout: i64 = timeout.parse().expect("Failed to parse timeout!");
+                let timeout = if timeout > 0 {
+                    Some(Duration::milliseconds(timeout))
+                } else {
+                    None
+                };
+
+                CronJob {
+                    name: name.to_string(),
+                    id: Uuid::new_v4(),
+                    job: CronJobType::CLI,
                     schedule,
                     timeout,
                     timeout_notified: false,

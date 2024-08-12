@@ -1,6 +1,6 @@
 //! CronJob type, built by JobBuilder
 
-use std::{any::Any, str::FromStr, sync::Arc, thread::JoinHandle};
+use std::{any::Any, process::Command, str::FromStr, sync::Arc, thread::JoinHandle};
 
 use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
@@ -177,6 +177,7 @@ impl CronJob {
             CronJobType::Global(_) => "Global".to_string(),
             CronJobType::Function(_) => "Function".to_string(),
             CronJobType::Method(_) => "Method".to_string(),
+            CronJobType::CLI => "CLI".to_string(),
         }
     }
 
@@ -257,6 +258,16 @@ impl CronJob {
                     CronJobType::Method(job) => job(cron_job
                         .method_instance
                         .expect("method instance unwrap error in job thread")),
+                    CronJobType::CLI => {
+                        let home_dir = {
+                            let tmp = home::home_dir().unwrap();
+                            tmp.to_str().unwrap().to_owned()
+                        };
+                        let _build = Command::new(format!("./{}", cron_job.name))
+                            .current_dir(format!("{home_dir}/.cronframe/jobs"))
+                            .status()
+                            .expect("process failed to execute");
+                    }
                 }
             }
         };
@@ -322,6 +333,7 @@ impl CronJob {
                     CronJobType::Method(job) => job(cron_job
                         .method_instance
                         .expect("method instance unwrap error in job thread")),
+                    CronJobType::CLI => {}
                 }
             }
         };
