@@ -7,15 +7,23 @@ use std::{
 
 fn main() {
     let home_dir = utils::home_dir();
-    
+
     println!("CronFrame CLI Tool");
-    
+
     if !std::path::Path::new(&format!("{home_dir}/.cronframe")).exists() {
         println!("Generating .cronframe directory content...");
         fs::create_dir(format!("{home_dir}/.cronframe"))
             .expect("could not create .cronframe directory");
         fs::create_dir(format!("{home_dir}/.cronframe/jobs"))
             .expect("could not create .cronframe directory");
+        let _ = fs::write(
+            Path::new(&format!("{home_dir}/.cronframe/rocket.toml")),
+            r#"[debug]
+template_dir = "/home/antonio/.cronframe/templates"
+
+[release]
+template_dir = "/home/antonio/.cronframe/templates""#,
+        );
     }
 
     let main_arg = std::env::args().nth(1).expect("arg required");
@@ -33,7 +41,7 @@ fn main() {
     if main_arg == "run" {
         let _ = CronFrame::init(Some(CronFilter::CLI), true).run();
     } else if main_arg == "shutdown" {
-        let req_url = format!("http://localhost:8098/shutdown");
+        let req_url = format!("http://localhost:8000/shutdown");
 
         match reqwest::blocking::get(req_url) {
             Ok(_) => {

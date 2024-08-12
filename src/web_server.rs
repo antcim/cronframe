@@ -1,10 +1,17 @@
 //! Custom setup of rocket.rs for the Cronframe web server
 
 use crate::{
-    config::read_config, cronframe::CronFrame, utils::home_dir, CronFilter, CronJobType, JobBuilder,
+    config::read_config, cronframe::CronFrame, utils, CronFilter, CronJobType, JobBuilder,
 };
 use log::info;
-use rocket::{config::Shutdown, serde::Serialize};
+use rocket::{
+    config::Shutdown,
+    figment::{
+        providers::{Env, Format, Toml},
+        Figment, Profile,
+    },
+    serde::Serialize,
+};
 use rocket_dyn_templates::{context, Template};
 use std::{fs, path::Path, sync::Arc, time::Duration};
 
@@ -21,22 +28,40 @@ use std::{fs, path::Path, sync::Arc, time::Duration};
 /// - styles.css
 /// - tingle.css
 pub fn web_server(frame: Arc<CronFrame>) {
-    if !Path::new(&format!("templates")).exists() {
-        fs::create_dir(format!("templates")).expect("could not create templates directory");
+    let home_dir = utils::home_dir();
+
+    if !Path::new(&format!("{home_dir}/.cronframe/templates")).exists() {
+        fs::create_dir(format!("{home_dir}/.cronframe/templates"))
+            .expect("could not create templates directory");
 
         let _ = fs::write(
-            Path::new(&format!("templates/base.html.tera")),
+            Path::new(&format!("{home_dir}/.cronframe/templates/base.html.tera")),
             BASE_TEMPLATE,
         );
         let _ = fs::write(
-            Path::new(&format!("templates/index.html.tera")),
+            Path::new(&format!("{home_dir}/.cronframe/templates/index.html.tera")),
             INDEX_TEMPLATE,
         );
-        let _ = fs::write(Path::new(&format!("templates/job.html.tera")), JOB_TEMPLATE);
-        let _ = fs::write(Path::new(&format!("templates/tingle.js")), TINGLE_JS);
-        let _ = fs::write(Path::new(&format!("templates/cronframe.js")), CRONFRAME_JS);
-        let _ = fs::write(Path::new(&format!("templates/tingle.css")), TINGLE_STYLES);
-        let _ = fs::write(Path::new(&format!("templates/styles.css")), STYLES);
+        let _ = fs::write(
+            Path::new(&format!("{home_dir}/.cronframe/templates/job.html.tera")),
+            JOB_TEMPLATE,
+        );
+        let _ = fs::write(
+            Path::new(&format!("{home_dir}/.cronframe/templates/tingle.js")),
+            TINGLE_JS,
+        );
+        let _ = fs::write(
+            Path::new(&format!("{home_dir}/.cronframe/templates/cronframe.js")),
+            CRONFRAME_JS,
+        );
+        let _ = fs::write(
+            Path::new(&format!("{home_dir}/.cronframe/templates/tingle.css")),
+            TINGLE_STYLES,
+        );
+        let _ = fs::write(
+            Path::new(&format!("{home_dir}/.cronframe/templates/styles.css")),
+            STYLES,
+        );
         std::thread::sleep(Duration::from_secs(10));
     }
 
@@ -44,7 +69,7 @@ pub fn web_server(frame: Arc<CronFrame>) {
 
     let tokio_runtime = rocket::tokio::runtime::Runtime::new().unwrap();
 
-    let config = match read_config() {
+    let base_config = match read_config() {
         Some(config_data) => rocket::Config {
             port: {
                 if let Some(webserver_data) = &config_data.webserver {
@@ -84,7 +109,20 @@ pub fn web_server(frame: Arc<CronFrame>) {
         }
     };
 
-    let rocket = rocket::custom(&config)
+    std::env::set_var(
+        "ROCKET_CONFIG",
+        format!("{home_dir}/.cronframe/rocket.toml"),
+    );
+
+    let config = Figment::from(base_config)
+        .merge(Toml::file(Env::var_or("ROCKET_CONFIG", "Rocket.toml")).nested())
+        .merge(Env::prefixed("ROCKET_").ignore(&["PROFILE"]).global())
+        .select(Profile::from_env_or(
+            "ROCKET_PROFILE",
+            rocket::Config::DEFAULT_PROFILE,
+        ));
+
+    let rocket = rocket::Rocket::custom(config)
         .mount(
             "/",
             routes![
@@ -118,10 +156,10 @@ pub fn web_server(frame: Arc<CronFrame>) {
 
         let _ = tx.send(shutdown_handle);
 
-        println!(
-            "CronFrame running at http://{}:{}",
-            config.address, config.port
-        );
+        // println!(
+        //     "CronFrame running at http://{}:{}",
+        //     config.address, base_config.port
+        // );
 
         let _ = rocket
             .expect("rocket unwrap error in web server launch")
@@ -133,28 +171,28 @@ pub fn web_server(frame: Arc<CronFrame>) {
 // necessary to have somewhat decent-looking pages
 #[get("/styles")]
 async fn styles() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    let home_dir = home_dir();
+    let home_dir = utils::home_dir();
     rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/styles.css")).await
 }
 
 // necessary to have somewhat decent-looking pages
 #[get("/tingle")]
 async fn tingle() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    let home_dir = home_dir();
+    let home_dir = utils::home_dir();
     rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/tingle.css")).await
 }
 
 // necessary to have somewhat functioning pages
 #[get("/tinglejs")]
 async fn tinglejs() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    let home_dir = home_dir();
+    let home_dir = utils::home_dir();
     rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/tingle.js")).await
 }
 
 // necessary to have somewhat functioning pages
 #[get("/cronframejs")]
 async fn cronframe() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    let home_dir = home_dir();
+    let home_dir = utils::home_dir();
     rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/cronframe.js")).await
 }
 
