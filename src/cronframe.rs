@@ -336,6 +336,9 @@ impl CronFrame {
     pub fn keep_alive(self: &Arc<Self>) {
         loop {
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
+            if *self.quit.lock().unwrap(){
+                break
+            }
         }
     }
 
@@ -356,12 +359,12 @@ impl CronFrame {
             *cronframe
                 .quit
                 .lock()
-                .expect("quit unwrap error in quit method") = true;
+                .expect("quit unwrap error in stop scheduler method") = true;
 
             let handles = cronframe
                 .job_handles
                 .lock()
-                .expect("job handles unwrap error in quit method");
+                .expect("job handles unwrap error in stop scheduler method");
 
             for handle in handles.iter() {
                 while !handle.1.is_finished() {
