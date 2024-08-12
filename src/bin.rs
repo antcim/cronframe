@@ -2,6 +2,7 @@ use cronframe::{CronFilter, CronFrame};
 use std::{
     path::Path,
     process::{Command, Stdio},
+    fs,
 };
 
 fn main() {
@@ -11,6 +12,12 @@ fn main() {
         let tmp = home::home_dir().unwrap();
         tmp.to_str().unwrap().to_owned()
     };
+
+    if !std::path::Path::new(&format!("{home_dir}/.cronframe")).exists() {
+        println!("Generating .cronframe directory content...");
+        fs::create_dir(format!("{home_dir}/.cronframe")).expect("could not create .cronframe directory");
+        fs::create_dir(format!("{home_dir}/.cronframe/jobs")).expect("could not create .cronframe directory");
+    }
 
     let main_arg = std::env::args().nth(1).expect("arg required");
 
