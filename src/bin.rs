@@ -1,4 +1,4 @@
-use cronframe::{utils, CronFilter, CronFrame};
+use cronframe::{config::read_config, utils, web_server, CronFilter, CronFrame};
 use std::{
     fs,
     path::Path,
@@ -8,6 +8,8 @@ use std::{
 use clap::{arg, command};
 
 fn main() {
+    std::env::set_var("CRONFRAME_CLI", "true");
+
     // cli args parsing
     let matches = command!()
         .version("0.0.1")
@@ -61,11 +63,14 @@ fn start_command() {
         .stderr(Stdio::null())
         .spawn()
         .expect("cronframe run failed");
-    println!("CronFrame will soon be available at: http://localhost:8098");
+
+    let (ip_address, port) = ip_and_port();
+    println!("CronFrame will soon be available at: http://{ip_address}:{port}");
 }
 
 fn shutdown_command() {
-    let req_url = format!("http://localhost:8098/shutdown");
+    let (ip_address, port) = ip_and_port();
+    let req_url = format!("http://{ip_address}:{port}/shutdown");
 
     match reqwest::blocking::get(req_url) {
         Ok(_) => {
@@ -133,7 +138,11 @@ fn add_command(expr: &str, timeout: &str, job: &str) {
 
     // send the job to the running cronframe instance
     // localhost::8098/add_cli_job/<expr>/<timeout>/<job>
-    let req_url = format!("http://localhost:8098/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
+
+    let (ip_address, port) = ip_and_port();
+
+    let req_url =
+        format!("http://{ip_address}:{port}/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
 
     match reqwest::blocking::get(req_url) {
         Ok(_) => {
@@ -149,21 +158,41 @@ fn add_command(expr: &str, timeout: &str, job: &str) {
     }
 }
 
-fn cronframe_folder(){
+fn cronframe_folder() {
     let home_dir = utils::home_dir();
 
     if !std::path::Path::new(&format!("{home_dir}/.cronframe")).exists() {
+        println!("Generating .cronframe directory content...");
+
         let template_dir = format!("{home_dir}/.cronframe/templates");
         let rocket_toml = format!("[debug]\ntemplate_dir = \"{template_dir}\"\n[release]\ntemplate_dir = \"{template_dir}\"");
 
-        println!("Generating .cronframe directory content...");
         fs::create_dir(format!("{home_dir}/.cronframe"))
             .expect("could not create .cronframe directory");
         fs::create_dir(format!("{home_dir}/.cronframe/cli_jobs"))
             .expect("could not create .cronframe directory");
+
+        web_server::generate_template_dir();
+
         let _ = fs::write(
             Path::new(&format!("{home_dir}/.cronframe/rocket.toml")),
             rocket_toml,
         );
+    }
+}
+
+fn ip_and_port() -> (String, u16){
+    match read_config() {
+        Some(config_data) => {
+            if let Some(webserver_data) = config_data.webserver {
+                (
+                    webserver_data.ip.unwrap_or_else(|| "127.0.0.1".to_string()),
+                    webserver_data.port.unwrap_or_else(|| 8098),
+                )
+            } else {
+                ("localhost".to_string(), 8098)
+            }
+        }
+        None => ("localhost".to_string(), 8098),
     }
 }

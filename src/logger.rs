@@ -14,7 +14,7 @@ use log4rs::{
     config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
 };
-use crate::config::read_config;
+use crate::{config::read_config, utils};
 
 /// this logger configuration is used for testing
 pub fn appender_logger(log_file: &str) -> log4rs::Handle {
@@ -99,6 +99,11 @@ pub fn rolling_logger() -> log4rs::Handle {
             }
         }
     };
+
+    if std::env::var("CRONFRAME_CLI").is_ok() {
+        let home_dir = utils::home_dir();
+        log_dir = format!("{home_dir}/.cronframe/log");
+    }
 
     let archive_file = format!("{log_dir}/{archive_file_name}.log").replace(".log", "_{}.log");
 
