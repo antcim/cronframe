@@ -26,13 +26,18 @@ fn main() {
         )
         .subcommand(
             clap::Command::new("add")
-                .about("Adds new cli job to CronFrame.")
+                .about("Adds a new cli job to a CronFrame instance.")
                 .args(&[
                     arg!([EXPR] "The Cron Expression to use for job scheduling."),
                     arg!([TIMEOUT] "The value in ms to use for the timeout."),
                     arg!([JOB] "The path containing the source code of the job."),
                 ])
-                .arg_required_else_help(true),
+                .arg_required_else_help(true)
+                .arg(
+                    arg!(-p --port <VALUE>)
+                        .required(false)
+                        .action(clap::ArgAction::Set),
+                ),
         )
         .subcommand(
             clap::Command::new("shutdown")
@@ -48,7 +53,8 @@ fn main() {
             let expr = sub_matches.get_one::<String>("EXPR").unwrap();
             let timeout = sub_matches.get_one::<String>("TIMEOUT").unwrap();
             let job = sub_matches.get_one::<String>("JOB").unwrap();
-            add_command(expr, timeout, job);
+            let port_option = sub_matches.get_one::<String>("port");
+            add_command(expr, timeout, job, port_option);
         }
         _ => unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`"),
     }
@@ -88,7 +94,7 @@ fn run_command() {
     let _ = CronFrame::init(Some(CronFilter::CLI), true).run();
 }
 
-fn add_command(expr: &str, timeout: &str, job: &str) {
+fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String>) {
     let home_dir = utils::home_dir();
 
     let escaped_expr = expr.replace("/", "slh");
@@ -139,7 +145,12 @@ fn add_command(expr: &str, timeout: &str, job: &str) {
     // send the job to the running cronframe instance
     // localhost::8098/add_cli_job/<expr>/<timeout>/<job>
 
-    let (ip_address, port) = ip_and_port();
+    let (ip_address, mut port) = ip_and_port();
+
+    if port_option.is_some() {
+        port = port_option.unwrap().parse().unwrap();
+        println!("PORT OPTION = {port}");
+    }
 
     let req_url =
         format!("http://{ip_address}:{port}/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
@@ -181,7 +192,7 @@ fn cronframe_folder() {
     }
 }
 
-fn ip_and_port() -> (String, u16){
+fn ip_and_port() -> (String, u16) {
     match read_config() {
         Some(config_data) => {
             if let Some(webserver_data) = config_data.webserver {
