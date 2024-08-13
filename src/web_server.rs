@@ -109,6 +109,9 @@ pub fn web_server(frame: Arc<CronFrame>) {
         }
     };
 
+    let ip_address = base_config.address;
+    let port = base_config.port;
+
     std::env::set_var(
         "ROCKET_CONFIG",
         format!("{home_dir}/.cronframe/rocket.toml"),
@@ -156,10 +159,7 @@ pub fn web_server(frame: Arc<CronFrame>) {
 
         let _ = tx.send(shutdown_handle);
 
-        // println!(
-        //     "CronFrame running at http://{}:{}",
-        //     config.address, base_config.port
-        // );
+        println!("CronFrame running at http://{}:{}", ip_address, port);
 
         let _ = rocket
             .expect("rocket unwrap error in web server launch")

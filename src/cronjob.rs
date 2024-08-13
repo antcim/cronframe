@@ -264,7 +264,7 @@ impl CronJob {
                             tmp.to_str().unwrap().to_owned()
                         };
                         let _build = Command::new(format!("./{}", cron_job.name))
-                            .current_dir(format!("{home_dir}/.cronframe/jobs"))
+                            .current_dir(format!("{home_dir}/.cronframe/cli_jobs"))
                             .status()
                             .expect("process failed to execute");
                     }
@@ -339,7 +339,7 @@ impl CronJob {
                             tmp.to_str().unwrap().to_owned()
                         };
                         let _build = Command::new(format!("./{}", cron_job.name))
-                            .current_dir(format!("{home_dir}/.cronframe/jobs"))
+                            .current_dir(format!("{home_dir}/.cronframe/cli_jobs"))
                             .status()
                             .expect("process failed to execute");
                     }
