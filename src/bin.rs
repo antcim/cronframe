@@ -8,8 +8,6 @@ use std::{
 use clap::{arg, command};
 
 fn main() {
-    cronframe_folder();
-
     // cli args parsing
     let matches = command!()
         .version("0.0.1")
@@ -55,6 +53,7 @@ fn main() {
 }
 
 fn start_command() {
+    cronframe_folder();
     let _build = Command::new("cronframe")
         .args(["run"])
         .stdin(Stdio::null())
@@ -80,6 +79,7 @@ fn shutdown_command() {
 }
 
 fn run_command() {
+    cronframe_folder();
     let _ = CronFrame::init(Some(CronFilter::CLI), true).run();
 }
 
