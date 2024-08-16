@@ -7,6 +7,8 @@ use std::{
 
 use clap::{arg, command};
 
+use colored::*;
+
 fn main() {
     std::env::set_var("CRONFRAME_CLI", "true");
 
@@ -62,6 +64,14 @@ fn main() {
 
 fn start_command() {
     cronframe_folder();
+
+    let (ip, port) = ip_and_port();
+    if is_running(&ip, port) {
+        println!("{}", "Error when starting CronFrame".red().bold());
+        println!("Address at: 'http://{ip}:{port}' is already busy");
+        return;
+    }
+
     let _build = Command::new("cronframe")
         .args(["run"])
         .stdin(Stdio::null())
@@ -70,27 +80,32 @@ fn start_command() {
         .spawn()
         .expect("cronframe run failed");
 
-    let (ip_address, port) = ip_and_port();
-    println!("CronFrame will soon be available at: http://{ip_address}:{port}");
+    println!("CronFrame will soon be available at: http://{ip}:{port}");
 }
 
 fn shutdown_command() {
-    let (ip_address, port) = ip_and_port();
-    let req_url = format!("http://{ip_address}:{port}/shutdown");
+    let (ip, port) = ip_and_port();
+    let req_url = format!("http://{ip}:{port}/shutdown");
 
     match reqwest::blocking::get(req_url) {
         Ok(_) => {
             println!("CronFrame will soon shutdown.");
         }
-        Err(error) => {
-            println!("Error:");
-            println!("{error}");
+        Err(_) => {
+            println!("Error when shutting down CronFrame");
+            println!("No instance found at: http://{ip}:{port}");
         }
     }
 }
 
 fn run_command() {
     cronframe_folder();
+    let (ip, port) = ip_and_port();
+    if is_running(&ip, port) {
+        println!("{}", "Error when running CronFrame".red().bold());
+        println!("Address at: 'http://{ip}:{port}' is already busy");
+        return;
+    }
     let _ = CronFrame::init(Some(CronFilter::CLI), true).run();
 }
 
@@ -100,15 +115,13 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
     let escaped_expr = expr.replace("/", "slh");
 
     let tmp: Vec<_> = job.split("/").collect();
+    let tmp = tmp.iter().filter(|x| !x.is_empty()); // needed if there is a / after the name of the create's folder
     let job_name = tmp.last().unwrap().replace(".rs", "");
 
-    println!("Compiling {job_name} JOB");
+    println!("Compiling {job_name} Job:");
 
     if Path::new(&job).is_file() {
         // compile the "script" job
-        let tmp: Vec<_> = job.split("/").collect();
-        let job_name = tmp.last().unwrap().replace(".rs", "");
-
         let _ = Command::new("rustc")
             .args([
                 job,
@@ -142,18 +155,25 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
             .expect("job compilation failed");
     }
 
+    // get the ip_address and port
+    // check if a cronframe instance is running
     // send the job to the running cronframe instance
     // localhost::8098/add_cli_job/<expr>/<timeout>/<job>
 
-    let (ip_address, mut port) = ip_and_port();
+    let (ip, mut port) = ip_and_port();
 
     if port_option.is_some() {
         port = port_option.unwrap().parse().unwrap();
-        println!("PORT OPTION = {port}");
+    }
+
+    if !is_running(&ip, port) {
+        println!("{}", "Error when adding job to CronFrame".red().bold());
+        println!("No instance found at: http://{ip}:{port}");
+        return;
     }
 
     let req_url =
-        format!("http://{ip_address}:{port}/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
+        format!("http://{ip}:{port}/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
 
     match reqwest::blocking::get(req_url) {
         Ok(_) => {
@@ -205,5 +225,12 @@ fn ip_and_port() -> (String, u16) {
             }
         }
         None => ("localhost".to_string(), 8098),
+    }
+}
+
+fn is_running(ip: &str, port: u16) -> bool {
+    match reqwest::blocking::get(format!("http://{ip}:{port}")) {
+        Ok(_) => true,
+        Err(_) => false,
     }
 }
