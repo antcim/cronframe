@@ -206,6 +206,14 @@ impl CronFrame {
                 break;
             }
 
+            if !*cronframe
+                .running
+                .lock()
+                .expect("quit unwrap error in scheduler")
+            {
+                break;
+            }
+
             let mut cron_jobs = cronframe
                 .cron_jobs
                 .lock()
@@ -350,28 +358,8 @@ impl CronFrame {
 
     /// Stop the scheduler and wait for the jobs to finish
     pub fn stop_scheduler(self: &Arc<Self>) {
-        if *self.running.lock().unwrap() {
-            info!("CronFrame Scheduler Shutdown");
-            *self.running.lock().unwrap() = false;
-
-            let cronframe = self.clone();
-
-            *cronframe
-                .quit
-                .lock()
-                .expect("quit unwrap error in stop scheduler method") = true;
-
-            let handles = cronframe
-                .job_handles
-                .lock()
-                .expect("job handles unwrap error in stop scheduler method");
-
-            for handle in handles.iter() {
-                while !handle.1.is_finished() {
-                    // do some waiting until all job threads have terminated.
-                }
-            }
-        }
+        info!("CronFrame Scheduler Shutdown");
+        *self.running.lock().unwrap() = false;
     }
 
     /// Function to call for a graceful shutdown of the library
@@ -391,6 +379,20 @@ impl CronFrame {
         self.stop_scheduler();
         info!("CronFrame Shutdown");
 
+        // wait for job handlers to finisH
+        let cronframe = self.clone();
+
+        let handles = cronframe
+            .job_handles
+            .lock()
+            .expect("job handles unwrap error in stop scheduler method");
+
+        for handle in handles.iter() {
+            while !handle.1.is_finished() {
+                // do some waiting until all job threads have terminated.
+            }
+        }
+
         // quit the web server
         self.server_handle
             .lock()
@@ -398,5 +400,10 @@ impl CronFrame {
             .clone()
             .expect("web server unwrap error after clone in quit method")
             .notify();
+
+        *self
+            .quit
+            .lock()
+            .expect("quit unwrap error in stop scheduler method") = true;
     }
 }

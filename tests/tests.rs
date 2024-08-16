@@ -192,7 +192,9 @@ pub fn test_job(
     println!("END TIME IS: {end_time}");
 
     // make the lib execute for given time
-    while end_time > Utc::now() {}
+    while end_time > Utc::now() {
+        std::thread::sleep(Duration::seconds(1).to_std().unwrap());
+    }
     cronframe.quit();
 
     // we need to get the current log file
