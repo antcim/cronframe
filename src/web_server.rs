@@ -3,6 +3,7 @@
 use crate::{
     config::read_config, cronframe::CronFrame, utils, CronFilter, CronJobType, JobBuilder,
 };
+use colored::Colorize;
 use log::info;
 use rocket::{
     config::Shutdown,
@@ -118,21 +119,21 @@ pub fn web_server(frame: Arc<CronFrame>) {
     let (tx, _) = cronframe.web_server_channels.clone();
 
     tokio_runtime.block_on(async move {
-        let rocket = rocket.ignite().await;
+        let rocket = rocket.ignite().await.expect("Ignition Error");
 
-        let shutdown_handle = rocket
-            .as_ref()
-            .expect("rocket unwrap error in web server init")
-            .shutdown();
+        let _ = tx.send(rocket.shutdown());
 
-        let _ = tx.send(shutdown_handle);
-
-        println!("CronFrame running at http://{}:{}", ip_address, port);
-
-        let _ = rocket
-            .expect("rocket unwrap error in web server launch")
-            .launch()
-            .await;
+        match rocket.launch().await {
+            Ok(_) => println!("CronFrame running at http://{}:{}", ip_address, port),
+            Err(err) => {
+                println!(
+                    "{} {}",
+                    "Error during CronFrame init:".red().bold(),
+                    err.pretty_print()
+                );
+                cronframe.clone().quit();
+            }
+        }
     });
 }
 
