@@ -1,6 +1,7 @@
 use cronframe::{config::read_config, utils, web_server, CronFilter, CronFrame};
 use std::{
     fs,
+    io::BufRead,
     path::Path,
     process::{Command, Stdio},
 };
@@ -42,6 +43,15 @@ fn main() {
                 ),
         )
         .subcommand(
+            clap::Command::new("load")
+                .about("Load jobs from definition file.")
+                .arg(
+                    arg!(-f --file <PATH>)
+                        .required(false)
+                        .action(clap::ArgAction::Set),
+                ),
+        )
+        .subcommand(
             clap::Command::new("scheduler")
                 .about("Perform actions on the scheduler like start and stop")
                 .args(&[arg!([ACTION] "Action to perform = (start, stop)")])
@@ -68,6 +78,10 @@ fn main() {
             let job = sub_matches.get_one::<String>("JOB").unwrap();
             let port_option = sub_matches.get_one::<String>("port");
             add_command(expr, timeout, job, port_option);
+        }
+        Some(("load", sub_matches)) => {
+            let file = sub_matches.get_one::<String>("file");
+            load_command(file);
         }
         Some(("scheduler", sub_matches)) => {
             let action = sub_matches.get_one::<String>("ACTION").unwrap();
@@ -246,6 +260,51 @@ fn scheduler_command(action: &str, port_option: Option<&String>) {
         }
         _ => {
             println!("{}", "Error: scheduler action unknown.".red().bold());
+        }
+    }
+}
+
+fn load_command(file: Option<&String>) {
+    let (ip, port) = ip_and_port();
+    if !is_running(&ip, port) {
+        println!("{}", "Load Command Error".red().bold());
+        println!("No instance found at: http://{ip}:{port}");
+        return;
+    }
+
+    let file_path = match file {
+        Some(path) => path.clone(),
+        None => format!("{}/.cronframe/job_list.txt", utils::home_dir()),
+    };
+
+    match std::fs::read(file_path) {
+        Ok(content) => {
+            for line in content.lines().into_iter() {
+                let line = line.unwrap();
+                let cmpt: Vec<_> = line.split(" ").collect();
+
+                let expr = if cmpt.len() == 9 {
+                    // expr made of 7 fields
+                    format!(
+                        "{} {} {} {} {} {} {}",
+                        cmpt[0], cmpt[1], cmpt[2], cmpt[3], cmpt[4], cmpt[5], cmpt[6]
+                    )
+                } else {
+                    // expr made of 6 fields (year absent)
+                    format!(
+                        "{} {} {} {} {} {}",
+                        cmpt[0], cmpt[1], cmpt[2], cmpt[3], cmpt[4], cmpt[5]
+                    )
+                };
+
+                let timeout = if cmpt.len() == 9 { cmpt[7] } else { cmpt[6] };
+                let job = if cmpt.len() == 9 { cmpt[8] } else { cmpt[7] };
+
+                add_command(&expr, timeout, job, None);
+            }
+        }
+        Err(err) => {
+            println!("{}", err.to_string());
         }
     }
 }
