@@ -140,11 +140,15 @@ fn run_command() {
 }
 
 fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String>) {
-    let home_dir = utils::home_dir();
+    let home_dir = utils::home_dir().replace("\\", "/");
 
     let escaped_expr = expr.replace("/", "slh");
 
-    let tmp: Vec<_> = job.split("/").collect();
+    let tmp: Vec<_> = if cfg!(target_os = "windows") {
+        job.split("\\").collect()
+    } else {
+        job.split("/").collect()
+    };
     let tmp = tmp.iter().filter(|x| !x.is_empty()); // needed if there is a / after the name of the create's folder
     let job_name = tmp.last().unwrap().replace(".rs", "");
 
@@ -173,16 +177,42 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
             .status()
             .expect("job compilation failed");
 
-        let _ = Command::new("cp")
-            .args([
-                &job_name,
-                &format!("{home_dir}/.cronframe/cli_jobs/{job_name}"),
-            ])
-            .current_dir(format!(
-                "{home_dir}/.cronframe/cargo_targets/{job_name}/release"
-            ))
-            .status()
-            .expect("job compilation failed");
+        let _ = if cfg!(target_os = "windows") {
+            println!(
+                "current dir = {}",
+                format!("{home_dir}/.cronframe/cargo_targets/{job_name}/release")
+            );
+            println!(
+                "cmd /C copy {} {}",
+                format!("{job_name}.exe"),
+                format!("{home_dir}/.cronframe/cli_jobs").replace("\\", "/")
+            );
+
+            Command::new("cmd")
+                .args(&[
+                    "/C",
+                    "copy",
+                    &format!("{job_name}.exe"),
+                    &format!("{home_dir}/.cronframe/cli_jobs/").replace("/", "\\"),
+                ])
+                .current_dir(format!(
+                    "{home_dir}/.cronframe/cargo_targets/{job_name}/release"
+                ))
+                .status()
+                .expect("job binary copy failed")
+        } else {
+            // copy binary on unix systems
+            Command::new("cp")
+                .args([
+                    &job_name,
+                    &format!("{home_dir}/.cronframe/cli_jobs/{job_name}"),
+                ])
+                .current_dir(format!(
+                    "{home_dir}/.cronframe/cargo_targets/{job_name}/release"
+                ))
+                .status()
+                .expect("job binary copy failed")
+        };
     }
 
     // get the ip_address and port
@@ -315,7 +345,7 @@ fn cronframe_folder() {
     if !std::path::Path::new(&format!("{home_dir}/.cronframe")).exists() {
         println!("Generating .cronframe directory content...");
 
-        let template_dir = format!("{home_dir}/.cronframe/templates");
+        let template_dir = format!("{home_dir}/.cronframe/templates").replace("\\", "/");
         let rocket_toml = format!("[debug]\ntemplate_dir = \"{template_dir}\"\n[release]\ntemplate_dir = \"{template_dir}\"");
 
         fs::create_dir(format!("{home_dir}/.cronframe"))
