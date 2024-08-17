@@ -42,6 +42,17 @@ fn main() {
                 ),
         )
         .subcommand(
+            clap::Command::new("scheduler")
+                .about("Perform actions on the scheduler like start and stop")
+                .args(&[arg!([ACTION] "Action to perform = (start, stop)")])
+                .arg_required_else_help(true)
+                .arg(
+                    arg!(-p --port <VALUE>)
+                        .required(false)
+                        .action(clap::ArgAction::Set),
+                ),
+        )
+        .subcommand(
             clap::Command::new("shutdown")
                 .about("Shutdown the CronFrame Webserver and Job Scheduler."),
         )
@@ -57,6 +68,11 @@ fn main() {
             let job = sub_matches.get_one::<String>("JOB").unwrap();
             let port_option = sub_matches.get_one::<String>("port");
             add_command(expr, timeout, job, port_option);
+        }
+        Some(("scheduler", sub_matches)) => {
+            let action = sub_matches.get_one::<String>("ACTION").unwrap();
+            let port_option = sub_matches.get_one::<String>("port");
+            scheduler_command(action, port_option);
         }
         _ => unreachable!("Exhausted list of subcommands and subcommand_required prevents `None`"),
     }
@@ -172,8 +188,7 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
         return;
     }
 
-    let req_url =
-        format!("http://{ip}:{port}/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
+    let req_url = format!("http://{ip}:{port}/add_cli_job/{escaped_expr}/{timeout}/{job_name}");
 
     match reqwest::blocking::get(req_url) {
         Ok(_) => {
@@ -185,6 +200,52 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
         Err(error) => {
             println!("Error adding a Job to CronFrame");
             println!("{error}");
+        }
+    }
+}
+
+fn scheduler_command(action: &str, port_option: Option<&String>) {
+    let (ip, mut port) = ip_and_port();
+
+    if port_option.is_some() {
+        port = port_option.unwrap().parse().unwrap();
+    }
+
+    if !is_running(&ip, port) {
+        println!("{}", "Scheduler Command error".red().bold());
+        println!("No instance found at: http://{ip}:{port}");
+        return;
+    }
+
+    match action.to_lowercase().as_str() {
+        "start" => {
+            let req_url = format!("http://{ip}:{port}/start_scheduler");
+
+            match reqwest::blocking::get(req_url) {
+                Ok(_) => {
+                    println!("Scheduler will soon start.");
+                }
+                Err(error) => {
+                    println!("Error when starting the scheduler");
+                    println!("{error}");
+                }
+            }
+        }
+        "stop" => {
+            let req_url = format!("http://{ip}:{port}/stop_scheduler");
+
+            match reqwest::blocking::get(req_url) {
+                Ok(_) => {
+                    println!("Scheduler will soon stop.");
+                }
+                Err(error) => {
+                    println!("Error when stopping the scheduler");
+                    println!("{error}");
+                }
+            }
+        }
+        _ => {
+            println!("{}", "Error: scheduler action unknown.".red().bold());
         }
     }
 }
