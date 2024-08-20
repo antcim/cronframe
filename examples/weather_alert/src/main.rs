@@ -1,4 +1,5 @@
-#[macro_use] extern crate cronframe;
+#[macro_use]
+extern crate cronframe;
 
 use chrono::Local;
 use cronframe::{CronFrame, CronFrameExpr};
@@ -60,7 +61,7 @@ impl WeatherAlert {
 fn main() {
     let cronframe = CronFrame::default();
 
-    let alert_schedule = CronFrameExpr::new("0", "0/10", "5-6,14-16", "*", "*", "Mon-Fri", "*", 0);
+    let alert_schedule = CronFrameExpr::new("0", "0/10", "5-6,14-15", "*", "*", "Mon-Fri", "*", 0);
 
     let mut venice = WeatherAlert::new_cron_obj("Venice".into(), alert_schedule);
 

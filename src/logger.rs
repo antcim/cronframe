@@ -108,7 +108,7 @@ pub fn rolling_logger() -> log4rs::Handle {
     let archive_file = format!("{log_dir}/{archive_file_name}.log").replace(".log", "_{}.log");
 
     // retain latest and archive logfiles at restart as per rolling policy
-    if !std::path::Path::new(&format!("./{log_dir}/{latest_file_name}")).exists() {
+    if !std::path::Path::new(&format!("{log_dir}/{latest_file_name}")).exists() {
         let _ = std::fs::remove_file(format!(
             "./{log_dir}/{archive_file_name}_{}.log",
             window_size - 1
@@ -116,14 +116,14 @@ pub fn rolling_logger() -> log4rs::Handle {
 
         for i in (1..=(window_size - 1)).rev(){
             let _ = std::fs::rename(
-                format!("./{log_dir}/{archive_file_name}_{}.log", i - 1),
-                format!("./{log_dir}/{archive_file_name}_{}.log", i),
+                format!("{log_dir}/{archive_file_name}_{}.log", i - 1),
+                format!("{log_dir}/{archive_file_name}_{}.log", i),
             );
         }
 
         let _ = std::fs::rename(
-            format!("./{log_dir}/{latest_file_name}.log"),
-            format!("./{log_dir}/{archive_file_name}_0.log"),
+            format!("{log_dir}/{latest_file_name}.log"),
+            format!("{log_dir}/{archive_file_name}_0.log"),
         );
         
         std::thread::sleep(Duration::seconds(5).to_std().unwrap());
