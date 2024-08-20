@@ -1,4 +1,9 @@
-use cronframe::{config::read_config, utils, web_server, CronFilter, CronFrame};
+//! CronFrame CLI Tool v0.1.3
+
+use cronframe::{
+    utils::{self, ip_and_port},
+    web_server, CronFilter, CronFrame,
+};
 use std::{
     fs,
     io::BufRead,
@@ -15,7 +20,6 @@ fn main() {
 
     // cli args parsing
     let matches = command!()
-        .version("0.0.1")
         .propagate_version(true)
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -359,22 +363,6 @@ fn cronframe_folder() {
             Path::new(&format!("{home_dir}/.cronframe/rocket.toml")),
             rocket_toml,
         );
-    }
-}
-
-fn ip_and_port() -> (String, u16) {
-    match read_config() {
-        Some(config_data) => {
-            if let Some(webserver_data) = config_data.webserver {
-                (
-                    webserver_data.ip.unwrap_or_else(|| "127.0.0.1".to_string()),
-                    webserver_data.port.unwrap_or_else(|| 8098),
-                )
-            } else {
-                ("localhost".to_string(), 8098)
-            }
-        }
-        None => ("localhost".to_string(), 8098),
     }
 }
 

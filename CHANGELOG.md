@@ -1,3 +1,16 @@
+# Version 0.1.3 - Released ---
+Web server functionality update, method updates and bugfixes.
+
+## cronframe 0.1.3
+**Additions**
+- CronFrame is now also a CLI tool for spinning a global instance of the framework.
+- Added support for running cli jobs that can be added with the new cli tool.
+
+## cronframe_macro 0.1.3
+- Derivation of Clone trait in the cron_obj macro itself.
+
+<!-- version separator -->
+
 # Version 0.1.2 - Released 2024-08-05
 Web server functionality update, method updates and bugfixes.
 

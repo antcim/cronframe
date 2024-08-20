@@ -20,7 +20,7 @@ use std::{fs, path::Path, sync::Arc, time::Duration};
 ///
 /// It provides 7 routes, five of which are API only.
 ///
-/// Upon first start of the library it will generate a templates folder inside the current director with the following files:
+/// Upon first start of the framework it will generate a templates folder inside the current director with the following files:
 /// - base.html.tera
 /// - index.htm.tera
 /// - job.html.tera
@@ -344,9 +344,6 @@ fn stop_scheduler(cronframe: &rocket::State<Arc<CronFrame>>) {
 #[get("/add_cli_job/<expr>/<timeout>/<job>")]
 fn add_cli_job(expr: &str, timeout: &str, job: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
     let new_job = JobBuilder::cli_job(job, expr, timeout).build();
-    info!("new_job.job = {job}");
-    info!("new_job.expr = {expr}");
-    info!("new_job.timeout = {timeout}");
     cronframe.add_job(new_job);
 }
 

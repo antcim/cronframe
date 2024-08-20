@@ -1,6 +1,6 @@
-//! # CronFrame 0.1.2
+//! # CronFrame 0.1.3
 //! 
-//! This library allows for the definition and scheduling of cron jobs with macros both on functions in the "global scope" and inside struct types.
+//! This framework allows for the definition and scheduling of cron jobs with macros both on functions in the "global scope" and inside struct types.
 //! 
 //! Job creation without macros is possible, refer to the example in `no_macros.rs` on the [repo](https://github.com/antcim/cronframe).
 //! 
@@ -10,9 +10,9 @@
 //! 
 //! Scheduling time is in UTC.
 //! 
-//! There are three types of jobs that can be defined:
+//! There are three types of jobs that can be defined using the framework:
 //! - global jobs
-//! - functions jobs
+//! - function jobs
 //! - method jobs
 //! 
 //! Each of these is defined with a macro, a standalone macro for global jobs while function a method jobs require a little bit of setup.
@@ -23,9 +23,9 @@
 //! 
 //! **NOTICE:** a cron object derives the Clone trait so its fields must too.
 //! 
-//! The library supports a daily timeout (timed-out state resets every 24hrs) in ms which is decativated if the value is 0.
+//! The framework supports a daily timeout (timed-out state resets every 24hrs) in ms which is decativated if the value is 0.
 //! 
-//! During the first run of the library a templates folder will be created in the current directory with 7 files inside it:
+//! During the first run of the framework a templates folder will be created in the current directory with 7 files inside it:
 //! - base.html.tera
 //! - index.htm.tera
 //! - job.html.tera

@@ -1,4 +1,4 @@
-//! The Core Type of the Library
+//! The Core Type of the Framework
 
 use std::{
     collections::HashMap,
@@ -11,8 +11,7 @@ use crossbeam_channel::{Receiver, Sender};
 use rocket::Shutdown;
 
 use crate::{
-    config::read_config, cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronFilter,
-    CronJobType,
+    config::read_config, cronjob::CronJob, job_builder::JobBuilder, logger, utils, web_server, CronFilter, CronJobType
 };
 
 const GRACE_DEFAULT: u32 = 250;
@@ -49,7 +48,7 @@ impl CronFrame {
     /// # #[macro_use] extern crate cronframe_macro;
     /// # use cronframe::CronFrame;
     /// fn main(){
-    ///     // inits the library and gathers global jobs if there are any
+    ///     // inits the framework instance and gathers global jobs if there are any
     ///     // does not start the scheduler, only the web server is live
     ///     let cronframe = CronFrame::default(); // this a shorthand for Cronframe::init(None, true);
     ///     //cronframe.keep_alive(); // keeps main thread alive
@@ -60,7 +59,7 @@ impl CronFrame {
         CronFrame::init(None, true)
     }
 
-    /// Init function of the library, it takes two agruments:
+    /// Init function of the framework, it takes two agruments:
     /// ```text
     /// filter: Option<CronFilter>
     /// use_logger: bool
@@ -74,7 +73,7 @@ impl CronFrame {
     ///
     /// It returns an `Arc<CronFrame>` which is used in the webserver and to start the scheduler.
     pub fn init(filter: Option<CronFilter>, use_logger: bool) -> Arc<CronFrame> {
-        println!("Starting Cronframe...");
+        println!("Starting CronFrame...");
         let logger = if use_logger {
             Some(logger::rolling_logger())
         } else {
@@ -124,20 +123,30 @@ impl CronFrame {
         let frame = Arc::new(frame);
         let server_frame = frame.clone();
 
+        let running = Mutex::new(false);
+
         std::thread::spawn(move || web_server::web_server(server_frame));
 
         *frame
             .server_handle
             .lock()
             .expect("web server handle unwrap error") = match frame.web_server_channels.1.recv() {
-            Ok(handle) => Some(handle),
+            Ok(handle) => {
+                *running.lock().unwrap() = true;
+                Some(handle)
+            },
             Err(error) => {
-                println!("Web server shutdown handle error: {error}");
+                error!("Web server shutdown handle error: {error}");
                 None
             }
         };
 
-        info!("CronFrame Web Server Running");
+        if *running.lock().unwrap() {
+            let (ip_address, port) = utils::ip_and_port();
+            info!("CronFrame Web Server running at http://{}:{}", ip_address, port);
+            println!("CronFrame running at http://{}:{}", ip_address, port);
+        }
+
         frame
     }
 
@@ -362,7 +371,7 @@ impl CronFrame {
         *self.running.lock().unwrap() = false;
     }
 
-    /// Function to call for a graceful shutdown of the library
+    /// Function to call for a graceful shutdown of the framework instance
     /// ```
     /// # #[macro_use] extern crate cronframe_macro;
     /// # use cronframe::CronFrame;

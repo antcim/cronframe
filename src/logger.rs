@@ -1,4 +1,4 @@
-//! Default logger setup for the cronframe library and the testing suite
+//! Default logger setup for the cronframe framework and the testing suite
 
 use chrono::Duration;
 use log4rs::{
