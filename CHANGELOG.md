@@ -8,6 +8,7 @@ Web server functionality update, method updates and bugfixes.
 
 ## cronframe_macro 0.1.3
 - Derivation of Clone trait in the cron_obj macro itself.
+- Method `cf_drop` in cron objects turned into an associated function and renamed `cf_drop_fn`.
 
 <!-- version separator -->
 

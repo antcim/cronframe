@@ -56,80 +56,83 @@ pub fn cron(att: TokenStream, code: TokenStream) -> TokenStream {
 pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
     let item_struct = syn::parse::<ItemStruct>(code.clone()).unwrap();
     let r#struct = item_struct.to_token_stream();
-
     let ident_upper = format_ident!("{}", item_struct.ident.clone().to_string().to_uppercase());
-
+    let struct_name = item_struct.ident;
     let method_jobs = format_ident!("CRONFRAME_METHOD_JOBS_{}", ident_upper);
     let function_jobs = format_ident!("CRONFRAME_FUNCTION_JOBS_{}", ident_upper);
     let cf_fn_jobs_flag = format_ident!("CF_FN_JOBS_FLAG_{}", ident_upper);
     let cf_fn_jobs_channels = format_ident!("CF_FN_JOBS_CHANNELS_{}", ident_upper);
 
-    let mut tmp = r#struct.to_string();
-
-    let struct_name = item_struct.ident;
-
-    if tmp.contains("{") {
-        tmp.insert_str(
-            tmp.chars().count() - 1,
-            "tx: Option<cronframe::Sender<String>>",
-        );
-    } else {
-        tmp.insert_str(
-            tmp.chars().count() - 1,
-            "{tx: Option<cronframe::Sender<String>>}",
-        );
-        tmp = (&tmp[0..tmp.len() - 1].to_string()).clone();
-    }
-
-    let struct_edited: proc_macro2::TokenStream = tmp.parse().unwrap();
-
-    let type_name = struct_name.clone().into_token_stream().to_string();
-
-    let mut cron_obj_fn = String::from("fn new_cron_obj(");
-    if !item_struct.fields.is_empty() {
-        let mut tmp = item_struct.fields.iter().map(|x| {
-            let field_name = x.ident.to_token_stream().to_string();
-            let field_type = x.ty.to_token_stream().to_string();
-            format!("{field_name} : {field_type},")
-        });
-
-        for _ in 0..item_struct.fields.len() {
-            cron_obj_fn.push_str(&tmp.next().unwrap());
+    // inject the tx field for the drop of method jobs
+    // this requires that the last field in the original struct is followed by a ,
+    let struct_edited: proc_macro2::TokenStream = {
+        let mut tmp = r#struct.to_string();
+        if tmp.contains("{") {
+            tmp.insert_str(
+                tmp.chars().count() - 1,
+                "tx: Option<cronframe::Sender<String>>",
+            );
+        } else {
+            tmp.insert_str(
+                tmp.chars().count() - 1,
+                "{tx: Option<cronframe::Sender<String>>}",
+            );
+            tmp = (&tmp[0..tmp.len() - 1].to_string()).clone();
         }
-    }
+        tmp.parse().unwrap()
+    };
 
-    cron_obj_fn.push_str(") -> ");
-    cron_obj_fn.push_str(type_name.as_str());
-    cron_obj_fn.push_str("{");
-    cron_obj_fn.push_str(type_name.as_str());
-    cron_obj_fn.push_str("{");
+    // --- start --- building the new_cron_obj function
+    let new_cron_obj: proc_macro2::TokenStream = {
+        let type_name = struct_name.clone().into_token_stream().to_string();
+        let mut function = String::from("fn new_cron_obj(");
+        if !item_struct.fields.is_empty() {
+            let mut tmp = item_struct.fields.iter().map(|x| {
+                let field_name = x.ident.to_token_stream().to_string();
+                let field_type = x.ty.to_token_stream().to_string();
+                format!("{field_name} : {field_type},")
+            });
 
-    if !item_struct.fields.is_empty() {
-        let mut tmp = item_struct.fields.iter().map(|x| {
-            let field_name = x.ident.to_token_stream().to_string();
-            format!("{field_name},")
-        });
-
-        for _ in 0..item_struct.fields.len() {
-            cron_obj_fn.push_str(&tmp.next().unwrap());
+            for _ in 0..item_struct.fields.len() {
+                function.push_str(&tmp.next().unwrap());
+            }
         }
-    }
 
-    cron_obj_fn.push_str("tx: None");
-    cron_obj_fn.push_str("}");
-    cron_obj_fn.push_str("}");
+        function.push_str(") -> ");
+        function.push_str(&type_name);
+        function.push_str("{");
+        function.push_str(&type_name);
+        function.push_str("{");
 
-    let cron_job_fn_tokens: proc_macro2::TokenStream = cron_obj_fn.parse().unwrap();
+        if !item_struct.fields.is_empty() {
+            let mut tmp = item_struct.fields.iter().map(|x| {
+                let field_name = x.ident.to_token_stream().to_string();
+                format!("{field_name},")
+            });
+
+            for _ in 0..item_struct.fields.len() {
+                function.push_str(&tmp.next().unwrap());
+            }
+        }
+        function.push_str("tx: None");
+        function.push_str("}");
+        function.push_str("}");
+        function.parse().unwrap()
+    }; // --- end --- building the new_cron_obj
 
     let new_code = quote! {
+        // the code of the original struct with the addition of the tx field
         #[derive(Clone)]
         #struct_edited
 
+        // used to keep track of weather function jobs have been gathered
         static #cf_fn_jobs_flag: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
+        // channels used to manage to drop of function jobs
         static #cf_fn_jobs_channels: cronframe::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::bounded(1));
 
         // drop for method jobs
         impl Drop for #struct_name {
+            // this drops method jobs only
             fn drop(&mut self) {
                 if self.tx.is_some(){
                     let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
@@ -139,9 +142,11 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
 
         // drop for function jobs
         impl #struct_name {
-            #cron_job_fn_tokens
+            // the new_cron_obj function
+            #new_cron_obj
 
-            fn cf_drop(&self) {
+            // associated funciton of cron objects to drop function jobs
+            fn cf_drop_fn() {
                 if *#cf_fn_jobs_flag.lock().unwrap(){
                     for func in #function_jobs{
                         let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());

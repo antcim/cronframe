@@ -1,5 +1,6 @@
 # Version 0.1.3 - Released ---
-Derivation of Clone trait in the cron_obj macro itself.
+- Derivation of Clone trait in the cron_obj macro itself.
+- Method `cf_drop` in cron objects turned into an associated function and renamed `cf_drop_fn`.
 
 <!-- version separator -->
 
