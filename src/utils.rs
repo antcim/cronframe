@@ -1,16 +1,15 @@
 //! Utilities
 
+use crate::config::read_config;
 use chrono::{DateTime, Local, Utc};
 
-use crate::config::read_config;
-
-/// Convertion from UTC time to local time
-pub fn local_time(utc_time: DateTime<Utc>) -> DateTime<Local>{
+/// Convertion from UTC to Local time
+pub fn local_time(utc_time: DateTime<Utc>) -> DateTime<Local> {
     let local_time: DateTime<Local> = DateTime::from(utc_time);
     local_time
 }
 
-pub fn home_dir() -> String{
+pub fn home_dir() -> String {
     let tmp = home::home_dir().unwrap();
     tmp.to_str().unwrap().to_owned()
 }
@@ -27,6 +26,6 @@ pub fn ip_and_port() -> (String, u16) {
                 ("localhost".to_string(), 8098)
             }
         }
-        None => ("localhost".to_string(), 8098)
+        None => ("localhost".to_string(), 8098),
     }
 }

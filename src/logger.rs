@@ -1,5 +1,6 @@
 //! Default logger setup for the cronframe framework and the testing suite
 
+use crate::{config::read_config, utils};
 use chrono::Duration;
 use log4rs::{
     append::{
@@ -14,7 +15,6 @@ use log4rs::{
     config::{Appender, Config, Root},
     encode::pattern::PatternEncoder,
 };
-use crate::{config::read_config, utils};
 
 /// this logger configuration is used for testing
 pub fn appender_logger(log_file: &str) -> log4rs::Handle {
@@ -114,7 +114,7 @@ pub fn rolling_logger() -> log4rs::Handle {
             window_size - 1
         ));
 
-        for i in (1..=(window_size - 1)).rev(){
+        for i in (1..=(window_size - 1)).rev() {
             let _ = std::fs::rename(
                 format!("{log_dir}/{archive_file_name}_{}.log", i - 1),
                 format!("{log_dir}/{archive_file_name}_{}.log", i),
@@ -125,7 +125,7 @@ pub fn rolling_logger() -> log4rs::Handle {
             format!("{log_dir}/{latest_file_name}.log"),
             format!("{log_dir}/{archive_file_name}_0.log"),
         );
-        
+
         std::thread::sleep(Duration::seconds(5).to_std().unwrap());
     }
 

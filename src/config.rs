@@ -1,10 +1,9 @@
 //! Configuration avaliable in `cronframe.toml`
 
+use crate::utils;
 use rocket::serde::Deserialize;
 use std::fs;
 use toml;
-
-use crate::utils;
 
 #[derive(Deserialize)]
 #[serde(crate = "rocket::serde")]
@@ -79,7 +78,7 @@ pub fn read_config() -> Option<ConfigData> {
             None
         }
     } else {
-        error!("cronframe.toml - file not found");
+        info!("cronframe.toml - file not found");
         None
     }
 }

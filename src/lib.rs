@@ -34,9 +34,9 @@
 //! - styles.css
 //! - tingle.css
 //! 
-//! By default the server runs on localhost:8098, the port can be changed in the `cronframe.toml` file.
+//! By default the web server runs at localhost:8098, the port can be changed in the `cronframe.toml` file.
 //! 
-//! A rolling logger also configurable via `cronframe.toml` provides an archive of 3 files in addition to the latest log.
+//! A rolling logger, also configurable via `cronframe.toml` provides an archive of 3 files in addition to the latest log.
 //! 
 //! The default size of a log file is 1MB.
 //! 

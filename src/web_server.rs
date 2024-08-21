@@ -20,14 +20,7 @@ use std::{fs, path::Path, sync::Arc, time::Duration};
 ///
 /// It provides 7 routes, five of which are API only.
 ///
-/// Upon first start of the framework it will generate a templates folder inside the current director with the following files:
-/// - base.html.tera
-/// - index.htm.tera
-/// - job.html.tera
-/// - tingle.js
-/// - cronframe.js
-/// - styles.css
-/// - tingle.css
+/// Upon first start of the framework it will generate a templates directory.
 pub fn web_server(frame: Arc<CronFrame>) {
     generate_template_dir();
 
@@ -159,7 +152,7 @@ async fn tingle() -> Result<rocket::fs::NamedFile, std::io::Error> {
     }
 }
 
-// necessary to have somewhat functioning pages
+// necessary to have decent modals
 #[get("/tinglejs")]
 async fn tinglejs() -> Result<rocket::fs::NamedFile, std::io::Error> {
     if std::env::var("CRONFRAME_CLI").is_ok() {
@@ -188,7 +181,7 @@ struct JobList {
     id: String,
 }
 
-// homepage returning a list of al jobs in the following categories: active, timed-out, suspended
+// homepage returning a list of al jobs in the following categories: active, timed out, suspended
 #[get("/")]
 fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     let running = *cronframe.running.lock().unwrap();
@@ -353,6 +346,15 @@ fn shutdown(cronframe: &rocket::State<Arc<CronFrame>>) {
     cronframe.quit();
 }
 
+/// It generates a templates directory either inside the current directory or in the .cronframe directory.
+/// The tempaltes directory will contain the following files:
+/// - base.html.tera
+/// - index.htm.tera
+/// - job.html.tera
+/// - tingle.js
+/// - cronframe.js
+/// - styles.css
+/// - tingle.css
 pub fn generate_template_dir() {
     if std::env::var("CRONFRAME_CLI").is_ok() {
         let home_dir = utils::home_dir();

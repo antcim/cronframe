@@ -1,5 +1,8 @@
 //! CronFrame CLI Tool v0.1.3
+//! Use the cronframe help comamnd for details
 
+use clap::{arg, command};
+use colored::*;
 use cronframe::{
     utils::{self, ip_and_port},
     web_server, CronFilter, CronFrame,
@@ -11,10 +14,6 @@ use std::{
     process::{Command, Stdio},
 };
 
-use clap::{arg, command};
-
-use colored::*;
-
 fn main() {
     std::env::set_var("CRONFRAME_CLI", "true");
 
@@ -23,14 +22,17 @@ fn main() {
         .propagate_version(true)
         .subcommand_required(true)
         .arg_required_else_help(true)
+        // cronframe start
         .subcommand(
             clap::Command::new("start")
                 .about("Start the CronFrame Webserver and Job Scheduler in background."),
         )
+        // cronframe run
         .subcommand(
             clap::Command::new("run")
                 .about("Run the CronFrame Webserver and Job Scheduler in the terminal."),
         )
+        // cronframe add EXPR TIMEOUT JOB
         .subcommand(
             clap::Command::new("add")
                 .about("Adds a new cli job to a CronFrame instance.")
@@ -46,6 +48,7 @@ fn main() {
                         .action(clap::ArgAction::Set),
                 ),
         )
+        // cronframe load
         .subcommand(
             clap::Command::new("load")
                 .about("Load jobs from definition file.")
@@ -55,6 +58,7 @@ fn main() {
                         .action(clap::ArgAction::Set),
                 ),
         )
+        // cronframe scheduler ACTION
         .subcommand(
             clap::Command::new("scheduler")
                 .about("Perform actions on the scheduler like start and stop")
@@ -66,6 +70,7 @@ fn main() {
                         .action(clap::ArgAction::Set),
                 ),
         )
+        // cronframe shutdown
         .subcommand(
             clap::Command::new("shutdown")
                 .about("Shutdown the CronFrame Webserver and Job Scheduler."),
@@ -101,8 +106,10 @@ fn start_command() {
 
     let (ip, port) = ip_and_port();
     if is_running(&ip, port) {
-        println!("{}", "Error when starting CronFrame".red().bold());
-        println!("Address at: 'http://{ip}:{port}' is already busy");
+        println!(
+            "{} address 'http://{ip}:{port}' is already busy.",
+            "Error:".red().bold()
+        );
         return;
     }
 
@@ -114,7 +121,7 @@ fn start_command() {
         .spawn()
         .expect("cronframe run failed");
 
-    println!("CronFrame will soon be available at: http://{ip}:{port}");
+    println!("CronFrame will soon be available at http://{ip}:{port}");
 }
 
 fn shutdown_command() {
@@ -126,8 +133,10 @@ fn shutdown_command() {
             println!("CronFrame will soon shutdown.");
         }
         Err(_) => {
-            println!("Error when shutting down CronFrame");
-            println!("No instance found at: http://{ip}:{port}");
+            println!(
+                "{} no instance found at http://{ip}:{port}",
+                "Error:".red().bold()
+            );
         }
     }
 }
@@ -136,8 +145,10 @@ fn run_command() {
     cronframe_folder();
     let (ip, port) = ip_and_port();
     if is_running(&ip, port) {
-        println!("{}", "Error when running CronFrame".red().bold());
-        println!("Address at: 'http://{ip}:{port}' is already busy");
+        println!(
+            "{} address 'http://{ip}:{port}' is already busy",
+            "Error:".red().bold()
+        );
         return;
     }
     let _ = CronFrame::init(Some(CronFilter::CLI), true).run();
@@ -156,21 +167,28 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
     let tmp = tmp.iter().filter(|x| !x.is_empty()); // needed if there is a / after the name of the create's folder
     let job_name = tmp.last().unwrap().replace(".rs", "");
 
-    println!("Compiling {job_name} Job:");
+    println!("Compiling {job_name} Job");
 
     if Path::new(&job).is_file() {
         // compile the "script" job
-        let _ = Command::new("rustc")
+        let compile_command = Command::new("rustc")
             .args([
                 job,
                 "-o",
                 &format!("{home_dir}/.cronframe/cli_jobs/{job_name}"),
             ])
-            .status()
-            .expect("job compilation failed");
+            .status();
+
+        match compile_command {
+            Err(error) => {
+                println!("{} {}", "Error:".red().bold(), error.to_string());
+                return;
+            }
+            _ => (),
+        }
     } else {
         // compile the "crate" job
-        let _ = Command::new("cargo")
+        let compile_command = Command::new("cargo")
             .args([
                 "build",
                 "--release",
@@ -178,10 +196,17 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
                 &format!("{home_dir}/.cronframe/cargo_targets/{job_name}"),
             ])
             .current_dir(job)
-            .status()
-            .expect("job compilation failed");
+            .status();
 
-        let _ = if cfg!(target_os = "windows") {
+        match compile_command {
+            Err(error) => {
+                println!("{} {}", "Error:".red().bold(), error.to_string());
+                return;
+            }
+            _ => (),
+        }
+
+        let copy_command = if cfg!(target_os = "windows") {
             println!(
                 "current dir = {}",
                 format!("{home_dir}/.cronframe/cargo_targets/{job_name}/release")
@@ -203,7 +228,6 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
                     "{home_dir}/.cronframe/cargo_targets/{job_name}/release"
                 ))
                 .status()
-                .expect("job binary copy failed")
         } else {
             // copy binary on unix systems
             Command::new("cp")
@@ -215,8 +239,15 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
                     "{home_dir}/.cronframe/cargo_targets/{job_name}/release"
                 ))
                 .status()
-                .expect("job binary copy failed")
         };
+
+        match copy_command {
+            Err(error) => {
+                println!("{} {}", "Error:".red().bold(), error.to_string());
+                return;
+            }
+            _ => (),
+        }
     }
 
     // get the ip_address and port
@@ -231,8 +262,10 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
     }
 
     if !is_running(&ip, port) {
-        println!("{}", "Error when adding job to CronFrame".red().bold());
-        println!("No instance found at: http://{ip}:{port}");
+        println!(
+            "{} no instance found at http://{ip}:{port}",
+            "Error:".red().bold()
+        );
         return;
     }
 
@@ -241,13 +274,12 @@ fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String
     match reqwest::blocking::get(req_url) {
         Ok(_) => {
             println!("Added Job to CronFrame");
-            println!("\tName: {job_name}");
-            println!("\tCron Expression: {expr}");
-            println!("\tTimeout: {timeout}");
+            println!("  Name: {job_name}");
+            println!("  Cron Expression: {expr}");
+            println!("  Timeout: {timeout}");
         }
         Err(error) => {
-            println!("Error adding a Job to CronFrame");
-            println!("{error}");
+            println!("{} {error}", "Error:".red().bold());
         }
     }
 }
@@ -260,8 +292,10 @@ fn scheduler_command(action: &str, port_option: Option<&String>) {
     }
 
     if !is_running(&ip, port) {
-        println!("{}", "Scheduler Command error".red().bold());
-        println!("No instance found at: http://{ip}:{port}");
+        println!(
+            "{} no instance found at http://{ip}:{port}",
+            "Error:".red().bold()
+        );
         return;
     }
 
@@ -287,13 +321,15 @@ fn scheduler_command(action: &str, port_option: Option<&String>) {
                     println!("Scheduler will soon stop.");
                 }
                 Err(error) => {
-                    println!("Error when stopping the scheduler");
-                    println!("{error}");
+                    println!(
+                        "{} {error} when stopping the scheduler",
+                        "Error:".red().bold()
+                    );
                 }
             }
         }
-        _ => {
-            println!("{}", "Error: scheduler action unknown.".red().bold());
+        other => {
+            println!("{} '{other}' action unknown.", "Error:".red().bold());
         }
     }
 }
@@ -301,8 +337,10 @@ fn scheduler_command(action: &str, port_option: Option<&String>) {
 fn load_command(file: Option<&String>) {
     let (ip, port) = ip_and_port();
     if !is_running(&ip, port) {
-        println!("{}", "Load Command Error".red().bold());
-        println!("No instance found at: http://{ip}:{port}");
+        println!(
+            "{} no instance found at http://{ip}:{port}",
+            "Error:".red().bold()
+        );
         return;
     }
 

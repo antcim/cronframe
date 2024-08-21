@@ -1,17 +1,16 @@
 //! The Core Type of the Framework
 
+use crate::{
+    config::read_config, cronjob::CronJob, job_builder::JobBuilder, logger, utils, web_server,
+    CronFilter, CronJobType,
+};
+use chrono::Duration;
+use crossbeam_channel::{Receiver, Sender};
+use rocket::Shutdown;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     thread::JoinHandle,
-};
-
-use chrono::Duration;
-use crossbeam_channel::{Receiver, Sender};
-use rocket::Shutdown;
-
-use crate::{
-    config::read_config, cronjob::CronJob, job_builder::JobBuilder, logger, utils, web_server, CronFilter, CronJobType
 };
 
 const GRACE_DEFAULT: u32 = 250;
@@ -74,6 +73,7 @@ impl CronFrame {
     /// It returns an `Arc<CronFrame>` which is used in the webserver and to start the scheduler.
     pub fn init(filter: Option<CronFilter>, use_logger: bool) -> Arc<CronFrame> {
         println!("Starting CronFrame...");
+
         let logger = if use_logger {
             Some(logger::rolling_logger())
         } else {
@@ -134,7 +134,7 @@ impl CronFrame {
             Ok(handle) => {
                 *running.lock().unwrap() = true;
                 Some(handle)
-            },
+            }
             Err(error) => {
                 error!("Web server shutdown handle error: {error}");
                 None
@@ -143,14 +143,17 @@ impl CronFrame {
 
         if *running.lock().unwrap() {
             let (ip_address, port) = utils::ip_and_port();
-            info!("CronFrame Web Server running at http://{}:{}", ip_address, port);
+            info!(
+                "CronFrame Web Server running at http://{}:{}",
+                ip_address, port
+            );
             println!("CronFrame running at http://{}:{}", ip_address, port);
         }
 
         frame
     }
 
-    /// It adds and existing job to the cronframe instance to the job pool
+    /// It adds a CronJob instance to the job pool
     /// Used in the cf_gather_mt and cf_gather_fn
     pub fn add_job(self: &Arc<CronFrame>, job: CronJob) -> Arc<CronFrame> {
         self.cron_jobs
@@ -160,7 +163,7 @@ impl CronFrame {
         self.clone()
     }
 
-    // It crates a new job which will be classified as a global job and adds to the job pool
+    // It crates a new job classified as a global job and adds it to the job pool
     pub fn new_job(
         self: Arc<CronFrame>,
         name: &str,
@@ -171,13 +174,13 @@ impl CronFrame {
         self.add_job(JobBuilder::global_job(name, job, cron_expr, timeout).build())
     }
 
-    /// It spawns a thread which manages the scheduling of the jobs and termination of jobs.
+    /// It spawns a thread that manages the scheduling of the jobs and termination of jobs.
     ///
     /// This method returns after spawning the scheduler.
     ///
     /// Keeping the main thread alive is left to the user.
     ///
-    /// Use the `run` method to spawn the scheduler and keep main thread alive.
+    /// Use the `run` method to spawn the scheduler and keep the main thread alive.
     /// ```
     /// # #[macro_use] extern crate cronframe_macro;
     /// # use cronframe::CronFrame;
@@ -360,12 +363,13 @@ impl CronFrame {
     }
 
     /// Blocking method that starts the scheduler and keeps the main thread alive
-    /// Use the `scheduler` method if you only need to start the scheduler.
+    /// Use the `start_scheduler` method if need to start the scheduler and
+    /// retain control of execution in main
     pub fn run(self: &Arc<Self>) {
         self.start_scheduler().keep_alive();
     }
 
-    /// Stop the scheduler and wait for the jobs to finish
+    /// It quits the running scheduler instance
     pub fn stop_scheduler(self: &Arc<Self>) {
         info!("CronFrame Scheduler Shutdown");
         *self.running.lock().unwrap() = false;
