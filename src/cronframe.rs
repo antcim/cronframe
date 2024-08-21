@@ -1,18 +1,16 @@
-//! The Core Type of the Library
+//! The Core Type of the Framework
 
+use crate::{
+    config::read_config, cronjob::CronJob, job_builder::JobBuilder, logger, utils, web_server,
+    CronFilter, CronJobType,
+};
+use chrono::Duration;
+use crossbeam_channel::{Receiver, Sender};
+use rocket::Shutdown;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     thread::JoinHandle,
-};
-
-use chrono::Duration;
-use crossbeam_channel::{Receiver, Sender};
-use rocket::Shutdown;
-
-use crate::{
-    config::read_config, cronjob::CronJob, job_builder::JobBuilder, logger, web_server, CronFilter,
-    CronJobType,
 };
 
 const GRACE_DEFAULT: u32 = 250;
@@ -49,7 +47,7 @@ impl CronFrame {
     /// # #[macro_use] extern crate cronframe_macro;
     /// # use cronframe::CronFrame;
     /// fn main(){
-    ///     // inits the library and gathers global jobs if there are any
+    ///     // inits the framework instance and gathers global jobs if there are any
     ///     // does not start the scheduler, only the web server is live
     ///     let cronframe = CronFrame::default(); // this a shorthand for Cronframe::init(None, true);
     ///     //cronframe.keep_alive(); // keeps main thread alive
@@ -60,7 +58,7 @@ impl CronFrame {
         CronFrame::init(None, true)
     }
 
-    /// Init function of the library, it takes two agruments:
+    /// Init function of the framework, it takes two agruments:
     /// ```text
     /// filter: Option<CronFilter>
     /// use_logger: bool
@@ -74,7 +72,8 @@ impl CronFrame {
     ///
     /// It returns an `Arc<CronFrame>` which is used in the webserver and to start the scheduler.
     pub fn init(filter: Option<CronFilter>, use_logger: bool) -> Arc<CronFrame> {
-        println!("Starting Cronframe...");
+        println!("Starting CronFrame...");
+
         let logger = if use_logger {
             Some(logger::rolling_logger())
         } else {
@@ -124,34 +123,47 @@ impl CronFrame {
         let frame = Arc::new(frame);
         let server_frame = frame.clone();
 
+        let running = Mutex::new(false);
+
         std::thread::spawn(move || web_server::web_server(server_frame));
 
         *frame
             .server_handle
             .lock()
             .expect("web server handle unwrap error") = match frame.web_server_channels.1.recv() {
-            Ok(handle) => Some(handle),
+            Ok(handle) => {
+                *running.lock().unwrap() = true;
+                Some(handle)
+            }
             Err(error) => {
-                println!("Web server shutdown handle error: {error}");
+                error!("Web server shutdown handle error: {error}");
                 None
             }
         };
 
-        info!("CronFrame Web Server Running");
+        if *running.lock().unwrap() {
+            let (ip_address, port) = utils::ip_and_port();
+            info!(
+                "CronFrame Web Server running at http://{}:{}",
+                ip_address, port
+            );
+            println!("CronFrame running at http://{}:{}", ip_address, port);
+        }
+
         frame
     }
 
-    /// It adds and existing job to the cronframe instance to the job pool
+    /// It adds a CronJob instance to the job pool
     /// Used in the cf_gather_mt and cf_gather_fn
-    pub fn add_job(self: Arc<CronFrame>, job: CronJob) -> Arc<CronFrame> {
+    pub fn add_job(self: &Arc<CronFrame>, job: CronJob) -> Arc<CronFrame> {
         self.cron_jobs
             .lock()
             .expect("add_job unwrap error on lock")
             .push(job);
-        self
+        self.clone()
     }
 
-    // It crates a new job which will be classified as a global job and adds to the job pool
+    // It crates a new job classified as a global job and adds it to the job pool
     pub fn new_job(
         self: Arc<CronFrame>,
         name: &str,
@@ -162,13 +174,13 @@ impl CronFrame {
         self.add_job(JobBuilder::global_job(name, job, cron_expr, timeout).build())
     }
 
-    /// It spawns a thread which manages the scheduling of the jobs and termination of jobs.
+    /// It spawns a thread that manages the scheduling of the jobs and termination of jobs.
     ///
     /// This method returns after spawning the scheduler.
     ///
     /// Keeping the main thread alive is left to the user.
     ///
-    /// Use the `run` method to spawn the scheduler and keep main thread alive.
+    /// Use the `run` method to spawn the scheduler and keep the main thread alive.
     /// ```
     /// # #[macro_use] extern crate cronframe_macro;
     /// # use cronframe::CronFrame;
@@ -181,7 +193,7 @@ impl CronFrame {
         let ret = cronframe.clone();
 
         // if already running, return
-        if *self.running.lock().unwrap(){
+        if *self.running.lock().unwrap() {
             return ret;
         }
 
@@ -206,6 +218,14 @@ impl CronFrame {
                 break;
             }
 
+            if !*cronframe
+                .running
+                .lock()
+                .expect("quit unwrap error in scheduler")
+            {
+                break;
+            }
+
             let mut cron_jobs = cronframe
                 .cron_jobs
                 .lock()
@@ -218,6 +238,7 @@ impl CronFrame {
                         CronJobType::Global(_) => CronFilter::Global,
                         CronJobType::Function(_) => CronFilter::Function,
                         CronJobType::Method(_) => CronFilter::Method,
+                        CronJobType::CLI => CronFilter::CLI,
                     };
 
                     if job_type != *filter {
@@ -335,46 +356,30 @@ impl CronFrame {
     pub fn keep_alive(self: &Arc<Self>) {
         loop {
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
-        }
-    }
-
-    /// Blocking method that starts the scheduler and keeps the main thread alive
-    /// Use the `scheduler` method if you only need to start the scheduler.
-    pub fn run(self: &Arc<Self>) {
-        self.start_scheduler().keep_alive();
-    }
-
-    /// Stop the scheduler and wait for the jobs to finish
-    pub fn stop_scheduler(self: &Arc<Self>) {
-        if *self.running.lock().unwrap() {
-            info!("CronFrame Scheduler Shutdown");
-            *self.running.lock().unwrap() = false;
-
-            let cronframe = self.clone();
-
-            *cronframe
-                .quit
-                .lock()
-                .expect("quit unwrap error in quit method") = true;
-
-            let handles = cronframe
-                .job_handles
-                .lock()
-                .expect("job handles unwrap error in quit method");
-
-            for handle in handles.iter() {
-                while !handle.1.is_finished() {
-                    // do some waiting until all job threads have terminated.
-                }
+            if *self.quit.lock().unwrap() {
+                break;
             }
         }
     }
 
-    /// Function to call for a graceful shutdown of the library
+    /// Blocking method that starts the scheduler and keeps the main thread alive
+    /// Use the `start_scheduler` method if need to start the scheduler and
+    /// retain control of execution in main
+    pub fn run(self: &Arc<Self>) {
+        self.start_scheduler().keep_alive();
+    }
+
+    /// It quits the running scheduler instance
+    pub fn stop_scheduler(self: &Arc<Self>) {
+        info!("CronFrame Scheduler Shutdown");
+        *self.running.lock().unwrap() = false;
+    }
+
+    /// Function to call for a graceful shutdown of the framework instance
     /// ```
     /// # #[macro_use] extern crate cronframe_macro;
     /// # use cronframe::CronFrame;
-    /// 
+    ///
     /// fn main(){
     ///     let cronframe = CronFrame::default();
     ///     // do somthing...
@@ -387,6 +392,20 @@ impl CronFrame {
         self.stop_scheduler();
         info!("CronFrame Shutdown");
 
+        // wait for job handlers to finisH
+        let cronframe = self.clone();
+
+        let handles = cronframe
+            .job_handles
+            .lock()
+            .expect("job handles unwrap error in stop scheduler method");
+
+        for handle in handles.iter() {
+            while !handle.1.is_finished() {
+                // do some waiting until all job threads have terminated.
+            }
+        }
+
         // quit the web server
         self.server_handle
             .lock()
@@ -394,5 +413,10 @@ impl CronFrame {
             .clone()
             .expect("web server unwrap error after clone in quit method")
             .notify();
+
+        *self
+            .quit
+            .lock()
+            .expect("quit unwrap error in stop scheduler method") = true;
     }
 }

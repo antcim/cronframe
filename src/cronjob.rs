@@ -1,13 +1,11 @@
 //! CronJob type, built by JobBuilder
 
-use std::{any::Any, str::FromStr, sync::Arc, thread::JoinHandle};
-
+use crate::{utils, CronJobType};
 use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
+use std::{any::Any, process::Command, str::FromStr, sync::Arc, thread::JoinHandle};
 use uuid::Uuid;
-
-use crate::{utils, CronJobType};
 
 /// This type collects all necessary data for a cron job to be used in the scheduler.
 ///
@@ -73,7 +71,7 @@ impl CronJob {
         None
     }
 
-    // check if a job's upcoming schedule is within the next second
+    // checks if a job's upcoming schedule is within the next second
     pub fn check_schedule(&self) -> bool {
         let now = Utc::now();
         if let Some(next) = self.schedule.upcoming(Utc).take(1).next() {
@@ -94,7 +92,7 @@ impl CronJob {
         };
     }
 
-    // used to retrive a job'status to display in the web server
+    // used to retrive a job's status to display it in the web server
     pub fn status(&self) -> String {
         if self.suspended {
             "Suspended".to_string()
@@ -107,7 +105,7 @@ impl CronJob {
         }
     }
 
-    // method used by the server the change the cron expression of job
+    // method used by the web server the change the cron expression of a job
     pub fn set_schedule(&mut self, expression: &str) -> bool {
         let expr = expression.replace("slh", "/").replace("%20", " ");
         if let Ok(schedule) = Schedule::from_str(expr.as_str()) {
@@ -177,6 +175,7 @@ impl CronJob {
             CronJobType::Global(_) => "Global".to_string(),
             CronJobType::Function(_) => "Function".to_string(),
             CronJobType::Method(_) => "Method".to_string(),
+            CronJobType::CLI => "CLI".to_string(),
         }
     }
 
@@ -220,7 +219,7 @@ impl CronJob {
         }
     }
 
-    // this spawns a control thread for the job which spawns a thread with the actual job
+    // this spawns a control thread for the job that spawns a thread with the actual job
     pub fn run(&self) -> std::io::Result<JoinHandle<()>> {
         let cron_job = self.clone();
         let tx = self
@@ -257,6 +256,16 @@ impl CronJob {
                     CronJobType::Method(job) => job(cron_job
                         .method_instance
                         .expect("method instance unwrap error in job thread")),
+                    CronJobType::CLI => {
+                        let home_dir = {
+                            let tmp = home::home_dir().unwrap();
+                            tmp.to_str().unwrap().to_owned()
+                        };
+                        let _build = Command::new(format!("./{}", cron_job.name))
+                            .current_dir(format!("{home_dir}/.cronframe/cli_jobs"))
+                            .status()
+                            .expect("process failed to execute");
+                    }
                 }
             }
         };
@@ -322,6 +331,16 @@ impl CronJob {
                     CronJobType::Method(job) => job(cron_job
                         .method_instance
                         .expect("method instance unwrap error in job thread")),
+                    CronJobType::CLI => {
+                        let home_dir = {
+                            let tmp = home::home_dir().unwrap();
+                            tmp.to_str().unwrap().to_owned()
+                        };
+                        let _build = Command::new(format!("./{}", cron_job.name))
+                            .current_dir(format!("{home_dir}/.cronframe/cli_jobs"))
+                            .status()
+                            .expect("process failed to execute");
+                    }
                 }
             }
         };

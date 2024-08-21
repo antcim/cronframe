@@ -7,7 +7,7 @@ use cronframe::{CronFrameExpr, CronFrame};
 //  Cron Expression
 //  * * * * * * *
 //  | | | | | | |
-//  | | | | | | └─ year
+//  | | | | | | └─ year (optional)
 //  | | | | | └─── day of week (1 to 7 for Sunday to Saturday, or three letter day)
 //  | | | | └───── month (1 to 12 or 3 letter month like Jen, Feb, Mar, ...)
 //  | | | └─────── day of month (1 to 31)
@@ -82,45 +82,39 @@ fn main() {
     let expr2 = CronFrameExpr::new("0/10", "*", "*", "*", "*", "*", "*", 20000);
     let expr3 = CronFrameExpr::new("0/7", "*", "*", "*", "*", "*", "*", 10000);
 
-    // inner scope to test the drop of cron_objects
+    // inner scope to test the drop of cron_object instances
     {
         println!("PHASE 1");
         let mut user1 = Users::new_cron_obj("user1".to_string(), expr1.clone(), expr3.clone());
 
+        // pass function and method jobs to cronframe
         user1.cf_gather(cronframe.clone());
         std::thread::sleep(Duration::seconds(10).to_std().unwrap());
 
         println!("PHASE 2");
         {
             let mut user2 = Users::new_cron_obj("user2".to_string(), expr2, expr3.clone());
-
+            // pass function and method jobs to cronframe
+            // function jobs will passed again since they already have
             user2.cf_gather(cronframe.clone());
 
             std::thread::sleep(Duration::seconds(10).to_std().unwrap());
-            user2.cf_drop();
         }
-        user1.cf_drop();
+
+        // drop function jobs
+        Users::cf_drop_fn();
     }
 
     println!("PHASE 3");
 
+    // no job should exist in this phase
     std::thread::sleep(Duration::seconds(10).to_std().unwrap());
 
     println!("PHASE 4");
 
     let mut user3 = Users::new_cron_obj("user3".to_string(), expr1, expr3);
+    // pass function and method jobs to cronframe
     user3.cf_gather(cronframe.clone());
 
-    loop {
-        println!("Enter x to quit...");
-        let mut user_input: String = String::new();
-        std::io::stdin()
-            .read_line(&mut user_input)
-            .expect("Error on user input read!");
-
-        match user_input.trim() {
-            "x" => break,
-            _ => println!("invalid input"),
-        }
-    }
+    cronframe.keep_alive();
 }

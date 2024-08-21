@@ -1,17 +1,18 @@
 [package]
 name = "cronframe"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Antonio Cimino"]
 edition = "2021"
-description = "A library for creating cron jobs with macros from functions and struct types, with service web server."
+description = "A Macro Annotation Cron Job Framework with Web Server and CLI Tool."
 repository = "https://github.com/antcim/cronframe"
 readme = "README.md"
-keywords = ["cron", "cronjob", "cronjobmacro"]
+keywords = ["cron", "cronjob", "cronjobmacro", "cronjobtool"]
 license = "MIT OR Apache-2.0"
 exclude = ["examples", "tests"]
+homepage = "https://antcim.github.io/cronframe_site/"
 
 [dependencies]
-cronframe_macro = { path = "./cronframe_macro", version = "0.1.2" }
+cronframe_macro = { path = "./cronframe_macro", version = "0.1.3" }
 rocket = { version = "0.5.1" }
 cron = "0.12.1"
 chrono = "0.4.38"
@@ -22,6 +23,11 @@ log = "0.4.21"
 linkme = "0.3.26"
 toml = "0.8.14"
 once_cell = "1.19.0"
+reqwest = { version = "0.12.5", features = ["json", "blocking"] }
+serde_json = "1.0"
+home = "0.5.9"
+clap = {version = "4.5.15", features = ["cargo"]}
+colored = "2.1.0"
 
 [dependencies.rocket_dyn_templates]
 version = "0.2.0"
@@ -30,3 +36,7 @@ features = ["tera"]
 [dependencies.uuid]
 version = "1.8.0"
 features = ["v4", "fast-rng", "macro-diagnostics"]
+
+[[bin]]
+name = "cronframe"
+path = "src/bin.rs"

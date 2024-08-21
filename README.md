@@ -1,17 +1,27 @@
-# CronFrame 0.1.2
+# CronFrame 0.1.3
 
-This library allows for the definition and scheduling of cron jobs with macros both on functions in the "global scope" and inside struct types.
+CronFrame is both a framework and a CLI tool.
+
+The framework allows for the definition and scheduling of cron jobs with macros both on functions in the "global scope" and inside struct types to be used inside Rust projects.
 
 Job creation without macros is possible, refer to the example in `no_macros.rs` on the [repo](https://github.com/antcim/cronframe).
 
+The CLI tool of the same name is used to spin a global instance of the framework read to accept job that can be added either from cli comands.
+
 ## Getting Started
-```bash
+To use the framework in your Rust project:
+```sh
 $ cargo add cronframe
 ```
 
-The linkme crate is required for its macro to work, more recent version might also work.
-```bash
+The linkme crate is required for macros to work, more recent versions of linkme might also work.
+```sh
 $ cargo add linkme@0.3.26
+```
+
+To install the CLI tool:
+```sh
+$ cargo install cronframe
 ```
 
 ## General Information
@@ -21,7 +31,7 @@ Scheduling time is in UTC.
 
 There are three types of jobs that can be defined:
 - global jobs
-- functions jobs
+- function jobs
 - method jobs
 
 Each of these is defined with a macro, a standalone macro for global jobs while function a method jobs require a little bit of setup.
@@ -32,9 +42,9 @@ Jobs of a cron object must be defined inside a standalone implementation block a
 
 **NOTICE:** a cron object derives the Clone trait so its fields must too.
 
-The library supports a daily timeout (timed-out state resets every 24hrs) in ms which is decativated if the value is 0.
+The framework supports a daily timeout (timed-out state resets every 24hrs) in ms which is decativated if the value is 0.
 
-During the first run of the library a templates folder will be created in the current directory with 7 files inside it:
+During the first run of the framework a templates folder will be created in the current directory with 7 files inside it:
 - base.html.tera
 - index.htm.tera
 - job.html.tera
@@ -48,6 +58,9 @@ By default the server runs on localhost:8098, the port can be changed in the `cr
 More configuration options available via `cronframe.toml`.
 
 The default size of a log file is 1MB.
+
+## Tutorial
+For the tutorial refer to the [website](https://antcim.github.io/cronframe_site/).
 
 ## Defining A Global Job
 ```rust
@@ -152,20 +165,27 @@ fn main(){
 }
 ```
 
+## The CLI Tool
+Upon first start the tool generates a .cronframe directory inside the user's home directory. 
+
+This directory contains the templates folder, the log folder, the cargo_targets folder and the cli_jobs folder. 
+
+To configure the cronframe instance of the CLI tool with the cronframe.toml file, put it in the .cronframe directory.
+
 ## Running Examples
 If the example is in a single file like `base_example.rs` use the following command:
-```bash
+```sh
 $ cargo run --example base_example
 ```
 
 If the example is in its own crate like `weather_alert` do the following:
-```bash
+```sh
 $ cd examples/weather_alert
 $ cargo run
 ```
 
 ## Running Tests
 Tests must be run sequentially and not in parallel since they rely on the logger output.
-```bash
+```sh
 $ cargo test -- --test-threads=1
 ```

@@ -1,63 +1,34 @@
 //! Custom setup of rocket.rs for the Cronframe web server
 
 use crate::{
-    config::read_config,
-    cronframe::CronFrame,
-    CronFilter, CronJobType,
+    config::read_config, cronframe::CronFrame, utils, CronFilter, CronJobType, JobBuilder,
 };
+use colored::Colorize;
 use log::info;
 use rocket::{
-    config::Shutdown, serde::Serialize,
+    config::Shutdown,
+    figment::{
+        providers::{Env, Format, Toml},
+        Figment, Profile,
+    },
+    serde::Serialize,
 };
 use rocket_dyn_templates::{context, Template};
-use std::{fs, sync::Arc, time::Duration};
+use std::{fs, path::Path, sync::Arc, time::Duration};
 
 /// Called by the init funciton of the Cronframe type for setting up the web server
 ///
 /// It provides 7 routes, five of which are API only.
 ///
-/// Upon first start of the library it will generate a templates folder inside the current director with the following files:
-/// - base.html.tera
-/// - index.htm.tera
-/// - job.html.tera
-/// - tingle.js
-/// - cronframe.js
-/// - styles.css
-/// - tingle.css
+/// Upon first start of the framework it will generate a templates directory.
 pub fn web_server(frame: Arc<CronFrame>) {
-    if !std::path::Path::new("./templates").exists() {
-        println!("Generating templates directory content...");
-        fs::create_dir("templates").expect("could not create templates directory");
-        let _ = fs::write(
-            std::path::Path::new("./templates/base.html.tera"),
-            BASE_TEMPLATE,
-        );
-        let _ = fs::write(
-            std::path::Path::new("./templates/index.html.tera"),
-            INDEX_TEMPLATE,
-        );
-        let _ = fs::write(
-            std::path::Path::new("./templates/job.html.tera"),
-            JOB_TEMPLATE,
-        );
-        let _ = fs::write(
-            std::path::Path::new("./templates/tingle.js"),
-            TINGLE_JS,
-        );
-        let _ = fs::write(
-            std::path::Path::new("./templates/cronframe.js"),
-            CRONFRAME_JS,
-        );
-        let _ = fs::write(std::path::Path::new("./templates/tingle.css"), TINGLE_STYLES);
-        let _ = fs::write(std::path::Path::new("./templates/styles.css"), STYLES);
-        std::thread::sleep(Duration::from_secs(10));
-    }
+    generate_template_dir();
 
     let cronframe = frame.clone();
 
     let tokio_runtime = rocket::tokio::runtime::Runtime::new().unwrap();
 
-    let config = match read_config() {
+    let base_config = match read_config() {
         Some(config_data) => rocket::Config {
             port: {
                 if let Some(webserver_data) = &config_data.webserver {
@@ -97,7 +68,26 @@ pub fn web_server(frame: Arc<CronFrame>) {
         }
     };
 
-    let rocket = rocket::custom(&config)
+    let ip_address = base_config.address;
+    let port = base_config.port;
+    let home_dir = utils::home_dir();
+
+    if std::env::var("CRONFRAME_CLI").is_ok() {
+        std::env::set_var(
+            "ROCKET_CONFIG",
+            format!("{home_dir}/.cronframe/rocket.toml"),
+        );
+    }
+
+    let config = Figment::from(base_config)
+        .merge(Toml::file(Env::var_or("ROCKET_CONFIG", "Rocket.toml")).nested())
+        .merge(Env::prefixed("ROCKET_").ignore(&["PROFILE"]).global())
+        .select(Profile::from_env_or(
+            "ROCKET_PROFILE",
+            rocket::Config::DEFAULT_PROFILE,
+        ));
+
+    let rocket = rocket::Rocket::custom(config)
         .mount(
             "/",
             routes![
@@ -112,6 +102,8 @@ pub fn web_server(frame: Arc<CronFrame>) {
                 suspension_handle,
                 start_scheduler,
                 stop_scheduler,
+                add_cli_job,
+                shutdown,
             ],
         )
         .attach(Template::fairing())
@@ -120,49 +112,66 @@ pub fn web_server(frame: Arc<CronFrame>) {
     let (tx, _) = cronframe.web_server_channels.clone();
 
     tokio_runtime.block_on(async move {
-        let rocket = rocket.ignite().await;
+        let rocket = rocket.ignite().await.expect("Ignition Error");
 
-        let shutdown_handle = rocket
-            .as_ref()
-            .expect("rocket unwrap error in web server init")
-            .shutdown();
+        let _ = tx.send(rocket.shutdown());
 
-        let _ = tx.send(shutdown_handle);
-
-        println!(
-            "CronFrame running at http://{}:{}",
-            config.address, config.port
-        );
-
-        let _ = rocket
-            .expect("rocket unwrap error in web server launch")
-            .launch()
-            .await;
+        match rocket.launch().await {
+            Ok(_) => println!("CronFrame running at http://{}:{}", ip_address, port),
+            Err(err) => {
+                println!(
+                    "{} {}",
+                    "Error during CronFrame init:".red().bold(),
+                    err.pretty_print()
+                );
+                cronframe.clone().quit();
+            }
+        }
     });
 }
 
 // necessary to have somewhat decent-looking pages
 #[get("/styles")]
 async fn styles() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    rocket::fs::NamedFile::open("templates/styles.css").await
+    if std::env::var("CRONFRAME_CLI").is_ok() {
+        let home_dir = utils::home_dir();
+        rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/styles.css")).await
+    } else {
+        rocket::fs::NamedFile::open(format!("./templates/styles.css")).await
+    }
 }
 
 // necessary to have somewhat decent-looking pages
 #[get("/tingle")]
 async fn tingle() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    rocket::fs::NamedFile::open("templates/tingle.css").await
+    if std::env::var("CRONFRAME_CLI").is_ok() {
+        let home_dir = utils::home_dir();
+        rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/tingle.css")).await
+    } else {
+        rocket::fs::NamedFile::open(format!("./templates/tingle.css")).await
+    }
 }
 
-// necessary to have somewhat functioning pages
+// necessary to have decent modals
 #[get("/tinglejs")]
 async fn tinglejs() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    rocket::fs::NamedFile::open("templates/tingle.js").await
+    if std::env::var("CRONFRAME_CLI").is_ok() {
+        let home_dir = utils::home_dir();
+        rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/tingle.js")).await
+    } else {
+        rocket::fs::NamedFile::open(format!("./templates/tingle.js")).await
+    }
 }
 
 // necessary to have somewhat functioning pages
 #[get("/cronframejs")]
 async fn cronframe() -> Result<rocket::fs::NamedFile, std::io::Error> {
-    rocket::fs::NamedFile::open("templates/cronframe.js").await
+    if std::env::var("CRONFRAME_CLI").is_ok() {
+        let home_dir = utils::home_dir();
+        rocket::fs::NamedFile::open(format!("{home_dir}/.cronframe/templates/cronframe.js")).await
+    } else {
+        rocket::fs::NamedFile::open(format!("./templates/cronframe.js")).await
+    }
 }
 
 #[derive(Serialize)]
@@ -172,7 +181,7 @@ struct JobList {
     id: String,
 }
 
-// homepage returning a list of al jobs in the following categories: active, timed-out, suspended
+// homepage returning a list of al jobs in the following categories: active, timed out, suspended
 #[get("/")]
 fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     let running = *cronframe.running.lock().unwrap();
@@ -191,6 +200,7 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
             CronJobType::Global(_) => CronFilter::Global,
             CronJobType::Function(_) => CronFilter::Function,
             CronJobType::Method(_) => CronFilter::Method,
+            CronJobType::CLI => CronFilter::CLI,
         };
 
         if cronframe.filter.is_none() || cronframe.filter == Some(job_type) {
@@ -213,7 +223,10 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
         }
     }
 
-    Template::render("index", context! {running, active_jobs, timedout_jobs, suspended_jobs})
+    Template::render(
+        "index",
+        context! {running, active_jobs, timedout_jobs, suspended_jobs},
+    )
 }
 
 #[derive(Serialize, Default)]
@@ -320,9 +333,96 @@ fn stop_scheduler(cronframe: &rocket::State<Arc<CronFrame>>) {
     cronframe.stop_scheduler();
 }
 
+// API route to toggle the scheduling suspension for a job
+#[get("/add_cli_job/<expr>/<timeout>/<job>")]
+fn add_cli_job(expr: &str, timeout: &str, job: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
+    let new_job = JobBuilder::cli_job(job, expr, timeout).build();
+    cronframe.add_job(new_job);
+}
+
+// API route to stop the scheduler
+#[get("/shutdown")]
+fn shutdown(cronframe: &rocket::State<Arc<CronFrame>>) {
+    cronframe.quit();
+}
+
+/// It generates a templates directory either inside the current directory or in the .cronframe directory.
+/// The tempaltes directory will contain the following files:
+/// - base.html.tera
+/// - index.htm.tera
+/// - job.html.tera
+/// - tingle.js
+/// - cronframe.js
+/// - styles.css
+/// - tingle.css
+pub fn generate_template_dir() {
+    if std::env::var("CRONFRAME_CLI").is_ok() {
+        let home_dir = utils::home_dir();
+
+        if !Path::new(&format!("{home_dir}/.cronframe/templates")).exists() {
+            fs::create_dir(format!("{home_dir}/.cronframe/templates"))
+                .expect("could not create templates directory");
+
+            let _ = fs::write(
+                Path::new(&format!("{home_dir}/.cronframe/templates/base.html.tera")),
+                BASE_TEMPLATE,
+            );
+            let _ = fs::write(
+                Path::new(&format!("{home_dir}/.cronframe/templates/index.html.tera")),
+                INDEX_TEMPLATE,
+            );
+            let _ = fs::write(
+                Path::new(&format!("{home_dir}/.cronframe/templates/job.html.tera")),
+                JOB_TEMPLATE,
+            );
+            let _ = fs::write(
+                Path::new(&format!("{home_dir}/.cronframe/templates/tingle.js")),
+                TINGLE_JS,
+            );
+            let _ = fs::write(
+                Path::new(&format!("{home_dir}/.cronframe/templates/cronframe.js")),
+                CRONFRAME_JS,
+            );
+            let _ = fs::write(
+                Path::new(&format!("{home_dir}/.cronframe/templates/tingle.css")),
+                TINGLE_STYLES,
+            );
+            let _ = fs::write(
+                Path::new(&format!("{home_dir}/.cronframe/templates/styles.css")),
+                STYLES,
+            );
+        }
+    } else {
+        if !Path::new(&format!("./templates")).exists() {
+            fs::create_dir(format!("templates")).expect("could not create templates directory");
+
+            let _ = fs::write(
+                Path::new(&format!("./templates/base.html.tera")),
+                BASE_TEMPLATE,
+            );
+            let _ = fs::write(
+                Path::new(&format!("./templates/index.html.tera")),
+                INDEX_TEMPLATE,
+            );
+            let _ = fs::write(
+                Path::new(&format!("./templates/job.html.tera")),
+                JOB_TEMPLATE,
+            );
+            let _ = fs::write(Path::new(&format!("./templates/tingle.js")), TINGLE_JS);
+            let _ = fs::write(
+                Path::new(&format!("./templates/cronframe.js")),
+                CRONFRAME_JS,
+            );
+            let _ = fs::write(Path::new(&format!("./templates/tingle.css")), TINGLE_STYLES);
+            let _ = fs::write(Path::new(&format!("./templates/styles.css")), STYLES);
+        }
+    }
+    std::thread::sleep(Duration::from_secs(10));
+}
+
 // templates folder data: templates/base.tera.html
 const BASE_TEMPLATE: &str = {
-  r#"<!DOCTYPE html>
+    r#"<!DOCTYPE html>
 <html class="light-mode">
 
 <head>
@@ -481,7 +581,7 @@ const INDEX_TEMPLATE: &str = {
 
 // templates folder data: templates/job.tera.html
 const JOB_TEMPLATE: &str = {
-  r#"{% extends "base" %}
+    r#"{% extends "base" %}
 
 {% block content %}
 
@@ -617,7 +717,7 @@ const JOB_TEMPLATE: &str = {
 
 // templates folder data: templates/styles.css
 const STYLES: &str = {
-  r#":root {
+    r#":root {
   --dark-orange: #ff3d00;
   --light-orange: #ffa702;
   --dark-green: #0fa702;

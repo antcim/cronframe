@@ -30,7 +30,6 @@ impl CronFrameExpr {
     ///     let my_expr = CronFrameExpr::new("0", "5", "10-14", "*", "*", "Sun", "*", 0);
     /// }
     /// ```
-    ///
     pub fn new(s: &str, m: &str, h: &str, dm: &str, mth: &str, dw: &str, y: &str, t: u64) -> Self {
         CronFrameExpr {
             seconds: s.to_string(),
