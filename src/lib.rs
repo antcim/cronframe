@@ -40,6 +40,9 @@
 //! 
 //! The default size of a log file is 1MB.
 //! 
+//! # Tutorial
+//! For the tutorial refer to the [website](https://antcim.github.io/cronframe_site/).
+//! 
 //! # Defining A Global Job
 //! ```
 //! # #[macro_use] extern crate cronframe_macro;

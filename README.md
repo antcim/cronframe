@@ -59,6 +59,9 @@ More configuration options available via `cronframe.toml`.
 
 The default size of a log file is 1MB.
 
+## Tutorial
+For the tutorial refer to the [website](https://antcim.github.io/cronframe_site/).
+
 ## Defining A Global Job
 ```rust
 #[macro_use] 

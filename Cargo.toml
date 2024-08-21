@@ -9,6 +9,7 @@ readme = "README.md"
 keywords = ["cron", "cronjob", "cronjobmacro", "cronjobtool"]
 license = "MIT OR Apache-2.0"
 exclude = ["examples", "tests"]
+homepage = "https://antcim.github.io/cronframe_site/"
 
 [dependencies]
 cronframe_macro = { path = "./cronframe_macro", version = "0.1.3" }
