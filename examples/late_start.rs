@@ -1,7 +1,9 @@
-#[macro_use] extern crate cronframe;
+// cronframe framework example
+#[macro_use]
+extern crate cronframe;
 
-use std::time::Duration;
 use cronframe::CronFrame;
+use std::time::Duration;
 
 //  Cron Expression
 //  * * * * * * *
@@ -24,7 +26,7 @@ fn useless_job() {
     println!("not doing much...");
 }
 
-fn wait_seconds(seconds: u64){
+fn wait_seconds(seconds: u64) {
     std::thread::sleep(Duration::from_secs(seconds));
 }
 

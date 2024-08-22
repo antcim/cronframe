@@ -2,11 +2,12 @@
 name = "cronframe_macro"
 version = "0.1.3"
 edition = "2021"
-description = "The Macro used in the cronframe crate."
+description = "The Macros used in the cronframe crate."
 repository = "https://github.com/antcim/cronframe"
 readme = "README.md"
 keywords = ["cron", "cronjob", "cronjobmacro"]
 license = "MIT OR Apache-2.0"
+homepage = "https://antcim.github.io/cronframe_site/"
 
 [dependencies]
 syn = {version = "2.0.53", features = ["full"]}

@@ -1,8 +1,10 @@
-#[macro_use] extern crate cronframe;
+// cronframe framework example
+#[macro_use]
+extern crate cronframe;
 
 use chrono::Duration;
 use core::panic;
-use cronframe::{CronFrameExpr, CronFrame};
+use cronframe::{CronFrame, CronFrameExpr};
 
 //  Cron Expression
 //  * * * * * * *

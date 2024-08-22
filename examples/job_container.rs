@@ -1,4 +1,6 @@
-#[macro_use] extern crate cronframe;
+// cronframe framework example
+#[macro_use]
+extern crate cronframe;
 
 use cronframe::CronFrame;
 
@@ -40,16 +42,5 @@ fn main() {
 
     JobContainer::cf_gather_fn(cronframe.clone());
 
-    loop {
-        println!("Enter x to quit...");
-        let mut user_input: String = String::new();
-        std::io::stdin()
-            .read_line(&mut user_input)
-            .expect("Error on user input read!");
-
-        match user_input.trim() {
-            "x" => break,
-            _ => println!("invalid input"),
-        }
-    }
+    cronframe.run();
 }

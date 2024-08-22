@@ -1,4 +1,6 @@
+// cronframe tool example
 // this is the job code form the weather_alert example to be used to create a cli job with the CLI tool
+// cronframe add "expr" timeout /path/to/weather_job
 
 use chrono::Local;
 

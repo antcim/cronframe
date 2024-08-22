@@ -59,6 +59,8 @@ More configuration options available via `cronframe.toml`.
 
 The default size of a log file is 1MB.
 
+If you use the CLI tool, the templates directory, the log directory and any other file related to cronframe will be in the .cronframe directory under the user directory.
+
 ## Tutorial
 For the tutorial refer to the [website](https://antcim.github.io/cronframe_site/).
 
