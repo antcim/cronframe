@@ -1,5 +1,3 @@
-//! Builder Type for CronJob
-
 use crate::cronjob::CronJob;
 use crate::CronJobType;
 use chrono::Duration;

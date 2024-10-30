@@ -1,11 +1,8 @@
-//! CronFrame CLI Tool v0.1.3
-//! Use the cronframe help comamnd for details
-
 use clap::{arg, command};
 use colored::*;
 use cronframe::{
     utils::{self, ip_and_port},
-    web_server, CronFilter, CronFrame,
+    web_server, CronFrame,
 };
 use std::{
     fs,
@@ -151,7 +148,7 @@ fn run_command() {
         );
         return;
     }
-    let _ = CronFrame::init(Some(CronFilter::CLI), true).run();
+    let _ = CronFrame::init().unwrap().run();
 }
 
 fn add_command(expr: &str, timeout: &str, job: &str, port_option: Option<&String>) {

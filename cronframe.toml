@@ -5,6 +5,7 @@
 # ip = "127.0.0.1"
 
 # [logger]
+# enabled = true
 # dir = "log"
 # file_size = 1 # this is in MB
 # archive_files = 3 
@@ -14,4 +15,5 @@
 # level_filter = "info"
 
 # [scheduler]
+# job_filter = "None"
 # grace = 250 # this is in ms

@@ -1,5 +1,3 @@
-//! This type is used in cron objects to define the cron expression and timeout for a method job.
-
 /// It implements the From trait for strings
 #[derive(Debug, Clone, Default)]
 pub struct CronFrameExpr {

@@ -31,7 +31,8 @@ fn wait_seconds(seconds: u64) {
 }
 
 fn main() {
-    let cf = CronFrame::default()
+    let cf = CronFrame::init()
+        .unwrap()
         .new_job("hello_job", || println!("hello job"), "* * * * * * *", "0")
         .new_job("useless_job", useless_job, "0/5 * * * * * *", "0");
 

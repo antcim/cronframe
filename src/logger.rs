@@ -1,5 +1,3 @@
-//! Default logger setup for the cronframe framework and the testing suite
-
 use crate::{config::read_config, utils};
 use chrono::Duration;
 use log4rs::{
@@ -60,44 +58,20 @@ pub fn appender_config(log_file: &str) -> log4rs::Config {
 
 /// this sets the logger from either the default configuration or from the toml file
 pub fn rolling_logger() -> log4rs::Handle {
-    let mut window_size = 3;
-    let mut size_limit = 1000 * 1024;
-    let mut log_dir = "log".to_string();
-    let mut latest_file_name = "latest".to_string();
-    let mut archive_file_name = "archive".to_string();
-    let mut pattern = "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}".to_string();
-    let mut level_filter = log::LevelFilter::Info;
+    let logger_config = read_config().logger;
 
-    if let Some(config_data) = read_config() {
-        if let Some(logger_data) = config_data.logger {
-            if let Some(data) = logger_data.archive_files {
-                window_size = data;
-            }
-            if let Some(data) = logger_data.file_size {
-                size_limit = size_limit * data;
-            }
-            if let Some(data) = logger_data.dir {
-                log_dir = data;
-            }
-            if let Some(data) = logger_data.latest_file_name {
-                latest_file_name = data;
-            }
-            if let Some(data) = logger_data.archive_file_name {
-                archive_file_name = data;
-            }
-            if let Some(data) = logger_data.msg_pattern {
-                pattern = data;
-            }
-            if let Some(data) = logger_data.level_filter {
-                match data.as_str() {
-                    "off" => level_filter = log::LevelFilter::Off,
-                    "error" => level_filter = log::LevelFilter::Error,
-                    "warn" => level_filter = log::LevelFilter::Warn,
-                    "debug" => level_filter = log::LevelFilter::Debug,
-                    _ => (),
-                }
-            }
-        }
+    let window_size = logger_config.archive_files;
+    let size_limit = 1000 * 1024 * logger_config.file_size;
+    let mut log_dir = logger_config.dir;
+    let latest_file_name = logger_config.latest_file_name;
+    let archive_file_name = logger_config.archive_file_name;
+    let pattern = logger_config.msg_pattern;
+    let level_filter = match logger_config.level_filter.as_str() {
+        "off" => log::LevelFilter::Off,
+        "error" => log::LevelFilter::Error,
+        "warn" => log::LevelFilter::Warn,
+        "debug" => log::LevelFilter::Debug,
+        _ => log::LevelFilter::Info,
     };
 
     if std::env::var("CRONFRAME_CLI").is_ok() {
@@ -107,7 +81,7 @@ pub fn rolling_logger() -> log4rs::Handle {
 
     let archive_file = format!("{log_dir}/{archive_file_name}.log").replace(".log", "_{}.log");
 
-    // retain latest and archive logfiles at restart as per rolling policy
+    // retain latest and archive log files at restart as per rolling policy
     if !std::path::Path::new(&format!("{log_dir}/{latest_file_name}")).exists() {
         let _ = std::fs::remove_file(format!(
             "./{log_dir}/{archive_file_name}_{}.log",

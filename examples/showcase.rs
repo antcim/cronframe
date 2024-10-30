@@ -78,7 +78,7 @@ impl Users {
 }
 
 fn main() {
-    let cronframe = CronFrame::default().start_scheduler();
+    let cronframe = CronFrame::init().unwrap().start_scheduler();
 
     let expr1 = CronFrameExpr::new("0/5", "*", "*", "*", "*", "*", "*", 0);
     let expr2 = CronFrameExpr::new("0/10", "*", "*", "*", "*", "*", "*", 20000);

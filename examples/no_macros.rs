@@ -13,15 +13,14 @@ use cronframe::CronFrame;
 //  └───────────── seconds (0 to 59)
 // "*" works as a jolly for any value will do
 
-fn useless_job(){
+fn useless_job() {
     println!("not doing much...");
 }
 
 fn main() {
-    CronFrame::default()
-        .new_job(
-            "hello_job", || {println!("hello job")}, "* * * * * * *", "0"
-        )
+    CronFrame::init()
+        .unwrap()
+        .new_job("hello_job", || println!("hello job"), "* * * * * * *", "0")
         .new_job("useless_job", useless_job, "0/5 * * * * * *", "0")
         .run();
 }

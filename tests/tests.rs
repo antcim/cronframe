@@ -168,8 +168,8 @@ pub fn test_job(
         .lock()
         .unwrap()
         .iter()
-        .find(|job| job.name.contains(job_name))
-        .unwrap()
+        .find(|(_, job)| job.name.contains(job_name))
+        .unwrap().1
         .upcoming_utc()
         .parse()
         .unwrap();

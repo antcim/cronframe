@@ -1,5 +1,3 @@
-//! CronJob type, built by JobBuilder
-
 use crate::{utils, CronJobType};
 use chrono::{DateTime, Duration, Utc};
 use cron::Schedule;
@@ -12,10 +10,10 @@ use uuid::Uuid;
 /// While it could be used directly there are macros that build jobs for you.
 #[derive(Debug, Clone)]
 pub struct CronJob {
-    pub suspended: bool,
-    pub name: String,
     pub id: Uuid,
+    pub name: String,
     pub job: CronJobType,
+    pub suspended: bool,
     pub schedule: Schedule,
     pub timeout: Option<Duration>,
     pub timeout_notified: bool,
@@ -24,7 +22,7 @@ pub struct CronJob {
     pub start_time: Option<DateTime<Utc>>,
     pub run_id: Option<Uuid>,
     pub method_instance: Option<Arc<Box<dyn Any + Send + Sync>>>,
-    pub failed: bool,
+    pub failed: bool
 }
 
 impl CronJob {

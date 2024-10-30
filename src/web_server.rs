@@ -1,5 +1,3 @@
-//! Custom setup of rocket.rs for the Cronframe web server
-
 use crate::{
     config::read_config, cronframe::CronFrame, utils, CronFilter, CronJobType, JobBuilder,
 };
@@ -28,44 +26,17 @@ pub fn web_server(frame: Arc<CronFrame>) {
 
     let tokio_runtime = rocket::tokio::runtime::Runtime::new().unwrap();
 
-    let base_config = match read_config() {
-        Some(config_data) => rocket::Config {
-            port: {
-                if let Some(webserver_data) = &config_data.webserver {
-                    webserver_data.port.unwrap_or_else(|| 8098)
-                } else {
-                    8098
-                }
-            },
-            address: {
-                if let Some(webserver_data) = config_data.webserver {
-                    webserver_data.ip.unwrap_or_else(|| "127.0.0.1".to_string())
-                } else {
-                    "127.0.0.1".to_string()
-                }
-                .parse()
-                .unwrap()
-            },
-            shutdown: Shutdown {
-                ctrlc: false,
-                ..Default::default()
-            },
-            cli_colors: false,
-            ..rocket::Config::release_default()
+    let config = read_config();
+
+    let base_config = rocket::Config {
+        port: config.webserver.port,
+        address: config.webserver.ip.parse().unwrap(),
+        shutdown: Shutdown {
+            ctrlc: false,
+            ..Default::default()
         },
-        None => {
-            // default config
-            rocket::Config {
-                port: 8098,
-                address: std::net::Ipv4Addr::new(127, 0, 0, 1).into(),
-                shutdown: Shutdown {
-                    ctrlc: false,
-                    ..Default::default()
-                },
-                cli_colors: false,
-                ..rocket::Config::release_default()
-            }
-        }
+        cli_colors: false,
+        ..rocket::Config::release_default()
     };
 
     let ip_address = base_config.address;
@@ -190,7 +161,7 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     let mut timedout_jobs = vec![];
     let mut suspended_jobs = vec![];
 
-    for job in cronframe
+    for (_, job) in cronframe
         .cron_jobs
         .lock()
         .expect("cron jobs unrwap error in web server")
@@ -203,7 +174,7 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
             CronJobType::CLI => CronFilter::CLI,
         };
 
-        if cronframe.filter.is_none() || cronframe.filter == Some(job_type) {
+        if cronframe.job_filter() == CronFilter::None || cronframe.job_filter() ==job_type {
             if job.status() == "Suspended" {
                 suspended_jobs.push(JobList {
                     name: job.name.clone(),
@@ -250,11 +221,11 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
     let running = *cronframe.running.lock().unwrap();
     let mut job_info = JobInfo::default();
 
-    for job in cronframe.cron_jobs.lock().unwrap().iter() {
+    for (job_id, job) in cronframe.cron_jobs.lock().unwrap().iter() {
         if job.name == name && job.id.to_string() == id {
             job_info = JobInfo {
                 name: job.name.clone(),
-                id: job.id.to_string(),
+                id: job_id.to_string(),
                 r#type: job.type_to_string(),
                 run_id: job.run_id(),
                 status: job.status(),
@@ -274,7 +245,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
 // API route to change the value of the timeout
 #[get("/job/<name>/<id>/toutset/<value>")]
 fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Arc<CronFrame>>) {
-    for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
+    for (_, job) in cronframe.cron_jobs.lock().unwrap().iter_mut() {
         if job.name == name && job.id.to_string() == id {
             let job_id = format!("{} ID#{}", job.name, job.id);
             job.start_time = None;
@@ -292,9 +263,8 @@ fn update_schedule(
     expression: &str,
     cronframe: &rocket::State<Arc<CronFrame>>,
 ) {
-    for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
+    for (job_id, job) in cronframe.cron_jobs.lock().unwrap().iter_mut() {
         if job.name == name && job.id.to_string() == id {
-            let job_id = format!("{} ID#{}", job.name, job.id);
             if job.set_schedule(expression) {
                 info!("job @{job_id} - Schedule Update");
             } else {
@@ -307,9 +277,8 @@ fn update_schedule(
 // API route to toggle the scheduling suspension for a job
 #[get("/job/<name>/<id>/suspension_toggle")]
 fn suspension_handle(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
-    for job in cronframe.cron_jobs.lock().unwrap().iter_mut() {
+    for (job_id, job) in cronframe.cron_jobs.lock().unwrap().iter_mut() {
         if job.name == name && job.id.to_string() == id {
-            let job_id = format!("{} ID#{}", job.name, job.id);
             if !job.suspended {
                 job.suspended = true;
                 info!("job @{job_id} - Scheduling Suspended");

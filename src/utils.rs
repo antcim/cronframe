@@ -1,5 +1,3 @@
-//! Utilities
-
 use crate::config::read_config;
 use chrono::{DateTime, Local, Utc};
 
@@ -15,17 +13,6 @@ pub fn home_dir() -> String {
 }
 
 pub fn ip_and_port() -> (String, u16) {
-    match read_config() {
-        Some(config_data) => {
-            if let Some(webserver_data) = config_data.webserver {
-                (
-                    webserver_data.ip.unwrap_or_else(|| "127.0.0.1".to_string()),
-                    webserver_data.port.unwrap_or_else(|| 8098),
-                )
-            } else {
-                ("localhost".to_string(), 8098)
-            }
-        }
-        None => ("localhost".to_string(), 8098),
-    }
+    let data = read_config().webserver;
+    (data.ip, data.port)
 }

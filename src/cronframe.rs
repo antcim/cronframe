@@ -1,8 +1,8 @@
-//! The Core Type of the Framework
-
 use crate::{
-    config::read_config, cronjob::CronJob, job_builder::JobBuilder, logger, utils, web_server,
-    CronFilter, CronJobType,
+    config::{read_config, ConfigData},
+    cronjob::CronJob,
+    job_builder::JobBuilder,
+    logger, web_server, CronFilter, CronJobType,
 };
 use chrono::Duration;
 use crossbeam_channel::{Receiver, Sender};
@@ -12,98 +12,51 @@ use std::{
     sync::{Arc, Mutex},
     thread::JoinHandle,
 };
+use uuid::Uuid;
 
-const GRACE_DEFAULT: u32 = 250;
+#[derive(Debug)]
+pub enum CronFrameError {
+    ServerShutdownHandle,
+}
 
-/// This is the type that provides the scheduling and management of jobs.
-///
-/// It needs to be initialised once to setup the web server and gather global jobs.
-///
-/// Either one of the `start_scheduler` or `run` method must be invoked for it to actually start.
-/// ```
-/// # #[macro_use] extern crate cronframe_macro;
-/// # use cronframe::CronFrame;
-/// fn main(){
-///     let cronframe = CronFrame::default(); // this a shorthand for Cronframe::init(None, true);
-///     cronframe.start_scheduler(); //does not keep main alive
-///     //cronframe.keep_alive(); // keeps main thread alive
-///     //cronframe.run(); //starts the scheduler, keeps main alive
-/// }
 pub struct CronFrame {
-    pub cron_jobs: Mutex<Vec<CronJob>>,
-    job_handles: Mutex<HashMap<String, JoinHandle<()>>>,
+    pub cron_jobs: Mutex<HashMap<Uuid, CronJob>>,
+    job_handles: Mutex<HashMap<Uuid, JoinHandle<()>>>,
     _logger: Option<log4rs::Handle>,
     pub web_server_channels: (Sender<Shutdown>, Receiver<Shutdown>),
-    pub filter: Option<CronFilter>,
     server_handle: Mutex<Option<Shutdown>>,
     pub quit: Mutex<bool>,
-    pub grace: u32,
     pub running: Mutex<bool>,
+    config: ConfigData,
 }
 
 impl CronFrame {
-    /// It returns an `Arc<CronFrame>` which is used in the webserver and can be used to start the scheduler.
-    /// ```
-    /// # #[macro_use] extern crate cronframe_macro;
-    /// # use cronframe::CronFrame;
-    /// fn main(){
-    ///     // inits the framework instance and gathers global jobs if there are any
-    ///     // does not start the scheduler, only the web server is live
-    ///     let cronframe = CronFrame::default(); // this a shorthand for Cronframe::init(None, true);
-    ///     //cronframe.keep_alive(); // keeps main thread alive
-    ///     //cronframe.run(); //starts the scheduler, keeps main alive
-    /// }
-    /// ```
-    pub fn default() -> Arc<CronFrame> {
-        CronFrame::init(None, true)
+    pub fn init() -> Result<Arc<CronFrame>, CronFrameError> {
+        Self::with_config(read_config())
     }
 
-    /// Init function of the framework, it takes two agruments:
-    /// ```text
-    /// filter: Option<CronFilter>
-    /// use_logger: bool
-    /// ```
-    ///
-    /// It manages:
-    /// - the logger setup if use_logger is true
-    /// - the creation of the CronFrame Instance
-    /// - the collection of global jobs
-    /// - the setup of the web server
-    ///
-    /// It returns an `Arc<CronFrame>` which is used in the webserver and to start the scheduler.
-    pub fn init(filter: Option<CronFilter>, use_logger: bool) -> Arc<CronFrame> {
+    pub fn with_config(config: ConfigData) -> Result<Arc<CronFrame>, CronFrameError> {
         println!("Starting CronFrame...");
 
-        let logger = if use_logger {
+        let logger = if config.logger.enabled {
             Some(logger::rolling_logger())
         } else {
             None
         };
 
         let frame = CronFrame {
-            cron_jobs: Mutex::new(vec![]),
+            cron_jobs: Mutex::new(HashMap::new()),
             job_handles: Mutex::new(HashMap::new()),
             _logger: logger,
             web_server_channels: crossbeam_channel::bounded(1),
-            filter,
             server_handle: Mutex::new(None),
             quit: Mutex::new(false),
-            grace: {
-                if let Some(config_data) = read_config() {
-                    if let Some(scheduler_data) = config_data.scheduler {
-                        scheduler_data.grace.unwrap_or_else(|| 250)
-                    } else {
-                        GRACE_DEFAULT
-                    }
-                } else {
-                    GRACE_DEFAULT
-                }
-            },
             running: Mutex::new(false),
+            config,
         };
 
         info!("CronFrame Init Start");
-        info!("Graceful Period {} ms", frame.grace);
+        info!("Graceful Period {} ms", frame.config.scheduler.grace);
         info!("Colleting Global Jobs");
 
         for job_builder in inventory::iter::<JobBuilder> {
@@ -113,7 +66,7 @@ impl CronFrame {
                 .cron_jobs
                 .lock()
                 .expect("global job gathering error during init")
-                .push(cron_job)
+                .insert(cron_job.id, cron_job);
         }
 
         info!("Global Jobs Collected");
@@ -142,15 +95,20 @@ impl CronFrame {
         };
 
         if *running.lock().unwrap() {
-            let (ip_address, port) = utils::ip_and_port();
             info!(
                 "CronFrame Web Server running at http://{}:{}",
-                ip_address, port
+                frame.config.webserver.ip, frame.config.webserver.port
             );
-            println!("CronFrame running at http://{}:{}", ip_address, port);
+            println!(
+                "CronFrame running at http://{}:{}",
+                frame.config.webserver.ip, frame.config.webserver.port
+            );
+        } else {
+            println!("Err(CronFrameError::ServerShutdownHandle)");
+            return Err(CronFrameError::ServerShutdownHandle);
         }
 
-        frame
+        Ok(frame)
     }
 
     /// It adds a CronJob instance to the job pool
@@ -159,8 +117,12 @@ impl CronFrame {
         self.cron_jobs
             .lock()
             .expect("add_job unwrap error on lock")
-            .push(job);
+            .insert(job.id, job);
         self.clone()
+    }
+
+    pub fn job_filter(self: &Arc<CronFrame>) -> CronFilter {
+        self.config.scheduler.job_filter
     }
 
     // It crates a new job classified as a global job and adds it to the job pool
@@ -174,20 +136,6 @@ impl CronFrame {
         self.add_job(JobBuilder::global_job(name, job, cron_expr, timeout).build())
     }
 
-    /// It spawns a thread that manages the scheduling of the jobs and termination of jobs.
-    ///
-    /// This method returns after spawning the scheduler.
-    ///
-    /// Keeping the main thread alive is left to the user.
-    ///
-    /// Use the `run` method to spawn the scheduler and keep the main thread alive.
-    /// ```
-    /// # #[macro_use] extern crate cronframe_macro;
-    /// # use cronframe::CronFrame;
-    /// fn main(){
-    ///     let cronframe = CronFrame::default().start_scheduler();
-    /// }
-    /// ```
     pub fn start_scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
         let cronframe = self.clone();
         let ret = cronframe.clone();
@@ -232,8 +180,8 @@ impl CronFrame {
                 .expect("cron jobs unwrap error in scheduler");
             let mut jobs_to_remove: Vec<usize> = Vec::new();
 
-            for (i, cron_job) in &mut (*cron_jobs).iter_mut().enumerate() {
-                if let Some(filter) = &cronframe.filter {
+            for (i, (job_id, cron_job)) in &mut (*cron_jobs).iter_mut().enumerate() {
+                if cronframe.config.scheduler.job_filter != CronFilter::None {
                     let job_type = match cron_job.job {
                         CronJobType::Global(_) => CronFilter::Global,
                         CronJobType::Function(_) => CronFilter::Function,
@@ -241,12 +189,10 @@ impl CronFrame {
                         CronJobType::CLI => CronFilter::CLI,
                     };
 
-                    if job_type != *filter {
+                    if job_type != cronframe.config.scheduler.job_filter {
                         continue;
                     }
                 }
-
-                let job_id = format!("{} ID#{}", cron_job.name, cron_job.id);
 
                 // if cron_obj instance related to the job is dropped delete the job
                 let to_be_deleted = if let Some((_, life_rx)) = cron_job.life_channels.clone() {
@@ -292,7 +238,7 @@ impl CronFrame {
                         continue;
                     }
 
-                    let handle = (*cron_job).try_schedule(cronframe.grace);
+                    let handle = (*cron_job).try_schedule(cronframe.config.scheduler.grace);
 
                     if handle.is_some() {
                         job_handlers.insert(
@@ -317,7 +263,7 @@ impl CronFrame {
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                job_handlers.remove(job_id.as_str());
+                                job_handlers.remove(job_id);
                                 cron_job.run_id = None;
                             } else if message == "JOB_ABORT" {
                                 info!(
@@ -325,23 +271,12 @@ impl CronFrame {
                                     job_id,
                                     cron_job.run_id.as_ref().unwrap()
                                 );
-                                job_handlers.remove(job_id.as_str());
+                                job_handlers.remove(job_id);
                                 cron_job.run_id = None;
                                 cron_job.failed = true;
                             }
                         }
                         Err(_error) => {}
-                    }
-                }
-            }
-
-            // cleanup of dropped method jobs
-            if !jobs_to_remove.is_empty() {
-                let num_jobs = jobs_to_remove.len();
-                for i in 0..num_jobs {
-                    cron_jobs.remove(jobs_to_remove[i]);
-                    for j in i + 1..num_jobs {
-                        jobs_to_remove[j] -= 1;
                     }
                 }
             }
@@ -375,24 +310,11 @@ impl CronFrame {
         *self.running.lock().unwrap() = false;
     }
 
-    /// Function to call for a graceful shutdown of the framework instance
-    /// ```
-    /// # #[macro_use] extern crate cronframe_macro;
-    /// # use cronframe::CronFrame;
-    ///
-    /// fn main(){
-    ///     let cronframe = CronFrame::default();
-    ///     // do somthing...
-    ///     cronframe.start_scheduler();
-    ///     // do other things...
-    ///     cronframe.quit();
-    /// }
-    /// ```
     pub fn quit(self: &Arc<Self>) {
         self.stop_scheduler();
         info!("CronFrame Shutdown");
 
-        // wait for job handlers to finisH
+        // wait for job handlers to finish
         let cronframe = self.clone();
 
         let handles = cronframe
