@@ -2,7 +2,7 @@
 extern crate cronframe;
 use cronframe::{ConfigData, CronFrame, LoggerConfig, SchedulerConfig, ServerConfig};
 
-#[cron(expr = "0 0 8 * * Mon-Fri *", timeout = "0")]
+#[cron(expr = "0/5 * * * * * *", timeout = "0")]
 fn general_greeting_job() {
     println!("Have a good morning!");
 }

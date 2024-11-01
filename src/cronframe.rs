@@ -2,7 +2,7 @@ use crate::{
     config::{read_config, ConfigData},
     cronjob::CronJob,
     job_builder::JobBuilder,
-    logger, web_server, CronFilter, CronJobType,
+    logger, web_server, CronFilter,
 };
 use chrono::Duration;
 use crossbeam_channel::{Receiver, Sender};
@@ -71,11 +71,10 @@ impl CronFrame {
 
         info!("Global Jobs Collected");
         info!("CronFrame Init Complete");
-
         info!("CronFrame Server Init");
+
         let frame = Arc::new(frame);
         let server_frame = frame.clone();
-
         let running = Mutex::new(false);
 
         std::thread::spawn(move || web_server::web_server(server_frame));
@@ -181,15 +180,10 @@ impl CronFrame {
             let mut jobs_to_remove: Vec<usize> = Vec::new();
 
             for (i, (job_id, cron_job)) in &mut (*cron_jobs).iter_mut().enumerate() {
-                if cronframe.config.scheduler.job_filter != CronFilter::None {
-                    let job_type = match cron_job.job {
-                        CronJobType::Global(_) => CronFilter::Global,
-                        CronJobType::Function(_) => CronFilter::Function,
-                        CronJobType::Method(_) => CronFilter::Method,
-                        CronJobType::CLI => CronFilter::CLI,
-                    };
+                let filter = cronframe.config.scheduler.job_filter;
 
-                    if job_type != cronframe.config.scheduler.job_filter {
+                if filter != CronFilter::None {
+                    if cron_job.job.type_to_filter() != filter {
                         continue;
                     }
                 }
@@ -199,7 +193,7 @@ impl CronFrame {
                     match life_rx.try_recv() {
                         Ok(message) => {
                             if message == "JOB_DROP" {
-                                info!("job @{} - Dropped", job_id);
+                                info!("job name@{} - uuid#{} - Dropped", cron_job.name, job_id);
                                 jobs_to_remove.push(i);
                                 true
                             } else {
@@ -232,7 +226,10 @@ impl CronFrame {
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
                         if !cron_job.timeout_notified {
-                            info!("job @{} - Reached Timeout", job_id);
+                            info!(
+                                "job name@{} - uuid#{} - Reached Timeout",
+                                cron_job.name, job_id
+                            );
                             cron_job.timeout_notified = true;
                         }
                         continue;
@@ -246,9 +243,10 @@ impl CronFrame {
                             handle.expect("job handle unwrap error after try_schedule"),
                         );
                         info!(
-                            "job @{} RUN_ID#{} - Scheduled",
+                            "job name@{} - uuid#{} - run_uuid#{} - Scheduled",
+                            cron_job.name,
                             job_id,
-                            cron_job.run_id.as_ref().expect("run_id unwrap error")
+                            cron_job.run_id.as_ref().expect("run_uuid unwrap fail")
                         );
                     }
                 }
@@ -259,17 +257,19 @@ impl CronFrame {
                         Ok(message) => {
                             if message == "JOB_COMPLETE" {
                                 info!(
-                                    "job @{} RUN_ID#{} - Completed",
+                                    "job name@{} - uuid#{} - run_uuid#{} - Completed",
+                                    cron_job.name,
                                     job_id,
-                                    cron_job.run_id.as_ref().unwrap()
+                                    cron_job.run_id.as_ref().expect("run_uuid unwrap fail")
                                 );
                                 job_handlers.remove(job_id);
                                 cron_job.run_id = None;
                             } else if message == "JOB_ABORT" {
                                 info!(
-                                    "job @{} RUN_ID#{} - Aborted",
+                                    "job name@{} - uuid#{} - run_uuid#{} - Aborted",
+                                    cron_job.name,
                                     job_id,
-                                    cron_job.run_id.as_ref().unwrap()
+                                    cron_job.run_id.as_ref().expect("run_uuid unwrap fail")
                                 );
                                 job_handlers.remove(job_id);
                                 cron_job.run_id = None;
@@ -324,7 +324,7 @@ impl CronFrame {
 
         for handle in handles.iter() {
             while !handle.1.is_finished() {
-                // do some waiting until all job threads have terminated.
+                // do some waiting until all job threads have terminated
             }
         }
 

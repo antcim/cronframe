@@ -1,6 +1,4 @@
-use crate::{
-    config::read_config, cronframe::CronFrame, utils, CronFilter, CronJobType, JobBuilder,
-};
+use crate::{config::read_config, cronframe::CronFrame, utils, CronFilter, JobBuilder};
 use colored::Colorize;
 use log::info;
 use rocket::{
@@ -167,14 +165,9 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
         .expect("cron jobs unrwap error in web server")
         .iter()
     {
-        let job_type = match job.job {
-            CronJobType::Global(_) => CronFilter::Global,
-            CronJobType::Function(_) => CronFilter::Function,
-            CronJobType::Method(_) => CronFilter::Method,
-            CronJobType::CLI => CronFilter::CLI,
-        };
-
-        if cronframe.job_filter() == CronFilter::None || cronframe.job_filter() ==job_type {
+        if cronframe.job_filter() == CronFilter::None
+            || cronframe.job_filter() == job.job.type_to_filter()
+        {
             if job.status() == "Suspended" {
                 suspended_jobs.push(JobList {
                     name: job.name.clone(),
@@ -231,8 +224,20 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
                 status: job.status(),
                 timeout: job.timeout_to_string(),
                 schedule: job.schedule(),
-                upcoming_utc: job.upcoming_utc(),
-                upcoming_local: job.upcoming_local(),
+                upcoming_utc: {
+                    if let Some(datetime) = job.upcoming_utc() {
+                        datetime.to_string()
+                    } else {
+                        "None".to_string()
+                    }
+                },
+                upcoming_local: {
+                    if let Some(datetime) = job.upcoming_local() {
+                        datetime.to_string()
+                    } else {
+                        "None".to_string()
+                    }
+                },
                 fail: job.failed,
             };
             break;

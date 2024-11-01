@@ -44,15 +44,6 @@ pub use inventory::{collect, submit};
 // necessary to gather all the global jobs automatically
 collect!(JobBuilder<'static>);
 
-/// Used in the init function of the CronJob type to account for the type of job
-#[derive(Debug, Clone)]
-pub enum CronJobType {
-    Global(fn()),
-    Method(fn(arg: Arc<Box<dyn Any + Send + Sync>>)),
-    Function(fn()),
-    CLI
-}
-
 #[derive(Debug, PartialEq, Clone, Copy, Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub enum CronFilter {
