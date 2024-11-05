@@ -1,5 +1,4 @@
 use crate::{config::read_config, utils};
-use chrono::Duration;
 use log4rs::{
     append::{
         file::FileAppender,
@@ -99,8 +98,6 @@ pub fn rolling_logger() -> log4rs::Handle {
             format!("{log_dir}/{latest_file_name}.log"),
             format!("{log_dir}/{archive_file_name}_0.log"),
         );
-
-        std::thread::sleep(Duration::seconds(5).to_std().unwrap());
     }
 
     let roller = FixedWindowRoller::builder()

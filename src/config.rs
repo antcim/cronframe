@@ -197,6 +197,7 @@ pub struct SchedulerConfigToml {
 /// level_filter = "info"
 ///
 /// [scheduler]
+/// job_filter = "None"
 /// grace = 250 # this is in ms
 /// ```
 pub fn read_config() -> ConfigData {
