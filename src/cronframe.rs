@@ -17,6 +17,7 @@ use uuid::Uuid;
 #[derive(Debug)]
 pub enum CFError {
     ServerStartup,
+    TemplateDirectory,
     ServerShutdownHandle,
 }
 
@@ -153,7 +154,7 @@ impl CronFrame {
 
     pub fn start_scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
         let cronframe = self.clone();
-        
+
         // if already running, return
         if *self.running.lock().unwrap() {
             return cronframe;

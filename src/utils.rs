@@ -1,15 +1,7 @@
-use std::{fs, path::Path, time::Duration};
-
-use crate::{
-    config::read_config,
-    web_server::{
-        BASE_TEMPLATE, CRONFRAME_JS, INDEX_TEMPLATE, JOB_TEMPLATE, STYLES, TINGLE_JS, TINGLE_STYLES,
-    },
-};
 use chrono::{DateTime, Local, Utc};
+use std::{fs::File, io::Write, path::Path};
 
-/// Convertion from UTC to Local time
-pub fn local_time(utc_time: DateTime<Utc>) -> DateTime<Local> {
+pub fn utc_to_local_time(utc_time: DateTime<Utc>) -> DateTime<Local> {
     let local_time: DateTime<Local> = DateTime::from(utc_time);
     local_time
 }
@@ -20,78 +12,35 @@ pub fn home_dir() -> String {
 }
 
 pub fn ip_and_port() -> (String, u16) {
-    let data = read_config().webserver;
+    let data = crate::config::read_config().webserver;
     (data.ip, data.port)
 }
 
-/// - base.html.tera
-/// - index.htm.tera
-/// - job.html.tera
-/// - tingle.js
-/// - cronframe.js
-/// - styles.css
-/// - tingle.css
-pub fn generate_template_dir() {
-    if std::env::var("CRONFRAME_CLI").is_ok() {
-        let home_dir = home_dir();
-
-        if !Path::new(&format!("{home_dir}/.cronframe/templates")).exists() {
-            fs::create_dir(format!("{home_dir}/.cronframe/templates"))
-                .expect("could not create templates directory");
-
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/base.html.tera")),
-                BASE_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/index.html.tera")),
-                INDEX_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/job.html.tera")),
-                JOB_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/tingle.js")),
-                TINGLE_JS,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/cronframe.js")),
-                CRONFRAME_JS,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/tingle.css")),
-                TINGLE_STYLES,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/styles.css")),
-                STYLES,
-            );
-        }
+pub fn gen_template_dir() -> std::io::Result<()> {
+    let templ_dir = if std::env::var("CRONFRAME_CLI").is_ok() {
+        format!("{}/.cronframe/templates", home_dir())
     } else {
-        if !Path::new(&format!("./templates")).exists() {
-            fs::create_dir(format!("templates")).expect("could not create templates directory");
+        format!("./templates")
+    };
 
-            let _ = fs::write(
-                Path::new(&format!("./templates/base.html.tera")),
-                BASE_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("./templates/index.html.tera")),
-                INDEX_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("./templates/job.html.tera")),
-                JOB_TEMPLATE,
-            );
-            let _ = fs::write(Path::new(&format!("./templates/tingle.js")), TINGLE_JS);
-            let _ = fs::write(
-                Path::new(&format!("./templates/cronframe.js")),
-                CRONFRAME_JS,
-            );
-            let _ = fs::write(Path::new(&format!("./templates/tingle.css")), TINGLE_STYLES);
-            let _ = fs::write(Path::new(&format!("./templates/styles.css")), STYLES);
+    if !Path::new(&templ_dir).exists() {
+        std::fs::create_dir(&templ_dir)?;
+
+        let files = vec![
+            ("base.html.tera", crate::web_server::BASE_TEMPLATE),
+            ("index.html.tera", crate::web_server::INDEX_TEMPLATE),
+            ("job.html.tera", crate::web_server::JOB_TEMPLATE),
+            ("tingle.js", crate::web_server::TINGLE_JS),
+            ("cronframe.js", crate::web_server::CRONFRAME_JS),
+            ("tingle.css", crate::web_server::TINGLE_STYLES),
+            ("styles.css", crate::web_server::STYLES),
+        ];
+
+        for (file_name, content) in files {
+            let mut file = File::create(&format!("{templ_dir}/{file_name}"))?;
+            file.write(content.as_bytes())?;
+            file.sync_all()?;
         }
     }
-    std::thread::sleep(Duration::from_secs(10));
+    Ok(())
 }

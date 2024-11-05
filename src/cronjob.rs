@@ -215,7 +215,7 @@ impl CronJob {
     // if the job is active it returns the schedule otherwise a message telling why there is no next schedule
     pub fn upcoming_local(&self) -> Option<DateTime<Local>> {
         if let Some(time) = self.schedule.upcoming(Utc).into_iter().next() {
-            Some(utils::local_time(time))
+            Some(utils::utc_to_local_time(time))
         } else {
             None
         }

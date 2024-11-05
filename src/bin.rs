@@ -391,7 +391,7 @@ fn cronframe_folder() {
         fs::create_dir(format!("{home_dir}/.cronframe/cli_jobs"))
             .expect("could not create .cronframe directory");
 
-        utils::generate_template_dir();
+        utils::gen_template_dir();
 
         let _ = fs::write(
             Path::new(&format!("{home_dir}/.cronframe/rocket.toml")),

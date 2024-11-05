@@ -19,7 +19,9 @@ use std::sync::Arc;
 
 // TODO make this return a Result
 pub fn web_server(frame: Arc<CronFrame>) -> Result<(), CFError> {
-    utils::generate_template_dir();
+    if utils::gen_template_dir().is_err() {
+        return Err(CFError::TemplateDirectory);
+    }
 
     let cronframe = frame.clone();
 
