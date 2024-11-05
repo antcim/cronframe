@@ -1,4 +1,9 @@
-use crate::{config::read_config, cronframe::CronFrame, utils, CronFilter, JobBuilder};
+use crate::{
+    config::read_config,
+    cronframe::{CFError, CronFrame},
+    cronjob::CronFilter,
+    utils, JobBuilder,
+};
 use colored::Colorize;
 use log::info;
 use rocket::{
@@ -10,19 +15,20 @@ use rocket::{
     serde::Serialize,
 };
 use rocket_dyn_templates::{context, Template};
-use std::{fs, path::Path, sync::Arc, time::Duration};
+use std::sync::Arc;
 
-/// Called by the init funciton of the Cronframe type for setting up the web server
-///
-/// It provides 7 routes, five of which are API only.
-///
-/// Upon first start of the framework it will generate a templates directory.
-pub fn web_server(frame: Arc<CronFrame>) {
-    generate_template_dir();
+// TODO make this return a Result
+pub fn web_server(frame: Arc<CronFrame>) -> Result<(), CFError> {
+    utils::generate_template_dir();
 
     let cronframe = frame.clone();
 
-    let tokio_runtime = rocket::tokio::runtime::Runtime::new().unwrap();
+    // TODO handle the result
+    let tokio_runtime = if let Ok(runtime) = rocket::tokio::runtime::Runtime::new() {
+        runtime
+    } else {
+        return Err(CFError::ServerStartup);
+    };
 
     let config = read_config();
 
@@ -78,7 +84,7 @@ pub fn web_server(frame: Arc<CronFrame>) {
         .attach(Template::fairing())
         .manage(frame);
 
-    let (tx, _) = cronframe.web_server_channels.clone();
+    let (tx, _) = cronframe.rocket_channels();
 
     tokio_runtime.block_on(async move {
         let rocket = rocket.ignite().await.expect("Ignition Error");
@@ -97,6 +103,8 @@ pub fn web_server(frame: Arc<CronFrame>) {
             }
         }
     });
+
+    Ok(())
 }
 
 // necessary to have somewhat decent-looking pages
@@ -160,7 +168,7 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
     let mut suspended_jobs = vec![];
 
     for (_, job) in cronframe
-        .cron_jobs
+        .jobs()
         .lock()
         .expect("cron jobs unrwap error in web server")
         .iter()
@@ -214,7 +222,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
     let running = *cronframe.running.lock().unwrap();
     let mut job_info = JobInfo::default();
 
-    for (job_id, job) in cronframe.cron_jobs.lock().unwrap().iter() {
+    for (job_id, job) in cronframe.jobs().lock().unwrap().iter() {
         if job.name == name && job.id.to_string() == id {
             job_info = JobInfo {
                 name: job.name.clone(),
@@ -250,7 +258,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
 // API route to change the value of the timeout
 #[get("/job/<name>/<id>/toutset/<value>")]
 fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Arc<CronFrame>>) {
-    for (_, job) in cronframe.cron_jobs.lock().unwrap().iter_mut() {
+    for (_, job) in cronframe.jobs().lock().unwrap().iter_mut() {
         if job.name == name && job.id.to_string() == id {
             let job_id = format!("{} ID#{}", job.name, job.id);
             job.start_time = None;
@@ -268,7 +276,7 @@ fn update_schedule(
     expression: &str,
     cronframe: &rocket::State<Arc<CronFrame>>,
 ) {
-    for (job_id, job) in cronframe.cron_jobs.lock().unwrap().iter_mut() {
+    for (job_id, job) in cronframe.jobs().lock().unwrap().iter_mut() {
         if job.name == name && job.id.to_string() == id {
             if job.set_schedule(expression) {
                 info!("job @{job_id} - Schedule Update");
@@ -282,7 +290,7 @@ fn update_schedule(
 // API route to toggle the scheduling suspension for a job
 #[get("/job/<name>/<id>/suspension_toggle")]
 fn suspension_handle(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
-    for (job_id, job) in cronframe.cron_jobs.lock().unwrap().iter_mut() {
+    for (job_id, job) in cronframe.jobs().lock().unwrap().iter_mut() {
         if job.name == name && job.id.to_string() == id {
             if !job.suspended {
                 job.suspended = true;
@@ -320,82 +328,8 @@ fn shutdown(cronframe: &rocket::State<Arc<CronFrame>>) {
     cronframe.quit();
 }
 
-/// It generates a templates directory either inside the current directory or in the .cronframe directory.
-/// The tempaltes directory will contain the following files:
-/// - base.html.tera
-/// - index.htm.tera
-/// - job.html.tera
-/// - tingle.js
-/// - cronframe.js
-/// - styles.css
-/// - tingle.css
-pub fn generate_template_dir() {
-    if std::env::var("CRONFRAME_CLI").is_ok() {
-        let home_dir = utils::home_dir();
-
-        if !Path::new(&format!("{home_dir}/.cronframe/templates")).exists() {
-            fs::create_dir(format!("{home_dir}/.cronframe/templates"))
-                .expect("could not create templates directory");
-
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/base.html.tera")),
-                BASE_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/index.html.tera")),
-                INDEX_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/job.html.tera")),
-                JOB_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/tingle.js")),
-                TINGLE_JS,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/cronframe.js")),
-                CRONFRAME_JS,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/tingle.css")),
-                TINGLE_STYLES,
-            );
-            let _ = fs::write(
-                Path::new(&format!("{home_dir}/.cronframe/templates/styles.css")),
-                STYLES,
-            );
-        }
-    } else {
-        if !Path::new(&format!("./templates")).exists() {
-            fs::create_dir(format!("templates")).expect("could not create templates directory");
-
-            let _ = fs::write(
-                Path::new(&format!("./templates/base.html.tera")),
-                BASE_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("./templates/index.html.tera")),
-                INDEX_TEMPLATE,
-            );
-            let _ = fs::write(
-                Path::new(&format!("./templates/job.html.tera")),
-                JOB_TEMPLATE,
-            );
-            let _ = fs::write(Path::new(&format!("./templates/tingle.js")), TINGLE_JS);
-            let _ = fs::write(
-                Path::new(&format!("./templates/cronframe.js")),
-                CRONFRAME_JS,
-            );
-            let _ = fs::write(Path::new(&format!("./templates/tingle.css")), TINGLE_STYLES);
-            let _ = fs::write(Path::new(&format!("./templates/styles.css")), STYLES);
-        }
-    }
-    std::thread::sleep(Duration::from_secs(10));
-}
-
 // templates folder data: templates/base.tera.html
-const BASE_TEMPLATE: &str = {
+pub const BASE_TEMPLATE: &str = {
     r#"<!DOCTYPE html>
 <html class="light-mode">
 
@@ -482,7 +416,7 @@ const BASE_TEMPLATE: &str = {
 };
 
 // templates folder data: templates/index.tera.html
-const INDEX_TEMPLATE: &str = {
+pub const INDEX_TEMPLATE: &str = {
     r#"{% extends "base" %}
 
 {% block content %}
@@ -554,7 +488,7 @@ const INDEX_TEMPLATE: &str = {
 };
 
 // templates folder data: templates/job.tera.html
-const JOB_TEMPLATE: &str = {
+pub const JOB_TEMPLATE: &str = {
     r#"{% extends "base" %}
 
 {% block content %}
@@ -690,7 +624,7 @@ const JOB_TEMPLATE: &str = {
 };
 
 // templates folder data: templates/styles.css
-const STYLES: &str = {
+pub const STYLES: &str = {
     r#":root {
   --dark-orange: #ff3d00;
   --light-orange: #ffa702;
@@ -1196,7 +1130,7 @@ table {
 };
 
 // templates folder data: templates/cronframe.js
-const CRONFRAME_JS: &str = {
+pub const CRONFRAME_JS: &str = {
     r#"// base template scripts
 
 let stopModal = new tingle.modal({
@@ -1463,7 +1397,7 @@ let timeout = 0;
 };
 
 // templates folder data: templates/tingle.js
-const TINGLE_JS: &str = {
+pub const TINGLE_JS: &str = {
     r#"/**
  * tingle.js - A simple modal plugin written in pure JavaScript
  * @version v0.16.0
@@ -1912,7 +1846,7 @@ const TINGLE_JS: &str = {
 };
 
 // templates folder data: templates/tingle.css
-const TINGLE_STYLES: &str = {
+pub const TINGLE_STYLES: &str = {
     r#"/**
  * tingle.js - A simple modal plugin written in pure JavaScript
  * @version v0.16.0

@@ -1,4 +1,4 @@
-use crate::{utils, CronFilter};
+use crate::{cronjob::CronFilter, utils};
 use rocket::serde::Deserialize;
 use std::fs;
 use toml;
@@ -176,7 +176,7 @@ pub struct SchedulerConfigToml {
     pub grace: Option<u32>,
 }
 
-/// This function reads cronframe configuration data from the `cronframe.toml` file.
+/// This function reads cronframe configuration data from a `cronframe.toml` file
 ///
 /// There are three sections to the configuration:
 /// - webserver
@@ -199,7 +199,6 @@ pub struct SchedulerConfigToml {
 /// [scheduler]
 /// grace = 250 # this is in ms
 /// ```
-///
 pub fn read_config() -> ConfigData {
     let filename = if std::env::var("CRONFRAME_CLI").is_ok() {
         let home_dir = utils::home_dir();

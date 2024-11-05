@@ -70,12 +70,12 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
         if tmp.contains("{") {
             tmp.insert_str(
                 tmp.chars().count() - 1,
-                "tx: Option<cronframe::Sender<String>>",
+                "tx: Option<cronframe::Sender<cronframe::SchedulerMessage>>",
             );
         } else {
             tmp.insert_str(
                 tmp.chars().count() - 1,
-                "{tx: Option<cronframe::Sender<String>>}",
+                "{tx: Option<cronframe::Sender<cronframe::SchedulerMessage>>}",
             );
             tmp = (&tmp[0..tmp.len() - 1].to_string()).clone();
         }
@@ -128,14 +128,14 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
         // used to keep track of weather function jobs have been gathered
         static #cf_fn_jobs_flag: std::sync::Mutex<bool> = std::sync::Mutex::new(false);
         // channels used to manage to drop of function jobs
-        static #cf_fn_jobs_channels: cronframe::Lazy<(cronframe::Sender<String>, cronframe::Receiver<String>)> = cronframe::Lazy::new(|| cronframe::bounded(1));
+        static #cf_fn_jobs_channels: cronframe::Lazy<(cronframe::Sender<cronframe::SchedulerMessage>, cronframe::Receiver<cronframe::SchedulerMessage>)> = cronframe::Lazy::new(|| cronframe::bounded(1));
 
         // drop for method jobs
         impl Drop for #struct_name {
             // this drops method jobs only
             fn drop(&mut self) {
                 if self.tx.is_some(){
-                    let _= self.tx.as_ref().unwrap().send("JOB_DROP".to_string());
+                    let _= self.tx.as_ref().unwrap().send(cronframe::SchedulerMessage::JobDrop);
                 }
             }
         }
@@ -149,7 +149,7 @@ pub fn cron_obj(_att: TokenStream, code: TokenStream) -> TokenStream {
             fn cf_drop_fn() {
                 if *#cf_fn_jobs_flag.lock().unwrap(){
                     for func in #function_jobs{
-                        let _= #cf_fn_jobs_channels.0.send("JOB_DROP".to_string());
+                        let _= #cf_fn_jobs_channels.0.send(cronframe::SchedulerMessage::JobDrop);
                     }
                     *#cf_fn_jobs_flag.lock().unwrap() = false;
                 }

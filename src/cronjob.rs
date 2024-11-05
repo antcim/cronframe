@@ -1,11 +1,10 @@
-use std::{any::Any, process::Command, str::FromStr, sync::Arc, thread::JoinHandle};
-
+use crate::{cronframe::SchedulerMessage, utils};
 use chrono::{DateTime, Duration, Local, Utc};
 use cron::Schedule;
 use crossbeam_channel::{Receiver, Sender};
+use rocket::serde::Deserialize;
+use std::{any::Any, process::Command, str::FromStr, sync::Arc, thread::JoinHandle};
 use uuid::Uuid;
-
-use crate::{utils, CronFilter};
 
 #[derive(Debug, Clone)]
 pub struct CronJob {
@@ -16,8 +15,8 @@ pub struct CronJob {
     pub schedule: Schedule,
     pub timeout: Option<Duration>,
     pub timeout_notified: bool,
-    pub status_channels: Option<(Sender<String>, Receiver<String>)>,
-    pub life_channels: Option<(Sender<String>, Receiver<String>)>,
+    pub status_channels: Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)>,
+    pub life_channels: Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)>,
     pub start_time: Option<DateTime<Utc>>,
     pub run_id: Option<Uuid>,
     pub failed: bool,
@@ -38,6 +37,16 @@ pub enum CronJobType {
     CLI {
         job_name: String,
     },
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub enum CronFilter {
+    None,
+    Global,
+    Function,
+    Method,
+    CLI,
 }
 
 impl CronJobType {
@@ -236,8 +245,9 @@ impl CronJob {
             .1
             .clone();
         let schedule = self.schedule.clone();
-        
-        let run_id = cron_job.run_id
+
+        let run_id = cron_job
+            .run_id
             .as_ref()
             .expect("run_id unwap error in job run method")
             .clone();
@@ -259,7 +269,7 @@ impl CronJob {
             }
         };
 
-        // the control thread handle is what gets returned to the cronframe
+        // the control thread handle is what gets returned to cronframe
         // this allows to check for job completion or fail
         let control_thread = move || {
             let job_handle = std::thread::spawn(job_thread);
@@ -270,10 +280,10 @@ impl CronJob {
 
             match job_handle.join() {
                 Ok(_) => {
-                    let _ = tx.send("JOB_COMPLETE".to_string());
+                    let _ = tx.send(SchedulerMessage::JobComplete);
                 }
                 Err(_) => {
-                    let _ = tx.send("JOB_ABORT".to_string());
+                    let _ = tx.send(SchedulerMessage::JobAbort);
                 }
             };
         };

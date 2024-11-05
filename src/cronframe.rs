@@ -1,8 +1,8 @@
 use crate::{
     config::{read_config, ConfigData},
-    cronjob::CronJob,
+    cronjob::{CronFilter, CronJob},
     job_builder::JobBuilder,
-    logger, web_server, CronFilter,
+    logger, web_server,
 };
 use chrono::Duration;
 use crossbeam_channel::{Receiver, Sender};
@@ -15,15 +15,23 @@ use std::{
 use uuid::Uuid;
 
 #[derive(Debug)]
-pub enum CronFrameError {
+pub enum CFError {
+    ServerStartup,
     ServerShutdownHandle,
 }
 
+#[derive(Debug)]
+pub enum SchedulerMessage {
+    JobComplete,
+    JobDrop,
+    JobAbort,
+}
+
 pub struct CronFrame {
-    pub cron_jobs: Mutex<HashMap<Uuid, CronJob>>,
+    job_pool: Mutex<HashMap<Uuid, CronJob>>,
     job_handles: Mutex<HashMap<Uuid, JoinHandle<()>>>,
     _logger: Option<log4rs::Handle>,
-    pub web_server_channels: (Sender<Shutdown>, Receiver<Shutdown>),
+    rocket_channels: (Sender<Shutdown>, Receiver<Shutdown>),
     server_handle: Mutex<Option<Shutdown>>,
     pub quit: Mutex<bool>,
     pub running: Mutex<bool>,
@@ -31,11 +39,19 @@ pub struct CronFrame {
 }
 
 impl CronFrame {
-    pub fn init() -> Result<Arc<CronFrame>, CronFrameError> {
+    pub fn init() -> Result<Arc<CronFrame>, CFError> {
         Self::with_config(read_config())
     }
 
-    pub fn with_config(config: ConfigData) -> Result<Arc<CronFrame>, CronFrameError> {
+    pub fn jobs(&self) -> &Mutex<HashMap<Uuid, CronJob>> {
+        &self.job_pool
+    }
+
+    pub fn rocket_channels(&self) -> (Sender<Shutdown>, Receiver<Shutdown>) {
+        self.rocket_channels.clone()
+    }
+
+    pub fn with_config(config: ConfigData) -> Result<Arc<CronFrame>, CFError> {
         println!("Starting CronFrame...");
 
         let logger = if config.logger.enabled {
@@ -45,10 +61,10 @@ impl CronFrame {
         };
 
         let frame = CronFrame {
-            cron_jobs: Mutex::new(HashMap::new()),
+            job_pool: Mutex::new(HashMap::new()),
             job_handles: Mutex::new(HashMap::new()),
             _logger: logger,
-            web_server_channels: crossbeam_channel::bounded(1),
+            rocket_channels: crossbeam_channel::bounded(1),
             server_handle: Mutex::new(None),
             quit: Mutex::new(false),
             running: Mutex::new(false),
@@ -63,7 +79,7 @@ impl CronFrame {
             let cron_job = job_builder.clone().build();
             info!("Found Global Job \"{}\"", cron_job.name);
             frame
-                .cron_jobs
+                .job_pool
                 .lock()
                 .expect("global job gathering error during init")
                 .insert(cron_job.id, cron_job);
@@ -82,7 +98,7 @@ impl CronFrame {
         *frame
             .server_handle
             .lock()
-            .expect("web server handle unwrap error") = match frame.web_server_channels.1.recv() {
+            .expect("web server handle unwrap error") = match frame.rocket_channels.1.recv() {
             Ok(handle) => {
                 *running.lock().unwrap() = true;
                 Some(handle)
@@ -104,7 +120,7 @@ impl CronFrame {
             );
         } else {
             println!("Err(CronFrameError::ServerShutdownHandle)");
-            return Err(CronFrameError::ServerShutdownHandle);
+            return Err(CFError::ServerShutdownHandle);
         }
 
         Ok(frame)
@@ -113,7 +129,7 @@ impl CronFrame {
     /// It adds a CronJob instance to the job pool
     /// Used in the cf_gather_mt and cf_gather_fn
     pub fn add_job(self: &Arc<CronFrame>, job: CronJob) -> Arc<CronFrame> {
-        self.cron_jobs
+        self.job_pool
             .lock()
             .expect("add_job unwrap error on lock")
             .insert(job.id, job);
@@ -137,12 +153,13 @@ impl CronFrame {
 
     pub fn start_scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
         let cronframe = self.clone();
-        let ret = cronframe.clone();
-
+        
         // if already running, return
         if *self.running.lock().unwrap() {
-            return ret;
+            return cronframe;
         }
+
+        let cronframe_return = cronframe.clone();
 
         *cronframe
             .running
@@ -153,6 +170,7 @@ impl CronFrame {
             .lock()
             .expect("quit unwrap error in start_scheduler method") = false;
 
+        // closure containg the actual scheduler code
         let scheduler = move || loop {
             // sleep some otherwise the cpu consumption goes to the moon
             std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
@@ -168,20 +186,23 @@ impl CronFrame {
             if !*cronframe
                 .running
                 .lock()
-                .expect("quit unwrap error in scheduler")
+                .expect("running unwrap error in scheduler")
             {
                 break;
             }
 
             let mut cron_jobs = cronframe
-                .cron_jobs
+                .job_pool
                 .lock()
                 .expect("cron jobs unwrap error in scheduler");
-            let mut jobs_to_remove: Vec<usize> = Vec::new();
 
-            for (i, (job_id, cron_job)) in &mut (*cron_jobs).iter_mut().enumerate() {
+            let mut jobs_to_drop: Vec<Uuid> = Vec::new();
+
+            for (job_id, cron_job) in &mut (*cron_jobs).iter_mut() {
                 let filter = cronframe.config.scheduler.job_filter;
 
+                // handle the job only if filter and job type match
+                // No filter -> all job types are to be executed
                 if filter != CronFilter::None {
                     if cron_job.job.type_to_filter() != filter {
                         continue;
@@ -189,17 +210,16 @@ impl CronFrame {
                 }
 
                 // if cron_obj instance related to the job is dropped delete the job
-                let to_be_deleted = if let Some((_, life_rx)) = cron_job.life_channels.clone() {
+                let to_be_dropped = if let Some((_, life_rx)) = cron_job.life_channels.clone() {
                     match life_rx.try_recv() {
-                        Ok(message) => {
-                            if message == "JOB_DROP" {
+                        Ok(message) => match message {
+                            SchedulerMessage::JobDrop => {
                                 info!("job name@{} - uuid#{} - Dropped", cron_job.name, job_id);
-                                jobs_to_remove.push(i);
+                                jobs_to_drop.push(*job_id);
                                 true
-                            } else {
-                                false
                             }
-                        }
+                            _ => unreachable!(),
+                        },
                         Err(_error) => false,
                     }
                 } else {
@@ -207,9 +227,9 @@ impl CronFrame {
                 };
 
                 // if the job_id key is not in the hashmap then attempt to schedule it
-                // if scheduling is a success then add the key to the hashmap
+                // if scheduling is a success then add the key and handle to the hashmap
 
-                let mut job_handlers = cronframe
+                let mut job_handles = cronframe
                     .job_handles
                     .lock()
                     .expect("job handles unwrap error in scheduler");
@@ -217,8 +237,8 @@ impl CronFrame {
                 // check if the daily timeout expired and reset it if need be
                 cron_job.reset_timeout();
 
-                // if there is no handle for the job see if it need to be scheduled
-                if !job_handlers.contains_key(&job_id) && !to_be_deleted {
+                // if there is no handle for the job see if it needs to be scheduled
+                if !job_handles.contains_key(&job_id) && !to_be_dropped {
                     if cron_job.suspended {
                         continue;
                     }
@@ -238,7 +258,7 @@ impl CronFrame {
                     let handle = (*cron_job).try_schedule(cronframe.config.scheduler.grace);
 
                     if handle.is_some() {
-                        job_handlers.insert(
+                        job_handles.insert(
                             job_id.clone(),
                             handle.expect("job handle unwrap error after try_schedule"),
                         );
@@ -254,37 +274,45 @@ impl CronFrame {
                 // check to see if it sent a message that says it finished or aborted
                 else if let Some((_, status_rx)) = cron_job.status_channels.clone() {
                     match status_rx.try_recv() {
-                        Ok(message) => {
-                            if message == "JOB_COMPLETE" {
+                        Ok(message) => match message {
+                            SchedulerMessage::JobComplete => {
                                 info!(
                                     "job name@{} - uuid#{} - run_uuid#{} - Completed",
                                     cron_job.name,
                                     job_id,
                                     cron_job.run_id.as_ref().expect("run_uuid unwrap fail")
                                 );
-                                job_handlers.remove(job_id);
+                                job_handles.remove(job_id);
                                 cron_job.run_id = None;
-                            } else if message == "JOB_ABORT" {
+                            }
+                            SchedulerMessage::JobAbort => {
                                 info!(
                                     "job name@{} - uuid#{} - run_uuid#{} - Aborted",
                                     cron_job.name,
                                     job_id,
                                     cron_job.run_id.as_ref().expect("run_uuid unwrap fail")
                                 );
-                                job_handlers.remove(job_id);
+                                job_handles.remove(job_id);
                                 cron_job.run_id = None;
                                 cron_job.failed = true;
                             }
-                        }
+                            _ => unreachable!(),
+                        },
                         Err(_error) => {}
                     }
                 }
+            }
+
+            let mut pool = cron_jobs;
+            // drop function or methods jobs here
+            for job_id in jobs_to_drop {
+                pool.remove(&job_id);
             }
         };
 
         std::thread::spawn(scheduler);
         info!("CronFrame Scheduler Running");
-        ret
+        cronframe_return
     }
 
     /// This function can be used to keep the main thread alive after the scheduler has been started

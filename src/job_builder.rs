@@ -27,7 +27,6 @@ pub enum JobBuilder<'a> {
         cron_expr: &'a str,
         timeout: &'a str,
     },
-
     CLI {
         name: &'a str,
         cron_expr: &'a str,

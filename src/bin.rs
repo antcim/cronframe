@@ -1,8 +1,7 @@
 use clap::{arg, command};
 use colored::*;
 use cronframe::{
-    utils::{self, ip_and_port},
-    web_server, CronFrame,
+    utils::{self, ip_and_port},CronFrame,
 };
 use std::{
     fs,
@@ -392,7 +391,7 @@ fn cronframe_folder() {
         fs::create_dir(format!("{home_dir}/.cronframe/cli_jobs"))
             .expect("could not create .cronframe directory");
 
-        web_server::generate_template_dir();
+        utils::generate_template_dir();
 
         let _ = fs::write(
             Path::new(&format!("{home_dir}/.cronframe/rocket.toml")),
