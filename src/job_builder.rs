@@ -1,10 +1,9 @@
-use crate::cronjob::{CronJob, CronJobType};
+use crate::cronjob::CronJob;
 use chrono::Duration;
 use cron::Schedule;
 use std::any::Any;
 use std::str::FromStr;
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub enum JobBuilder<'a> {
@@ -51,7 +50,7 @@ impl<'a> JobBuilder<'a> {
 
     pub const fn method_job(
         name: &'a str,
-        job: fn(arg: Arc<Box<dyn Any + Send + Sync>>),
+        job: fn(Arc<Box<dyn Any + Send + Sync>>),
         cron_expr: String,
         timeout: String,
         instance: Arc<Box<dyn Any + Send + Sync>>,
@@ -104,21 +103,7 @@ impl<'a> JobBuilder<'a> {
                 } else {
                     None
                 };
-
-                CronJob {
-                    name: name.to_string(),
-                    id: Uuid::new_v4(),
-                    job: CronJobType::Global { job },
-                    schedule,
-                    timeout,
-                    timeout_notified: false,
-                    life_channels: None,
-                    status_channels: Some(crossbeam_channel::bounded(1)),
-                    start_time: None,
-                    run_id: None,
-                    failed: false,
-                    suspended: false,
-                }
+                CronJob::new_global(name, job, schedule, timeout)
             }
             Self::Method {
                 name,
@@ -136,20 +121,7 @@ impl<'a> JobBuilder<'a> {
                     None
                 };
 
-                CronJob {
-                    name: name.to_string(),
-                    id: Uuid::new_v4(),
-                    job: CronJobType::Method { instance, job },
-                    schedule,
-                    timeout,
-                    timeout_notified: false,
-                    status_channels: Some(crossbeam_channel::bounded(1)),
-                    life_channels: None,
-                    start_time: None,
-                    run_id: None,
-                    failed: false,
-                    suspended: false,
-                }
+                CronJob::new_method(name, instance, job, schedule, timeout)
             }
             Self::Function {
                 name,
@@ -166,20 +138,7 @@ impl<'a> JobBuilder<'a> {
                     None
                 };
 
-                CronJob {
-                    name: name.to_string(),
-                    id: Uuid::new_v4(),
-                    job: CronJobType::Function { job },
-                    schedule,
-                    timeout,
-                    timeout_notified: false,
-                    status_channels: Some(crossbeam_channel::bounded(1)),
-                    life_channels: None,
-                    start_time: None,
-                    run_id: None,
-                    failed: false,
-                    suspended: false,
-                }
+                CronJob::new_function(name, job, schedule, timeout)
             }
             Self::CLI {
                 name,
@@ -196,22 +155,7 @@ impl<'a> JobBuilder<'a> {
                     None
                 };
 
-                CronJob {
-                    name: name.to_string(),
-                    id: Uuid::new_v4(),
-                    job: CronJobType::CLI {
-                        job_name: name.to_string(),
-                    },
-                    schedule,
-                    timeout,
-                    timeout_notified: false,
-                    status_channels: Some(crossbeam_channel::bounded(1)),
-                    life_channels: None,
-                    start_time: None,
-                    run_id: None,
-                    failed: false,
-                    suspended: false,
-                }
+                CronJob::new_cli(name, schedule, timeout)
             }
         }
     }

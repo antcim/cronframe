@@ -175,23 +175,22 @@ fn home(cronframe: &rocket::State<Arc<CronFrame>>) -> Template {
         .expect("cron jobs unrwap error in web server")
         .iter()
     {
-        if cronframe.job_filter() == CronFilter::None
-            || cronframe.job_filter() == job.job.type_to_filter()
+        if cronframe.job_filter() == CronFilter::None || cronframe.job_filter() == job.type_filter()
         {
             if job.status() == "Suspended" {
                 suspended_jobs.push(JobList {
-                    name: job.name.clone(),
-                    id: job.id.to_string(),
+                    name: job.name(),
+                    id: job.id().to_string(),
                 });
             } else if job.status() == "Timed-Out" {
                 timedout_jobs.push(JobList {
-                    name: job.name.clone(),
-                    id: job.id.to_string(),
+                    name: job.name(),
+                    id: job.id().to_string(),
                 });
             } else {
                 active_jobs.push(JobList {
-                    name: job.name.clone(),
-                    id: job.id.to_string(),
+                    name: job.name(),
+                    id: job.id().to_string(),
                 });
             }
         }
@@ -225,9 +224,9 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
     let mut job_info = JobInfo::default();
 
     for (job_id, job) in cronframe.jobs().lock().unwrap().iter() {
-        if job.name == name && job.id.to_string() == id {
+        if job.name() == name && job.id().to_string() == id {
             job_info = JobInfo {
-                name: job.name.clone(),
+                name: job.name(),
                 id: job_id.to_string(),
                 r#type: job.type_to_string(),
                 run_id: job.run_id(),
@@ -248,7 +247,7 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
                         "None".to_string()
                     }
                 },
-                fail: job.failed,
+                fail: job.failed(),
             };
             break;
         }
@@ -261,9 +260,8 @@ fn job_info(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) -> 
 #[get("/job/<name>/<id>/toutset/<value>")]
 fn update_timeout(name: &str, id: &str, value: i64, cronframe: &rocket::State<Arc<CronFrame>>) {
     for (_, job) in cronframe.jobs().lock().unwrap().iter_mut() {
-        if job.name == name && job.id.to_string() == id {
-            let job_id = format!("{} ID#{}", job.name, job.id);
-            job.start_time = None;
+        if job.name() == name && job.id().to_string() == id {
+            let job_id = format!("{} ID#{}", job.name(), job.id());
             job.set_timeout(value);
             info!("job @{job_id} - Timeout Update");
         }
@@ -279,7 +277,7 @@ fn update_schedule(
     cronframe: &rocket::State<Arc<CronFrame>>,
 ) {
     for (job_id, job) in cronframe.jobs().lock().unwrap().iter_mut() {
-        if job.name == name && job.id.to_string() == id {
+        if job.name() == name && job.id().to_string() == id {
             if job.set_schedule(expression) {
                 info!("job @{job_id} - Schedule Update");
             } else {
@@ -293,12 +291,12 @@ fn update_schedule(
 #[get("/job/<name>/<id>/suspension_toggle")]
 fn suspension_handle(name: &str, id: &str, cronframe: &rocket::State<Arc<CronFrame>>) {
     for (job_id, job) in cronframe.jobs().lock().unwrap().iter_mut() {
-        if job.name == name && job.id.to_string() == id {
-            if !job.suspended {
-                job.suspended = true;
+        if job.name() == name && job.id().to_string() == id {
+            if !job.suspended() {
+                job.suspension(true);
                 info!("job @{job_id} - Scheduling Suspended");
             } else {
-                job.suspended = false;
+                job.suspension(false);
                 info!("job @{job_id} - Scheduling Reprised");
             }
         }
@@ -368,10 +366,13 @@ pub const BASE_TEMPLATE: &str = {
                         <span style="padding:0px 5px">ⓘ</span> Scheduler Running
                     </div>
                     <div id="scheduler_stop" onclick="stopScheduler()">
-                        <svg height="24" viewBox="0 0 24 20" width="24" xmlns="http://www.w3.org/2000/svg">
-                            <path fill="currentColor"
-                                d="M12 21c4.411 0 8-3.589 8-8 0-3.35-2.072-6.221-5-7.411v2.223A6 6 0 0 1 18 13c0 3.309-2.691 6-6 6s-6-2.691-6-6a5.999 5.999 0 0 1 3-5.188V5.589C6.072 6.779 4 9.65 4 13c0 4.411 3.589 8 8 8z" />
-                            <path fill="currentColor" d="M11 2h2v10h-2z" />
+                        <svg fill="none" height="24" width="24" viewBox="0 0 24 20" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M5.74609 3C4.7796 3 3.99609 3.7835 3.99609 4.75V19.25C3.99609 20.2165 4.7796 21 5.74609 21H9.24609C10.2126 21 10.9961 20.2165 10.9961 19.25V4.75C10.9961 3.7835 10.2126 3 9.24609 3H5.74609Z"
+                                fill="currentColor" />
+                            <path
+                                d="M14.7461 3C13.7796 3 12.9961 3.7835 12.9961 4.75V19.25C12.9961 20.2165 13.7796 21 14.7461 21H18.2461C19.2126 21 19.9961 20.2165 19.9961 19.25V4.75C19.9961 3.7835 19.2126 3 18.2461 3H14.7461Z"
+                                fill="currentColor" />
                         </svg>
                     </div>
                     {% else %}
@@ -379,10 +380,10 @@ pub const BASE_TEMPLATE: &str = {
                         <span style="padding:0px 5px">ⓘ</span> Scheduler Not Running
                     </div>
                     <div id="scheduler_start" onclick="startScheduler()">
-                        <svg height="24" viewBox="0 0 24 20" width="24" xmlns="http://www.w3.org/2000/svg">
-                            <path fill="currentColor"
-                                d="M12 21c4.411 0 8-3.589 8-8 0-3.35-2.072-6.221-5-7.411v2.223A6 6 0 0 1 18 13c0 3.309-2.691 6-6 6s-6-2.691-6-6a5.999 5.999 0 0 1 3-5.188V5.589C6.072 6.779 4 9.65 4 13c0 4.411 3.589 8 8 8z" />
-                            <path fill="currentColor" d="M11 2h2v10h-2z" />
+                        <svg viewBox="0 0 455 425" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M133,440a35.37,35.37,0,0,1-17.5-4.67c-12-6.8-19.46-20-19.46-34.33V111c0-14.37,7.46-27.53,19.46-34.33a35.13,35.13,0,0,1,35.77.45L399.12,225.48a36,36,0,0,1,0,61L151.23,434.88A35.5,35.5,0,0,1,133,440Z"
+                                fill="currentColor" />
                         </svg>
                     </div>
                     {% endif %}
@@ -399,7 +400,8 @@ pub const BASE_TEMPLATE: &str = {
                         <span class="check"></span>
                     </label>
                     5s Reload
-                    <a href="https://github.com/antcim/cronframe" target="_blank" class="repo" title="Developed by Antonio Cimino">
+                    <a href="https://github.com/antcim/cronframe" target="_blank" class="repo"
+                        title="Developed by Antonio Cimino">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
                             <path fill="currentColor"
                                 d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />

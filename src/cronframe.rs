@@ -78,12 +78,12 @@ impl CronFrame {
 
         for job_builder in inventory::iter::<JobBuilder> {
             let cron_job = job_builder.clone().build();
-            info!("Found Global Job \"{}\"", cron_job.name);
+            info!("Found Global Job \"{}\"", cron_job.name());
             frame
                 .job_pool
                 .lock()
                 .expect("global job gathering error during init")
-                .insert(cron_job.id, cron_job);
+                .insert(cron_job.id(), cron_job);
         }
 
         info!("Global Jobs Collected");
@@ -127,13 +127,12 @@ impl CronFrame {
         Ok(frame)
     }
 
-    /// It adds a CronJob instance to the job pool
     /// Used in the cf_gather_mt and cf_gather_fn
     pub fn add_job(self: &Arc<CronFrame>, job: CronJob) -> Arc<CronFrame> {
         self.job_pool
             .lock()
             .expect("add_job unwrap error on lock")
-            .insert(job.id, job);
+            .insert(job.id(), job);
         self.clone()
     }
 
@@ -155,7 +154,6 @@ impl CronFrame {
     pub fn start_scheduler<'a>(self: &Arc<Self>) -> Arc<Self> {
         let cronframe = self.clone();
 
-        // if already running, return
         if *self.running.lock().unwrap() {
             return cronframe;
         }
@@ -205,17 +203,17 @@ impl CronFrame {
                 // handle the job only if filter and job type match
                 // No filter -> all job types are to be executed
                 if filter != CronFilter::None {
-                    if cron_job.job.type_to_filter() != filter {
+                    if cron_job.type_filter() != filter {
                         continue;
                     }
                 }
 
                 // if cron_obj instance related to the job is dropped delete the job
-                let to_be_dropped = if let Some((_, life_rx)) = cron_job.life_channels.clone() {
+                let to_be_dropped = if let Some((_, life_rx)) = cron_job.life_channels() {
                     match life_rx.try_recv() {
                         Ok(message) => match message {
                             SchedulerMessage::JobDrop => {
-                                info!("job name@{} - uuid#{} - Dropped", cron_job.name, job_id);
+                                info!("job name@{} - uuid#{} - Dropped", cron_job.name(), job_id);
                                 jobs_to_drop.push(*job_id);
                                 true
                             }
@@ -240,18 +238,19 @@ impl CronFrame {
 
                 // if there is no handle for the job see if it needs to be scheduled
                 if !job_handles.contains_key(&job_id) && !to_be_dropped {
-                    if cron_job.suspended {
+                    if cron_job.suspended() {
                         continue;
                     }
 
                     // if the job timed-out than skip to the next job
                     if cron_job.check_timeout() {
-                        if !cron_job.timeout_notified {
+                        if !cron_job.timeout_notified() {
                             info!(
                                 "job name@{} - uuid#{} - Reached Timeout",
-                                cron_job.name, job_id
+                                cron_job.name(),
+                                job_id
                             );
-                            cron_job.timeout_notified = true;
+                            cron_job.notify_timeout();
                         }
                         continue;
                     }
@@ -265,37 +264,37 @@ impl CronFrame {
                         );
                         info!(
                             "job name@{} - uuid#{} - run_uuid#{} - Scheduled",
-                            cron_job.name,
+                            cron_job.name(),
                             job_id,
-                            cron_job.run_id.as_ref().expect("run_uuid unwrap fail")
+                            cron_job.run_id()
                         );
                     }
                 }
                 // the job is in the hashmap and running
                 // check to see if it sent a message that says it finished or aborted
-                else if let Some((_, status_rx)) = cron_job.status_channels.clone() {
+                else if let Some((_, status_rx)) = cron_job.status_channels() {
                     match status_rx.try_recv() {
                         Ok(message) => match message {
                             SchedulerMessage::JobComplete => {
                                 info!(
                                     "job name@{} - uuid#{} - run_uuid#{} - Completed",
-                                    cron_job.name,
+                                    cron_job.name(),
                                     job_id,
-                                    cron_job.run_id.as_ref().expect("run_uuid unwrap fail")
+                                    cron_job.run_id()
                                 );
                                 job_handles.remove(job_id);
-                                cron_job.run_id = None;
+                                cron_job.clear_run_id();
                             }
                             SchedulerMessage::JobAbort => {
                                 info!(
                                     "job name@{} - uuid#{} - run_uuid#{} - Aborted",
-                                    cron_job.name,
+                                    cron_job.name(),
                                     job_id,
-                                    cron_job.run_id.as_ref().expect("run_uuid unwrap fail")
+                                    cron_job.run_id()
                                 );
                                 job_handles.remove(job_id);
-                                cron_job.run_id = None;
-                                cron_job.failed = true;
+                                cron_job.clear_run_id();
+                                cron_job.fail();
                             }
                             _ => unreachable!(),
                         },

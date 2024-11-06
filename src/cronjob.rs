@@ -8,18 +8,18 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct CronJob {
-    pub id: Uuid,
-    pub name: String,
-    pub job: CronJobType,
-    pub suspended: bool,
-    pub schedule: Schedule,
-    pub timeout: Option<Duration>,
-    pub timeout_notified: bool,
-    pub status_channels: Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)>,
-    pub life_channels: Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)>,
-    pub start_time: Option<DateTime<Utc>>,
-    pub run_id: Option<Uuid>,
-    pub failed: bool,
+    id: Uuid,
+    name: String,
+    job: CronJobType,
+    suspended: bool,
+    schedule: Schedule,
+    timeout: Option<Duration>,
+    timeout_notified: bool,
+    status_channels: Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)>,
+    life_channels: Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)>,
+    start_time: Option<DateTime<Utc>>,
+    run_id: Option<Uuid>,
+    failed: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -87,6 +87,92 @@ impl CronJobType {
 }
 
 impl CronJob {
+    pub fn new_global(
+        name: &str,
+        job: fn(),
+        schedule: Schedule,
+        timeout: Option<Duration>,
+    ) -> CronJob {
+        CronJob {
+            name: name.to_string(),
+            id: Uuid::new_v4(),
+            job: CronJobType::Global { job },
+            schedule,
+            timeout,
+            timeout_notified: false,
+            life_channels: None,
+            status_channels: Some(crossbeam_channel::bounded(1)),
+            start_time: None,
+            run_id: None,
+            failed: false,
+            suspended: false,
+        }
+    }
+
+    pub fn new_function(
+        name: &str,
+        job: fn(),
+        schedule: Schedule,
+        timeout: Option<Duration>,
+    ) -> CronJob {
+        CronJob {
+            name: name.to_string(),
+            id: Uuid::new_v4(),
+            job: CronJobType::Function { job },
+            schedule,
+            timeout,
+            timeout_notified: false,
+            status_channels: Some(crossbeam_channel::bounded(1)),
+            life_channels: None,
+            start_time: None,
+            run_id: None,
+            failed: false,
+            suspended: false,
+        }
+    }
+
+    pub fn new_method(
+        name: &str,
+        instance: Arc<Box<dyn Any + Send + Sync>>,
+        job: fn(Arc<Box<dyn Any + Send + Sync>>),
+        schedule: Schedule,
+        timeout: Option<Duration>,
+    ) -> CronJob {
+        CronJob {
+            name: name.to_string(),
+            id: Uuid::new_v4(),
+            job: CronJobType::Method { instance, job },
+            schedule,
+            timeout,
+            timeout_notified: false,
+            status_channels: Some(crossbeam_channel::bounded(1)),
+            life_channels: None,
+            start_time: None,
+            run_id: None,
+            failed: false,
+            suspended: false,
+        }
+    }
+
+    pub fn new_cli(name: &str, schedule: Schedule, timeout: Option<Duration>) -> CronJob {
+        CronJob {
+            name: name.to_string(),
+            id: Uuid::new_v4(),
+            job: CronJobType::CLI {
+                job_name: name.to_string(),
+            },
+            schedule,
+            timeout,
+            timeout_notified: false,
+            status_channels: Some(crossbeam_channel::bounded(1)),
+            life_channels: None,
+            start_time: None,
+            run_id: None,
+            failed: false,
+            suspended: false,
+        }
+    }
+
     pub fn try_schedule(&mut self, _grace_period: u32) -> Option<JoinHandle<()>> {
         if self.check_schedule() {
             self.run_id = Some(Uuid::new_v4());
@@ -119,6 +205,7 @@ impl CronJob {
     // the expected value is in milliseconds
     pub fn set_timeout(&mut self, value: i64) {
         self.timeout = if value > 0 {
+            self.start_time = None;
             Some(Duration::milliseconds(value))
         } else {
             None
@@ -289,5 +376,55 @@ impl CronJob {
         };
 
         std::thread::Builder::spawn(std::thread::Builder::new(), control_thread)
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
+
+    pub fn type_filter(&self) -> CronFilter {
+        self.job.type_to_filter()
+    }
+
+    pub fn life_channels(&self) -> Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)> {
+        self.life_channels.clone()
+    }
+
+    pub fn status_channels(
+        &self,
+    ) -> Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)> {
+        self.status_channels.clone()
+    }
+
+    pub fn suspended(&self) -> bool {
+        self.suspended
+    }
+
+    pub fn suspension(&mut self, value: bool) {
+        self.suspended = value;
+    }
+
+    pub fn timeout_notified(&self) -> bool {
+        self.timeout_notified
+    }
+
+    pub fn notify_timeout(&mut self) {
+        self.timeout_notified = true;
+    }
+
+    pub fn clear_run_id(&mut self) {
+        self.run_id = None;
+    }
+
+    pub fn failed(&self) -> bool {
+        self.failed
+    }
+
+    pub fn fail(&mut self) {
+        self.failed = true;
     }
 }
