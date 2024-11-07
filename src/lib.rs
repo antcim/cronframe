@@ -31,8 +31,7 @@ mod web_server;
 
 // re-export of types
 pub use config::{ConfigData, LoggerConfig, SchedulerConfig, ServerConfig};
-pub use cronframe::CronFrame;
-pub use cronframe::SchedulerMessage;
+pub use cronframe::{CronFrame, SchedulerMessage};
 pub use cronframe_expr::CronFrameExpr;
 pub use cronjob::{CronFilter, CronJob};
 pub use job_builder::JobBuilder;

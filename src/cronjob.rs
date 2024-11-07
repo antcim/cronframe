@@ -394,6 +394,10 @@ impl CronJob {
         self.life_channels.clone()
     }
 
+    pub fn add_life_channels(&mut self, channels: (Sender<SchedulerMessage>, Receiver<SchedulerMessage>)){
+        self.life_channels = Some(channels);
+    }
+
     pub fn status_channels(
         &self,
     ) -> Option<(Sender<SchedulerMessage>, Receiver<SchedulerMessage>)> {

@@ -236,8 +236,8 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                     for method_job in #method_jobs {
                         let job_builder = (method_job)(std::sync::Arc::new(Box::new(self.clone())));
                         let mut cron_job = job_builder.build();
-                        cron_job.life_channels = Some(life_channels.clone());
-                        cronframe::info!("Found Method Job \"{}\" from {}.", cron_job.name, #type_name);
+                        cron_job.add_life_channels(life_channels.clone());
+                        cronframe::info!("Found Method Job \"{}\" from {}.", cron_job.name(), #type_name);
                         frame.clone().add_job(cron_job);
                     }
                     cronframe::info!("Method Jobs from {} Collected.", #type_name);
@@ -257,8 +257,8 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
                         for function_job in #function_jobs {
                             let job_builder = (function_job)();
                             let mut cron_job = job_builder.build();
-                            cron_job.life_channels = Some(#cf_fn_jobs_channels.clone());
-                            cronframe::info!("Found Function Job \"{}\" from {}.", cron_job.name, #type_name);
+                            cron_job.add_life_channels(#cf_fn_jobs_channels.clone());
+                            cronframe::info!("Found Function Job \"{}\" from {}.", cron_job.name(), #type_name);
                             frame.clone().add_job(cron_job);
                         }
                         cronframe::info!("Function Jobs from {} Collected.", #type_name);
