@@ -1,8 +1,5 @@
 use crate::{
-    config::{read_config, ConfigData},
-    cronjob::{CronFilter, CronJob},
-    job_builder::JobBuilder,
-    logger, web_server,
+    config::{read_config, ConfigData}, cronjob::{CronFilter, CronJob}, job_builder::JobBuilder, logger, web_server
 };
 use chrono::Duration;
 use crossbeam_channel::{Receiver, Sender};
@@ -94,6 +91,7 @@ impl CronFrame {
         let server_frame = frame.clone();
         let running = Mutex::new(false);
 
+        // rocket webserver 
         std::thread::spawn(move || web_server::web_server(server_frame));
 
         *frame
@@ -336,6 +334,10 @@ impl CronFrame {
     pub fn stop_scheduler(self: &Arc<Self>) {
         info!("CronFrame Scheduler Shutdown");
         *self.running.lock().unwrap() = false;
+    }
+
+    pub fn config(&self) -> &ConfigData{
+        &self.config
     }
 
     pub fn quit(self: &Arc<Self>) {

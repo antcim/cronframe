@@ -270,8 +270,8 @@ pub fn cron_impl(_att: TokenStream, code: TokenStream) -> TokenStream {
             }
 
             pub fn cf_gather(&mut self, frame: std::sync::Arc<CronFrame>){
-                self.cf_gather_mt(frame.clone());
                 Self::cf_gather_fn(frame.clone());
+                self.cf_gather_mt(frame.clone());
             }
         }
     };

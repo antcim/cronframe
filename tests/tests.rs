@@ -1,8 +1,9 @@
-#[macro_use] extern crate cronframe_macro;
+#[macro_use]
+extern crate cronframe_macro;
 
-use std::{fs, ptr::addr_of_mut, sync::Once};
 use chrono::{DateTime, Duration, Utc};
-use cronframe::{logger, CronFilter, CronFrame, CronFrameExpr};
+use cronframe::{logger, ConfigData, CronFilter, CronFrame, CronFrameExpr, LoggerConfig, SchedulerConfig, ServerConfig};
+use std::{fs, ptr::addr_of_mut, sync::Once};
 
 static LOGGER_INIT: Once = Once::new();
 static mut LOGGER: Option<log4rs::Handle> = None;
@@ -130,7 +131,13 @@ pub fn test_job(
 ) {
     init_logger(file_path);
 
-    let cronframe = CronFrame::init(Some(job_filter), false);
+    let config = ConfigData {
+        webserver: ServerConfig::default(),
+        logger: LoggerConfig::disabled(),
+        scheduler: SchedulerConfig::default(),
+    };
+
+    let cronframe = CronFrame::with_config(config).unwrap();
 
     let expr_fail = CronFrameExpr::new("0", "0/5", "*", "*", "*", "*", "*", 0);
     let expr_timeout = CronFrameExpr::new("0", "*/5", "*", "*", "*", "*", "*", 720000);
@@ -164,14 +171,14 @@ pub fn test_job(
 
     // execute for a given time
     let mut first_run: DateTime<Utc> = cronframe
-        .cron_jobs
+        .jobs()
         .lock()
         .unwrap()
         .iter()
-        .find(|(_, job)| job.name.contains(job_name))
-        .unwrap().1
+        .find(|(_, job)| job.name().contains(job_name))
+        .unwrap()
+        .1
         .upcoming_utc()
-        .parse()
         .unwrap();
 
     cronframe.start_scheduler();
@@ -249,7 +256,7 @@ pub fn test_job(
         // a job thread is spawned at least 500ms before its upcoming schedule
         // so here we account for the previous second pertaining the scheduling and not the execution
         let timeout = timeout - Duration::seconds(1);
-        let grace = Duration::milliseconds(cronframe.grace.into());
+        let grace = Duration::milliseconds(cronframe.config().scheduler.grace.into());
         assert!(
             (first_run + timeout + grace <= timeouts[0]) || (first_run + timeout >= timeouts[0]),
             "timeout error"

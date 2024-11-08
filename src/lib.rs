@@ -19,17 +19,17 @@ pub use std::{
     sync::{Arc, Mutex},
 };
 
-// lib modules
+// cronframe modules
 mod config;
 mod cronframe;
 mod cronframe_expr;
 mod cronjob;
 mod job_builder;
-mod logger;
+pub mod logger;
 pub mod utils;
 mod web_server;
 
-// re-export of types
+// re-exports
 pub use config::{ConfigData, LoggerConfig, SchedulerConfig, ServerConfig};
 pub use cronframe::{CronFrame, SchedulerMessage};
 pub use cronframe_expr::CronFrameExpr;

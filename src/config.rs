@@ -140,6 +140,21 @@ impl Default for LoggerConfig {
     }
 }
 
+impl LoggerConfig {
+    pub fn disabled() -> Self {
+        LoggerConfig {
+            enabled: false,
+            dir: "log".to_string(),
+            file_size: 1,
+            archive_files: 3,
+            latest_file_name: "latest".to_string(),
+            archive_file_name: "archive".to_string(),
+            msg_pattern: "{d(%Y-%m-%d %H:%M:%S %Z)} {l} {t} - {m}{n}".to_string(),
+            level_filter: "info".to_string(),
+        }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct LoggerConfigToml {
